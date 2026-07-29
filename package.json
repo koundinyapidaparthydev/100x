@@ -23,5 +23,8 @@
     "test:e2e:web": "npm run test:e2e -w aplifyai-web",
     "test:e2e:mobile": "npm run test:e2e -w aplifyai-mobile",
     "build": "npm run build --workspaces --if-present"
+  },
+  "optionalDependencies": {
+    "@rolldown/binding-linux-x64-gnu": "^1.1.5"
   }
 }
