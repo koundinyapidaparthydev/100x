@@ -212,14 +212,26 @@ async function initializePostgres(
     });
 
   try {
-    await client.query(
-      `CREATE TABLE IF NOT EXISTS app_store_snapshots (
-         id text PRIMARY KEY,
-         snapshot jsonb NOT NULL,
-         version bigint NOT NULL DEFAULT 1,
-         updated_at timestamptz NOT NULL DEFAULT NOW()
-       )`,
-    );
+    const attempts = suppliedClient ? 1 : Number(process.env.DATABASE_CONNECT_ATTEMPTS ?? 6);
+    if (!Number.isInteger(attempts) || attempts < 1) {
+      throw new Error('DATABASE_CONNECT_ATTEMPTS must be a positive integer');
+    }
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        await client.query(
+          `CREATE TABLE IF NOT EXISTS app_store_snapshots (
+             id text PRIMARY KEY,
+             snapshot jsonb NOT NULL,
+             version bigint NOT NULL DEFAULT 1,
+             updated_at timestamptz NOT NULL DEFAULT NOW()
+           )`,
+        );
+        break;
+      } catch (err) {
+        if (attempt >= attempts) throw err;
+        await new Promise((resolve) => setTimeout(resolve, Math.min(attempt * 1_000, 5_000)));
+      }
+    }
 
     const result = await client.query('SELECT snapshot, version FROM app_store_snapshots WHERE id = $1', [SNAPSHOT_ID]);
     const row = result.rows[0] as SnapshotRow | undefined;
