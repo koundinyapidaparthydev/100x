@@ -49,11 +49,6 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
-        name  = "PORT"
-        value = "8080"
-      }
-
-      env {
         name  = "ARTIFACTS_BUCKET"
         value = google_storage_bucket.artifacts.name
       }
