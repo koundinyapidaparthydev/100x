@@ -61,7 +61,7 @@ describe('work items', () => {
 });
 
 describe('triage: human-first', () => {
-  it('sets aiFirst=false, aiStatus none, job=null, and writes an audit event', async () => {
+  it('sets aiFirst=false, durable lastTriageDecision, job=null, and writes an audit event', async () => {
     const before = store.auditEvents.length;
     const res = await req
       .post('/api/v1/work-items/wi-oh-101/triage')
@@ -71,9 +71,14 @@ describe('triage: human-first', () => {
     expect(body.job).toBeNull();
     expect(body.workItem.aiFirst).toBe(false);
     expect(body.workItem.aiStatus).toBe('none');
+    expect(body.workItem.lastTriageDecision).toBe('human_first');
 
     const newEvents = store.auditEvents.slice(before);
     expect(newEvents.some((e) => e.action === 'triage.human_first')).toBe(true);
+
+    // Leaves the triage queue permanently.
+    const pending = await req.get('/api/v1/work-items?triagePending=true').expect(200);
+    expect((pending.body as WorkItem[]).some((w) => w.id === 'wi-oh-101')).toBe(false);
   });
 
   it('400 on missing aiFirst, 404 on unknown work item', async () => {
@@ -158,6 +163,7 @@ describe('triage: ai-first PII block', () => {
     expect(job.tokenUsage).toEqual({ input: 0, output: 0, total: 0 });
     expect(job.finishedAt).not.toBeNull();
     expect(body.workItem.aiStatus).toBe('blocked_pii');
+    expect(body.workItem.lastAiJobId).toBe(job.id);
 
     // Never entered 'running'.
     const actions = store.auditEvents.filter((e) => e.resource.id === job.id).map((e) => e.action);
@@ -236,6 +242,43 @@ describe('jobs / policies / boards / audit / notifications', () => {
   it('lists notifications', async () => {
     const res = await req.get('/api/v1/notifications').expect(200);
     expect(res.body.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('patches org policy and audits the change', async () => {
+    const list = await req.get('/api/v1/policies').expect(200);
+    const id = list.body[0].id as string;
+    const res = await req
+      .patch(`/api/v1/policies/${id}`)
+      .send({ tokenBudget: { maxTotalTokens: 40_000 }, securityLevel: 'enterprise' })
+      .expect(200);
+    expect(res.body.tokenBudget.maxTotalTokens).toBe(40_000);
+    expect(res.body.securityLevel).toBe('enterprise');
+    expect(store.auditEvents.some((e) => e.action === 'policy.updated')).toBe(true);
+  });
+
+  it('connects and syncs a sandbox board', async () => {
+    const connected = await req
+      .post('/api/v1/boards/connect')
+      .send({
+        projectId: 'demo',
+        name: 'Demo Board',
+        seedIssues: [{ title: 'First imported ticket', priority: 'high' }],
+      })
+      .expect(201);
+    expect(connected.body.projectId).toBe('DEMO');
+    expect(connected.body.connected).toBe(true);
+    expect(connected.body.activeIssues).toBe(1);
+
+    const synced = await req.post('/api/v1/boards/DEMO/sync').expect(200);
+    expect(synced.body.projectId).toBe('DEMO');
+
+    await req.post('/api/v1/boards/connect').send({ projectId: 'DEMO', name: 'Dup' }).expect(409);
+  });
+
+  it('marks notifications read', async () => {
+    const unread = store.notifications.find((n) => !n.read)!;
+    const res = await req.post(`/api/v1/notifications/${unread.id}/read`).expect(200);
+    expect(res.body.read).toBe(true);
   });
 });
 

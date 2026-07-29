@@ -1,8 +1,35 @@
+import { useEffect } from 'react';
 import { ShieldCheck, Lock, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { setApiActor } from '@shared/api';
+
+const DEMO_SESSION_KEY = 'oh-demo-actor';
 
 export default function Login() {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DEMO_SESSION_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { id?: string; surface?: 'web' | 'mobile' };
+      if (parsed.id) {
+        setApiActor(parsed.id, parsed.surface ?? 'web');
+      }
+    } catch {
+      /* ignore corrupt demo session */
+    }
+  }, []);
+
+  const handleSso = () => {
+    setApiActor('web-admin-1', 'web');
+    try {
+      localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({ id: 'web-admin-1', surface: 'web' }));
+    } catch {
+      /* private mode / blocked storage */
+    }
+    navigate('/dashboard');
+  };
 
   return (
     <div className="bg-surface-dim text-on-surface font-body-md min-h-screen flex flex-col relative mesh-background">
@@ -14,23 +41,27 @@ export default function Login() {
               OffshoreHelper
             </span>
           </div>
-          
+
           <h1 className="font-display-lg text-display-lg text-on-surface mb-lg leading-tight">
             Autonomous Jira Delegation.
           </h1>
-          
+
           <p className="font-body-lg text-body-lg text-on-surface-variant max-w-[600px] mb-3xl">
             AI-first project management engineered for high-stakes enterprise scale. Secure, precise, and fully accountable.
           </p>
-          
-          <button 
-            onClick={() => navigate('/dashboard')}
+
+          <button
+            type="button"
+            onClick={handleSso}
             className="bg-tertiary hover:bg-tertiary-fixed text-on-tertiary font-label-md text-label-md px-xl py-[16px] rounded-full transition-all duration-200 flex items-center justify-center gap-sm group shadow-[0_0_20px_rgba(59,130,246,0.1)] hover:shadow-[0_0_30px_rgba(59,130,246,0.2)]"
           >
             <Lock size={18} />
             <span>Login / SSO with Enterprise ID</span>
             <ArrowRight size={18} className="group-hover:translate-x-xs transition-transform duration-200" />
           </button>
+          <p className="font-label-sm text-label-sm text-on-surface-variant mt-md">
+            Demo mode — real SSO/vault in H1 · actor web-admin-1
+          </p>
         </div>
       </main>
 

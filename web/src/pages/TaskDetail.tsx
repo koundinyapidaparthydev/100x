@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '@shared/api';
-import type { AiJobState, AiStatus, WorkItem } from '@shared/types';
+import type { AiJob, AiJobState, AiStatus, AuditEvent, WorkItem } from '@shared/types';
 import { useAsync } from '../lib/useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/AsyncStates';
 import Chip, { type ChipTone } from '../components/Chip';
@@ -48,24 +48,59 @@ const PIPELINE: { key: AiJobState; label: string; desc: string }[] = [
   { key: 'ready_for_human', label: 'Ready for Human', desc: 'Package awaits engineer review.' },
 ];
 
+async function loadTaskDetail(id: string): Promise<{
+  workItem: WorkItem;
+  job: AiJob | null;
+  securityLayers: number[];
+}> {
+  const workItem = await api.getWorkItem(id);
+  let job: AiJob | null = null;
+  // Always load the job when lastAiJobId is set — including blocked_pii / failed.
+  if (workItem.lastAiJobId) {
+    job = await api.getJob(workItem.lastAiJobId);
+  }
+
+  let securityLayers: number[] = [];
+  try {
+    const events = await api.listAuditEvents();
+    const related = events.filter(
+      (e: AuditEvent) =>
+        e.resource.id === workItem.id ||
+        e.resource.id === workItem.board.issueKey ||
+        (job && e.resource.id === job.id) ||
+        (typeof e.metadata?.workItemId === 'string' && e.metadata.workItemId === workItem.id) ||
+        (typeof e.metadata?.aiJobId === 'string' && job && e.metadata.aiJobId === job.id),
+    );
+    const layers = new Set<number>();
+    for (const e of related) {
+      for (const layer of e.securityLayersApplied) layers.add(layer);
+    }
+    securityLayers = [...layers].sort((a, b) => a - b);
+  } catch {
+    /* audit is best-effort for the security panel */
+  }
+
+  return { workItem, job, securityLayers };
+}
+
 export default function TaskDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const { data, loading, error, reload } = useAsync(async () => {
-    const workItem = await api.getWorkItem(id!);
-    const job = workItem.lastAiJobId ? await api.getJob(workItem.lastAiJobId) : null;
-    return { workItem, job };
-  }, [id]);
+  const { data, loading, error, reload } = useAsync(() => loadTaskDetail(id!), [id]);
 
   const handleApprove = async () => {
     if (!id || !data) return;
     setActionPending(true);
     setActionError(null);
     try {
-      await api.triageWorkItem(id, { aiFirst: true, targetCompletionPercent: data.workItem.targetCompletionPercent });
+      await api.triageWorkItem(id, {
+        aiFirst: true,
+        targetCompletionPercent: data.workItem.targetCompletionPercent,
+      });
+      // Stay on this page and reload so job / artifacts / PII report refresh in place.
       reload();
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Action failed');
@@ -96,7 +131,7 @@ export default function TaskDetail() {
     );
   }
 
-  const { workItem: wi, job } = data;
+  const { workItem: wi, job, securityLayers } = data;
   const isTerminalError = job ? TERMINAL_ERROR_STATES.includes(job.state) : false;
   const currentStep = job ? PIPELINE.findIndex((s) => s.key === job.state) : -1;
   const effectiveStep = !job ? -1 : job.state === 'ready_for_human' ? PIPELINE.length : isTerminalError ? 1 : currentStep;
@@ -128,6 +163,9 @@ export default function TaskDetail() {
               <span className="font-label-sm text-label-sm text-tertiary">AI Managed</span>
             </div>
           )}
+          {wi.lastTriageDecision && (
+            <Chip tone="secondary">{humanize(wi.lastTriageDecision)}</Chip>
+          )}
           <button className="px-md py-sm border border-outline-variant text-on-surface font-label-md text-label-md rounded hover:bg-surface-variant transition-colors">
             Reassign
           </button>
@@ -151,12 +189,11 @@ export default function TaskDetail() {
 
       <main className="max-w-container-max mx-auto p-margin grid grid-cols-1 lg:grid-cols-12 gap-lg pb-3xl">
         <div className="lg:col-span-8 flex flex-col gap-lg">
-          {/* Header card */}
           <div className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-md">
             <div className="flex justify-between items-start gap-md">
               <div>
                 <h2 className="font-headline-md text-headline-md font-semibold text-on-surface mb-xs">{wi.title}</h2>
-                <p className="font-body-sm text-body-sm text-on-surface-variant max-w-2xl">{wi.description}</p>
+                <p className="font-body-sm text-body-sm text-on-surface-variant max-w-2xl whitespace-pre-wrap">{wi.description}</p>
               </div>
               <div className="flex items-center gap-sm shrink-0 flex-wrap justify-end">
                 <Chip tone={PRIORITY_TONE[wi.priority]}>{humanize(wi.priority)} Priority</Chip>
@@ -211,7 +248,6 @@ export default function TaskDetail() {
             )}
           </div>
 
-          {/* Artifacts */}
           <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface mt-sm border-b border-outline-variant pb-xs">
             Generated Artifacts
           </h3>
@@ -222,19 +258,25 @@ export default function TaskDetail() {
             />
           )}
           {job && job.artifacts.length === 0 && (
-            <EmptyState title="No artifacts yet" body="Artifacts appear here once the job reaches the packaging stage." />
+            <EmptyState
+              title="No artifacts yet"
+              body={
+                job.state === 'blocked_pii'
+                  ? 'Job was blocked by the PII firewall before packaging. See the PII report.'
+                  : 'Artifacts appear here once the job reaches the packaging stage.'
+              }
+            />
           )}
           {job && job.artifacts.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+            <div className="grid grid-cols-1 gap-md">
               {job.artifacts.map((artifact) => (
                 <div key={artifact.id} className="bg-surface-container border border-outline-variant rounded-xl flex flex-col overflow-hidden">
                   <div className="bg-surface-container-high border-b border-outline-variant px-md py-sm flex justify-between items-center">
                     <Chip tone="secondary">{humanize(artifact.kind)}</Chip>
                     <span className="font-label-sm text-label-sm text-on-surface-variant">{artifact.storage.provider}</span>
                   </div>
-                  <div className="p-md font-mono text-[11px] leading-tight text-on-surface-variant bg-surface-container-low h-[140px] overflow-hidden relative">
-                    <pre>{artifact.preview}</pre>
-                    <div className="absolute bottom-0 left-0 w-full h-[40px] bg-gradient-to-t from-surface-container-low to-transparent"></div>
+                  <div className="p-md font-mono text-[12px] leading-relaxed text-on-surface bg-surface-container-low max-h-[420px] overflow-auto">
+                    <pre className="whitespace-pre-wrap break-words">{artifact.content || artifact.preview}</pre>
                   </div>
                   <div className="px-md py-sm border-t border-outline-variant flex justify-between items-center bg-surface-container-lowest gap-md">
                     <span className="font-mono text-label-sm text-on-surface-variant truncate" title={artifact.checksum}>
@@ -251,7 +293,6 @@ export default function TaskDetail() {
         </div>
 
         <div className="lg:col-span-4 flex flex-col gap-lg">
-          {/* AI Lifecycle */}
           <div className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col">
             <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-md">AI Lifecycle</h3>
             {!job && (
@@ -311,7 +352,6 @@ export default function TaskDetail() {
             )}
           </div>
 
-          {/* Token usage */}
           {job && (
             <div className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-md">
               <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">Token Usage</h3>
@@ -332,7 +372,6 @@ export default function TaskDetail() {
             </div>
           )}
 
-          {/* PII report */}
           {job && (
             <div className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-md">
               <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">PII Report</h3>
@@ -357,7 +396,6 @@ export default function TaskDetail() {
             </div>
           )}
 
-          {/* Delegation security / where this ran */}
           <div className="bg-surface-container-high border border-outline-variant rounded-xl overflow-hidden">
             <div className="p-md flex flex-col gap-sm">
               <div className="flex items-center justify-between">
@@ -374,6 +412,20 @@ export default function TaskDetail() {
                   <span className="font-label-sm text-label-sm text-on-surface-variant">No Prod Deployment Access</span>
                 </li>
               </ul>
+              {securityLayers.length > 0 && (
+                <div className="flex flex-col gap-xs pt-sm border-t border-outline-variant/50 mt-xs">
+                  <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
+                    Security layers (audit)
+                  </span>
+                  <div className="flex flex-wrap gap-xs">
+                    {securityLayers.map((layer) => (
+                      <Chip key={`L${layer}`} tone="tertiary">
+                        L{layer}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+              )}
               {job && (
                 <div className="flex flex-col gap-xs pt-sm border-t border-outline-variant/50 mt-xs">
                   <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Where this ran</span>

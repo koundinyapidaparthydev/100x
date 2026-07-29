@@ -10,10 +10,12 @@ import type {
   ApprovalItem,
   ApprovalStatus,
   AuditEvent,
+  BoardConnectRequest,
   BoardHealth,
   DashboardStats,
   NotificationItem,
   Policy,
+  PolicyUpdate,
   TriageRequest,
   TriageResponse,
   WorkItem,
@@ -31,10 +33,31 @@ export class ApiError extends Error {
   }
 }
 
+let actorId: string | null = null;
+let actorSurface: 'web' | 'mobile' = 'web';
+
+/** Demo session identity used for audit attribution (H0 — not real SSO). */
+export function setApiActor(id: string | null, surface: 'web' | 'mobile' = 'web'): void {
+  actorId = id;
+  actorSurface = surface;
+}
+
+export function getApiActor(): { id: string | null; surface: 'web' | 'mobile' } {
+  return { id: actorId, surface: actorSurface };
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  if (actorId) {
+    headers['x-actor-id'] = actorId;
+    headers['x-actor-surface'] = actorSurface;
+  }
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     ...init,
+    headers,
   });
   if (!res.ok) {
     let message = `Request failed: ${res.status}`;
@@ -46,6 +69,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(res.status, message);
   }
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
@@ -62,8 +86,20 @@ export const api = {
   health: () => request<{ status: 'ok'; version: string }>('/health'),
 
   // Work items (Jira tickets mirrored into OffshoreHelper)
-  listWorkItems: (filter?: { aiStatus?: AiStatus; aiFirst?: boolean }) =>
-    request<WorkItem[]>(`/work-items${qs({ aiStatus: filter?.aiStatus, aiFirst: filter?.aiFirst })}`),
+  listWorkItems: (filter?: {
+    aiStatus?: AiStatus;
+    aiFirst?: boolean;
+    projectId?: string;
+    triagePending?: boolean;
+  }) =>
+    request<WorkItem[]>(
+      `/work-items${qs({
+        aiStatus: filter?.aiStatus,
+        aiFirst: filter?.aiFirst,
+        projectId: filter?.projectId,
+        triagePending: filter?.triagePending,
+      })}`,
+    ),
   getWorkItem: (id: string) => request<WorkItem>(`/work-items/${encodeURIComponent(id)}`),
   /** Manager swipe decision. aiFirst=true enqueues an AI job through the PII gate. */
   triageWorkItem: (id: string, body: TriageRequest) =>
@@ -71,9 +107,29 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  updateAssignee: (id: string, assigneeExternalId: string | null) =>
+    request<WorkItem>(`/work-items/${encodeURIComponent(id)}/assignee`, {
+      method: 'PATCH',
+      body: JSON.stringify({ assigneeExternalId }),
+    }),
+  requestPiiAccess: (id: string, reason?: string) =>
+    request<ApprovalItem>(`/work-items/${encodeURIComponent(id)}/request-access`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
 
   // Boards (Jira projects + sync health)
   listBoards: () => request<BoardHealth[]>('/boards'),
+  connectBoard: (body: BoardConnectRequest) =>
+    request<BoardHealth>('/boards/connect', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  syncBoard: (projectId: string) =>
+    request<BoardHealth>(`/boards/${encodeURIComponent(projectId)}/sync`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
 
   // AI jobs
   listJobs: () => request<AiJob[]>('/ai-jobs'),
@@ -82,6 +138,11 @@ export const api = {
   // Policies
   listPolicies: () => request<Policy[]>('/policies'),
   getPolicy: (id: string) => request<Policy>(`/policies/${encodeURIComponent(id)}`),
+  updatePolicy: (id: string, body: PolicyUpdate) =>
+    request<Policy>(`/policies/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
 
   // Audit
   listAuditEvents: () => request<AuditEvent[]>('/audit-events'),
@@ -99,4 +160,14 @@ export const api = {
 
   // Notifications
   listNotifications: () => request<NotificationItem[]>('/notifications'),
+  markNotificationRead: (id: string) =>
+    request<NotificationItem>(`/notifications/${encodeURIComponent(id)}/read`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+  markAllNotificationsRead: () =>
+    request<{ ok: boolean; count: number }>('/notifications/read-all', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
 };

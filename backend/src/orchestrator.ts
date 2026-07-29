@@ -86,6 +86,7 @@ function makeArtifact(
     checksum: createHash('sha256').update(content).digest('hex'),
     boardAttachmentId: `att-${store.attachmentCounter}`,
     preview: content.split('\n').slice(0, 2).join(' ').slice(0, 140),
+    content,
   };
 }
 
@@ -111,6 +112,7 @@ export function runJobPipeline(
   if (report.blocks.length > 0) {
     // Blocked: never enter 'running', never consume tokens.
     workItem.aiStatus = 'blocked_pii';
+    workItem.lastAiJobId = job.id;
     workItem.updatedAt = new Date().toISOString();
     job.tokenUsage = { input: 0, output: 0, total: 0 };
     job.finishedAt = new Date().toISOString();
@@ -145,6 +147,7 @@ export function runJobPipeline(
   const estimate = estimateTokens(sanitized.length);
   if (estimate.total > policy.tokenBudget.maxTotalTokens) {
     workItem.aiStatus = 'failed';
+    workItem.lastAiJobId = job.id;
     workItem.updatedAt = new Date().toISOString();
     job.error = 'token_budget_exceeded';
     job.tokenUsage = { input: 0, output: 0, total: 0 };
@@ -252,6 +255,7 @@ export function createJob(store: Store, workItem: WorkItem, policy: Policy): AiJ
     finishedAt: null,
   };
   store.jobs.push(job);
+  workItem.lastAiJobId = job.id;
   emitAudit(
     store,
     ACTOR,

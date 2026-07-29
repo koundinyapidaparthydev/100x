@@ -27,6 +27,13 @@ import type {
 export const TENANT_ID = 'acme';
 export const ORG_POLICY_ID = 'pol-acme-org';
 
+export interface ConnectedBoard {
+  projectId: string;
+  name: string;
+  connectedAt: string;
+  lastSyncAt: string;
+}
+
 export interface Store {
   workItems: WorkItem[];
   policies: Policy[];
@@ -34,6 +41,7 @@ export interface Store {
   auditEvents: AuditEvent[];
   approvals: ApprovalItem[];
   notifications: NotificationItem[];
+  boards: ConnectedBoard[];
   /** Attachment id counter for board write-back (att-<n>). */
   attachmentCounter: number;
 }
@@ -111,6 +119,7 @@ export function createSeedStore(): Store {
       targetCompletionPercent: 20,
       aiStatus: 'none',
       lastAiJobId: null,
+      lastTriageDecision: null,
       description:
         'The Express auth middleware has grown to 400+ lines with mixed JWT and session logic. ' +
         'Split it into strategy modules, add unit tests for token expiry edge cases, and keep the public API unchanged.',
@@ -129,6 +138,7 @@ export function createSeedStore(): Store {
       targetCompletionPercent: 20,
       aiStatus: 'running',
       lastAiJobId: 'job-running-1',
+      lastTriageDecision: 'ai_first',
       description:
         'GET /audit-events returns duplicate rows when crossing page boundaries. ' +
         'cursor should be (createdAt, id) instead of OFFSET. Repro: seed 150 events, page with limit=50.',
@@ -147,6 +157,7 @@ export function createSeedStore(): Store {
       targetCompletionPercent: 20,
       aiStatus: 'none',
       lastAiJobId: null,
+      lastTriageDecision: null,
       // Email in description → PII redact path; the AI job must still succeed.
       description:
         'Webhook deliveries fail silently on 5xx. Add exponential backoff (3 attempts, jitter) and a dead-letter table. ' +
@@ -166,6 +177,7 @@ export function createSeedStore(): Store {
       targetCompletionPercent: 10,
       aiStatus: 'none',
       lastAiJobId: null,
+      lastTriageDecision: null,
       // SSN in description → PII block path; AI job must never reach 'running'.
       description:
         'Quarterly rotation for the primary RDS credentials. The compliance ticket references the on-call ' +
@@ -185,6 +197,7 @@ export function createSeedStore(): Store {
       targetCompletionPercent: 30,
       aiStatus: 'queued',
       lastAiJobId: 'job-queued-1',
+      lastTriageDecision: 'ai_first',
       description:
         'Create a reusable Terraform module for the AI artifact storage bucket: versioning on, ' +
         'lifecycle rule to cold storage after 30 days, CMK encryption, and bucket policy denying public access.',
@@ -203,6 +216,7 @@ export function createSeedStore(): Store {
       targetCompletionPercent: 10,
       aiStatus: 'none',
       lastAiJobId: null,
+      lastTriageDecision: null,
       description:
         'CI runners currently have unrestricted egress. Restrict to the package registries and the artifact ' +
         'store; log denied destinations for a week before enforcing.',
@@ -221,6 +235,7 @@ export function createSeedStore(): Store {
       targetCompletionPercent: 20,
       aiStatus: 'none',
       lastAiJobId: null,
+      lastTriageDecision: null,
       description:
         'Boards with 2k+ work items drop frames on scroll. Window the list with react-window, keep swipe ' +
         'gestures working, and preserve the current filter/sort behavior.',
@@ -239,6 +254,7 @@ export function createSeedStore(): Store {
       targetCompletionPercent: 10,
       aiStatus: 'none',
       lastAiJobId: null,
+      lastTriageDecision: null,
       description:
         'Token usage and PII block stat cards fail WCAG AA contrast in dark mode (4.5:1 for text). ' +
         'Update the palette tokens, not one-off hex values.',
@@ -350,6 +366,11 @@ export function createSeedStore(): Store {
         createdAt: hoursAgo(10),
         read: true,
       },
+    ],
+    boards: [
+      { projectId: 'OH', name: 'OffshoreHelper Core', connectedAt: hoursAgo(24), lastSyncAt: hoursAgo(1) },
+      { projectId: 'INFRA', name: 'Infrastructure', connectedAt: hoursAgo(24), lastSyncAt: hoursAgo(2) },
+      { projectId: 'FE', name: 'Frontend', connectedAt: hoursAgo(24), lastSyncAt: hoursAgo(4) },
     ],
     attachmentCounter: 0,
   };

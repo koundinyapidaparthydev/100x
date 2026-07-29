@@ -1,4 +1,5 @@
-import { Cpu, FileCheck, Lock, LockOpen, Plus, Search, Shield } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp, Cpu, FileCheck, Lock, LockOpen, Search, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '@shared/api';
 import type { Policy, SecurityLevel } from '@shared/types';
@@ -20,11 +21,16 @@ const SCOPE_TONE: Record<Policy['scope'], ChipTone> = {
   ticket: 'surface',
 };
 
+const SECURITY_LEVELS: SecurityLevel[] = ['standard', 'elevated', 'enterprise', 'custom'];
+
 const LOCK_LABELS: { key: keyof Policy['locks']; label: string }[] = [
   { key: 'models', label: 'Models' },
   { key: 'securityMin', label: 'Security Min' },
   { key: 'cloud', label: 'Cloud' },
 ];
+
+const inputClass =
+  'w-full h-9 bg-surface-variant border border-outline-variant/50 rounded text-body-sm text-on-surface px-3 outline-none focus:border-outline-variant';
 
 function piiSummary(policy: Policy): string {
   const counts = new Map<string, number>();
@@ -34,8 +40,132 @@ function piiSummary(policy: Policy): string {
   return [...counts.entries()].map(([mode, n]) => `${n} ${mode}`).join(' · ');
 }
 
+function OrgPolicyEditor({ policy, onSaved }: { policy: Policy; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [securityLevel, setSecurityLevel] = useState<SecurityLevel>(policy.securityLevel);
+  const [targetCompletion, setTargetCompletion] = useState(policy.targetCompletionPercentDefault);
+  const [maxTokens, setMaxTokens] = useState(policy.tokenBudget.maxTotalTokens);
+  const [aiFirstDefault, setAiFirstDefault] = useState(policy.aiFirstDefault);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
+
+  useEffect(() => {
+    setSecurityLevel(policy.securityLevel);
+    setTargetCompletion(policy.targetCompletionPercentDefault);
+    setMaxTokens(policy.tokenBudget.maxTotalTokens);
+    setAiFirstDefault(policy.aiFirstDefault);
+  }, [policy]);
+
+  const save = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      await api.updatePolicy(policy.id, {
+        securityLevel,
+        targetCompletionPercentDefault: targetCompletion,
+        aiFirstDefault,
+        tokenBudget: {
+          ...policy.tokenBudget,
+          maxTotalTokens: maxTokens,
+        },
+      });
+      setMessage({ tone: 'ok', text: 'Policy saved.' });
+      onSaved();
+    } catch (e) {
+      setMessage({ tone: 'err', text: e instanceof Error ? e.message : 'Save failed' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-md pt-md border-t border-outline-variant">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between text-left font-label-md text-label-md text-tertiary hover:underline"
+      >
+        Edit org policy
+        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+      {open && (
+        <div className="mt-md flex flex-col gap-md">
+          <label className="flex flex-col gap-xs">
+            <span className="font-label-sm text-label-sm text-on-surface-variant">Security level</span>
+            <select
+              className={inputClass}
+              value={securityLevel}
+              onChange={(e) => setSecurityLevel(e.target.value as SecurityLevel)}
+            >
+              {SECURITY_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {humanize(level)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-xs">
+            <span className="font-label-sm text-label-sm text-on-surface-variant">Target completion %</span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              className={inputClass}
+              value={targetCompletion}
+              onChange={(e) => setTargetCompletion(Number(e.target.value))}
+            />
+          </label>
+          <label className="flex flex-col gap-xs">
+            <span className="font-label-sm text-label-sm text-on-surface-variant">Token budget (max total)</span>
+            <input
+              type="number"
+              min={0}
+              className={inputClass}
+              value={maxTokens}
+              onChange={(e) => setMaxTokens(Number(e.target.value))}
+            />
+          </label>
+          <label className="flex items-center gap-sm font-body-sm text-body-sm text-on-surface">
+            <input
+              type="checkbox"
+              checked={aiFirstDefault}
+              onChange={(e) => setAiFirstDefault(e.target.checked)}
+              className="rounded border-outline-variant"
+            />
+            AI-first default
+          </label>
+          <div className="flex items-center gap-md">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={save}
+              className="px-md py-sm rounded bg-tertiary text-on-tertiary font-label-md text-label-md font-bold hover:bg-tertiary-fixed transition-colors disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            {message && (
+              <span
+                className={`font-body-sm text-body-sm ${message.tone === 'ok' ? 'text-tertiary' : 'text-error'}`}
+              >
+                {message.text}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Policies() {
   const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), []);
+  const [search, setSearch] = useState('');
+
+  const filtered = (policies ?? []).filter((p) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [p.id, p.scope, p.securityLevel, p.model.modelId].join(' ').toLowerCase().includes(q);
+  });
 
   return (
     <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl">
@@ -46,9 +176,13 @@ export default function Policies() {
             Manage security boundaries, PII redaction rules, and approval workflows for AI agents.
           </p>
         </div>
-        <button className="px-md py-sm rounded bg-tertiary text-on-tertiary font-label-md text-label-md flex items-center gap-xs hover:bg-tertiary-fixed transition-colors font-bold">
-          <Plus size={18} />
-          Create Policy
+        <button
+          type="button"
+          disabled
+          title="H0 supports a single org policy"
+          className="px-md py-sm rounded border border-outline-variant text-on-surface-variant font-label-md text-label-md flex items-center gap-xs opacity-60 cursor-not-allowed"
+        >
+          Org policy only
         </button>
       </div>
 
@@ -57,6 +191,8 @@ export default function Policies() {
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
           <input
             type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search policies..."
             className="w-full h-9 bg-surface-variant border border-transparent rounded focus:border-outline-variant focus:ring-0 text-body-sm text-on-surface pl-10 pr-3 placeholder-on-surface-variant outline-none"
           />
@@ -73,9 +209,9 @@ export default function Policies() {
         />
       )}
 
-      {!loading && !error && policies && policies.length > 0 && (
+      {!loading && !error && filtered.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
-          {policies.map((policy) => (
+          {filtered.map((policy) => (
             <div
               key={policy.id}
               className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-md relative overflow-hidden group hover:border-tertiary/50 transition-colors"
@@ -159,6 +295,8 @@ export default function Policies() {
                   View Rules
                 </Link>
               </div>
+
+              {policy.scope === 'org' && <OrgPolicyEditor policy={policy} onSaved={reload} />}
             </div>
           ))}
         </div>

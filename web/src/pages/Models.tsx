@@ -1,23 +1,93 @@
-import { Brain, Lock, Settings } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Brain, Lock } from 'lucide-react';
 import { api } from '@shared/api';
+import type { Policy } from '@shared/types';
 import { useAsync } from '../lib/useAsync';
 import { EmptyState, ErrorState, LoadingState } from '../components/AsyncStates';
 import Chip from '../components/Chip';
 import { humanize } from '../lib/format';
 
+const inputClass =
+  'w-full h-9 bg-surface-variant border border-outline-variant/50 rounded text-body-sm text-on-surface px-3 outline-none focus:border-outline-variant disabled:opacity-60';
+
+const PROVIDERS = ['openai', 'anthropic', 'azure_openai', 'bedrock', 'custom'];
+const RUNTIMES = ['cursor', 'claude_code', 'codex', 'custom'];
+const OVERRIDE_MODES = ['forbidden', 'allowed_with_audit', 'allowed'] as const;
+
 export default function Models() {
   const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), []);
   const policy = policies?.[0] ?? null;
 
+  const [provider, setProvider] = useState('');
+  const [modelId, setModelId] = useState('');
+  const [endpoint, setEndpoint] = useState('');
+  const [runtime, setRuntime] = useState('');
+  const [codeOverrideMode, setCodeOverrideMode] = useState<Policy['platform']['codeOverrideMode']>('forbidden');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!policy) return;
+    setProvider(policy.model.provider);
+    setModelId(policy.model.modelId);
+    setEndpoint(policy.model.endpoint ?? '');
+    setRuntime(policy.platform.runtime);
+    setCodeOverrideMode(policy.platform.codeOverrideMode);
+  }, [policy]);
+
+  const locked = policy?.locks.models ?? false;
+
+  const save = async () => {
+    if (!policy) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      await api.updatePolicy(policy.id, {
+        model: {
+          provider,
+          modelId,
+          ...(endpoint.trim() ? { endpoint: endpoint.trim() } : {}),
+        },
+        platform: {
+          runtime,
+          codeOverrideMode,
+        },
+      });
+      setMessage({ tone: 'ok', text: 'Model configuration saved.' });
+      reload();
+    } catch (e) {
+      setMessage({ tone: 'err', text: e instanceof Error ? e.message : 'Save failed' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl">
-      <div className="flex justify-between items-end">
+      <div className="flex justify-between items-end gap-md">
         <div>
           <h2 className="font-headline-lg text-headline-lg font-semibold text-on-surface">Models & Platforms</h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-sm max-w-2xl">
             Configure and manage AI providers, API keys, and model-specific parameters.
           </p>
         </div>
+        {policy && (
+          <div className="flex items-center gap-md shrink-0">
+            {message && (
+              <span className={`font-body-sm text-body-sm ${message.tone === 'ok' ? 'text-tertiary' : 'text-error'}`}>
+                {message.text}
+              </span>
+            )}
+            <button
+              type="button"
+              disabled={saving || locked}
+              onClick={save}
+              className="px-md py-sm rounded bg-tertiary text-on-tertiary font-label-md text-label-md font-bold hover:bg-tertiary-fixed transition-colors disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        )}
       </div>
 
       {loading && <LoadingState label="Loading model configuration…" />}
@@ -32,7 +102,6 @@ export default function Models() {
 
       {!loading && !error && policy && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
-          {/* Active provider (from policy) */}
           <div className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-md">
             <div className="flex justify-between items-center border-b border-outline-variant pb-md">
               <div className="flex items-center gap-md">
@@ -40,44 +109,85 @@ export default function Models() {
                   <Brain className="text-on-surface" size={24} />
                 </div>
                 <div>
-                  <h3 className="font-headline-sm text-headline-sm text-on-surface">{humanize(policy.model.provider)}</h3>
+                  <h3 className="font-headline-sm text-headline-sm text-on-surface">{humanize(provider || policy.model.provider)}</h3>
                   <div className="flex items-center gap-xs mt-xs">
                     <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
                     <span className="font-label-sm text-label-sm text-tertiary uppercase">Connected</span>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-xs">
-                {policy.locks.models && (
-                  <Chip tone="error">
-                    <Lock size={12} /> Locked
-                  </Chip>
-                )}
-                <button className="p-sm text-on-surface-variant hover:bg-surface-variant rounded transition-colors">
-                  <Settings size={20} />
-                </button>
-              </div>
+              {locked && (
+                <Chip tone="error">
+                  <Lock size={12} /> Locked
+                </Chip>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-md">
-              <div className="bg-surface-variant/50 p-sm rounded border border-outline-variant/50">
-                <span className="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Default Model</span>
-                <span className="font-body-sm text-body-sm text-on-surface font-semibold font-mono">{policy.model.modelId}</span>
-              </div>
-              <div className="bg-surface-variant/50 p-sm rounded border border-outline-variant/50">
-                <span className="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Endpoint</span>
-                <span className="font-body-sm text-body-sm text-on-surface font-mono break-all">
-                  {policy.model.endpoint ?? 'Provider default'}
-                </span>
-              </div>
-              <div className="bg-surface-variant/50 p-sm rounded border border-outline-variant/50">
-                <span className="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Platform Runtime</span>
-                <span className="font-body-sm text-body-sm text-on-surface">{policy.platform.runtime}</span>
-              </div>
-              <div className="bg-surface-variant/50 p-sm rounded border border-outline-variant/50">
-                <span className="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Code Override</span>
-                <span className="font-body-sm text-body-sm text-on-surface">{humanize(policy.platform.codeOverrideMode)}</span>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+              <label className="flex flex-col gap-xs">
+                <span className="font-label-sm text-label-sm text-on-surface-variant">Provider</span>
+                <select
+                  className={inputClass}
+                  value={provider}
+                  disabled={locked}
+                  onChange={(e) => setProvider(e.target.value)}
+                >
+                  {[...new Set([provider, ...PROVIDERS].filter(Boolean))].map((p) => (
+                    <option key={p} value={p}>
+                      {humanize(p)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-xs">
+                <span className="font-label-sm text-label-sm text-on-surface-variant">Default Model</span>
+                <input
+                  className={inputClass}
+                  value={modelId}
+                  disabled={locked}
+                  onChange={(e) => setModelId(e.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-xs sm:col-span-2">
+                <span className="font-label-sm text-label-sm text-on-surface-variant">Endpoint (optional)</span>
+                <input
+                  className={inputClass}
+                  value={endpoint}
+                  disabled={locked}
+                  placeholder="Provider default"
+                  onChange={(e) => setEndpoint(e.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-xs">
+                <span className="font-label-sm text-label-sm text-on-surface-variant">Platform Runtime</span>
+                <select
+                  className={inputClass}
+                  value={runtime}
+                  disabled={locked}
+                  onChange={(e) => setRuntime(e.target.value)}
+                >
+                  {[...new Set([runtime, ...RUNTIMES].filter(Boolean))].map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-xs">
+                <span className="font-label-sm text-label-sm text-on-surface-variant">Code Override</span>
+                <select
+                  className={inputClass}
+                  value={codeOverrideMode}
+                  disabled={locked}
+                  onChange={(e) => setCodeOverrideMode(e.target.value as Policy['platform']['codeOverrideMode'])}
+                >
+                  {OVERRIDE_MODES.map((m) => (
+                    <option key={m} value={m}>
+                      {humanize(m)}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
 
             <p className="font-body-sm text-body-sm text-on-surface-variant mt-sm">
@@ -86,7 +196,6 @@ export default function Models() {
             </p>
           </div>
 
-          {/* Fallback provider (static, not yet connected) */}
           <div className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-md opacity-80">
             <div className="flex justify-between items-center border-b border-outline-variant pb-md">
               <div className="flex items-center gap-md">
@@ -94,28 +203,17 @@ export default function Models() {
                   <Brain className="text-on-surface-variant" size={24} />
                 </div>
                 <div>
-                  <h3 className="font-headline-sm text-headline-sm text-on-surface">Anthropic</h3>
+                  <h3 className="font-headline-sm text-headline-sm text-on-surface">Fallback providers</h3>
                   <div className="flex items-center gap-xs mt-xs">
                     <span className="w-2 h-2 rounded-full bg-surface-variant"></span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant uppercase">Disconnected</span>
+                    <span className="font-label-sm text-label-sm text-on-surface-variant uppercase">H1</span>
                   </div>
                 </div>
               </div>
-              <button className="font-label-md text-label-md text-tertiary hover:underline px-sm py-xs">Configure</button>
             </div>
-
-            <div className="grid grid-cols-2 gap-md">
-              <div className="bg-surface-variant/50 p-sm rounded border border-outline-variant/50">
-                <span className="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Available Models</span>
-                <span className="font-body-sm text-body-sm text-on-surface font-mono">claude-sonnet-4</span>
-              </div>
-              <div className="bg-surface-variant/50 p-sm rounded border border-outline-variant/50 flex items-center justify-center">
-                <span className="font-label-sm text-label-sm text-on-surface-variant text-center">API Key Required</span>
-              </div>
-            </div>
-
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-sm">
-              Connect a fallback provider so delegation continues if the primary endpoint is unavailable.
+            <p className="font-body-sm text-body-sm text-on-surface-variant">
+              Multi-provider failover and vault-backed API keys ship in H1. Edit the org policy model above for the
+              active sandbox provider.
             </p>
           </div>
         </div>

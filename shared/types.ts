@@ -58,6 +58,8 @@ export interface BoardRef {
   issueId: string;
 }
 
+export type TriageDecision = 'ai_first' | 'human_first';
+
 export interface WorkItem {
   id: string;
   tenantId: string;
@@ -70,6 +72,11 @@ export interface WorkItem {
   targetCompletionPercent: number;
   aiStatus: AiStatus;
   lastAiJobId: string | null;
+  /**
+   * Set when a manager completes triage. Null = still in the swipe queue.
+   * Human-first tickets keep aiStatus 'none' but leave the queue permanently.
+   */
+  lastTriageDecision: TriageDecision | null;
   /** Ticket body fetched from the board (may contain PII — never send raw to a model). */
   description: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
@@ -155,6 +162,8 @@ export interface Artifact {
   boardAttachmentId: string | null;
   /** Short sanitized preview for UIs. */
   preview: string;
+  /** Full sanitized draft body (sandbox stores inline; production may hydrate from storage). */
+  content: string;
 }
 
 export interface CloudExecution {
@@ -263,4 +272,42 @@ export interface BoardHealth {
   lastSyncAt: string;
   activeIssues: number;
   aiReadiness: 'optimal' | 'evaluating' | 'partial' | 'blocked';
+  /** Whether this project was explicitly connected (sandbox registry). */
+  connected: boolean;
+}
+
+/** Partial policy update — only provided fields are merged. */
+export type PolicyUpdate = Partial<
+  Pick<
+    Policy,
+    | 'securityLevel'
+    | 'pii'
+    | 'cloud'
+    | 'model'
+    | 'platform'
+    | 'tokenBudget'
+    | 'mcpAllowlist'
+    | 'aiFirstDefault'
+    | 'targetCompletionPercentDefault'
+    | 'locks'
+  >
+>;
+
+export interface BoardConnectRequest {
+  projectId: string;
+  name: string;
+  /** Optional seed issues created on connect (sandbox only). */
+  seedIssues?: Array<{
+    title: string;
+    description?: string;
+    priority?: WorkItem['priority'];
+  }>;
+}
+
+export interface WorkItemAssigneeUpdate {
+  assigneeExternalId: string | null;
+}
+
+export interface AccessRequestBody {
+  reason?: string;
 }
