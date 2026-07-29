@@ -145,8 +145,16 @@ resource "google_cloud_run_v2_service" "api" {
       }
     }
 
-    # Cloud SQL is reached via the mounted Unix socket (/cloudsql/...), not
-    # Direct VPC egress. Add vpc_access later if the API needs private VPC peers.
+    # Cloud SQL has private IP only. Direct VPC egress lets the managed Cloud
+    # SQL connector reach that address while the app uses the mounted socket.
+    vpc_access {
+      egress = "PRIVATE_RANGES_ONLY"
+
+      network_interfaces {
+        network    = google_compute_network.staging.name
+        subnetwork = google_compute_subnetwork.staging.name
+      }
+    }
   }
 
   traffic {
