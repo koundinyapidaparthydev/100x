@@ -1,0 +1,22 @@
+# AplifyAI production project. Production deploys remain approval-gated.
+project_id      = "aplifyai-prod-2026"
+region          = "us-central1"
+environment     = "production"
+vpc_subnet_cidr = "10.30.0.0/24"
+cloud_run_image = ""
+
+cloud_run_min_instances          = 1
+cloud_run_allow_unauthenticated  = true
+auth_allow_demo_login            = false
+
+enable_static_cdn = true
+static_domains    = ["aplifyai.com"]
+
+sql_tier                = "db-custom-2-7680"
+sql_availability_type   = "REGIONAL"
+sql_deletion_protection = true
+
+labels = {
+  team    = "aplifyai"
+  product = "aplifyai"
+}

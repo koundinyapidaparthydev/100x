@@ -1,0 +1,43 @@
+name: Mobile E2E
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detox:
+    name: Detox iOS
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start seeded backend
+        env:
+          AUTH_ALLOW_DEMO_LOGIN: "1"
+          AUTH_SESSION_SECRET: detox-ci-session-secret-at-least-32-characters
+        run: |
+          npm run start -w aplifyai-backend > "$RUNNER_TEMP/aplifyai-backend.log" 2>&1 &
+          for attempt in {1..30}; do
+            curl --fail --silent http://localhost:4000/api/v1/health >/dev/null && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/aplifyai-backend.log"
+          exit 1
+
+      - name: Run mobile end-to-end tests
+        run: npm run test:e2e:mobile

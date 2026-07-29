@@ -13,9 +13,9 @@ export default defineConfig(() => {
       },
     },
     server: {
-      port: 3000,
+      port: Number(process.env.WEB_PORT ?? process.env.PORT ?? 3000),
       proxy: {
-        '/api': 'http://localhost:4000',
+        '/api': process.env.API_PROXY_TARGET ?? 'http://localhost:4000',
       },
       fs: {
         allow: ['..'],

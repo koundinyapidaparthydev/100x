@@ -8,17 +8,19 @@ import {
   Cloud, 
   ShieldAlert, 
   History, 
-  Settings 
+  Settings,
+  CheckSquare,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { name: 'Boards', path: '/boards', icon: Compass },
-  { name: 'Policies', path: '/policies', icon: FileCheck },
-  { name: 'Models', path: '/models', icon: Brain },
-  { name: 'Cloud', path: '/cloud', icon: Cloud },
-  { name: 'PII Rules', path: '/pii-rules', icon: ShieldAlert },
-  { name: 'Audit Log', path: '/audit-log', icon: History },
+  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, testId: 'nav-dashboard' },
+  { name: 'Boards', path: '/boards', icon: Compass, testId: 'nav-boards' },
+  { name: 'Policies', path: '/policies', icon: FileCheck, testId: 'nav-policies' },
+  { name: 'Models', path: '/models', icon: Brain, testId: 'nav-models' },
+  { name: 'Cloud', path: '/cloud', icon: Cloud, testId: 'nav-cloud' },
+  { name: 'PII Rules', path: '/pii-rules', icon: ShieldAlert, testId: 'nav-pii-rules' },
+  { name: 'Approvals', path: '/approvals', icon: CheckSquare, testId: 'nav-approvals' },
+  { name: 'Audit Log', path: '/audit-log', icon: History, testId: 'nav-audit-log' },
 ];
 
 export default function Sidebar() {
@@ -31,7 +33,7 @@ export default function Sidebar() {
           <ShieldCheck className="text-tertiary" size={24} fill="currentColor" />
         </div>
         <div>
-          <h1 className="font-headline-sm text-headline-sm font-bold text-tertiary">OffshoreHelper</h1>
+          <h1 className="font-headline-sm text-headline-sm font-bold text-tertiary">AplifyAI</h1>
           <p className="font-label-sm text-label-sm text-on-surface-variant">Enterprise AI Governance</p>
         </div>
       </div>
@@ -43,6 +45,7 @@ export default function Sidebar() {
             <li key={item.name}>
               <Link
                 to={item.path}
+                data-testid={item.testId}
                 className={`flex items-center gap-md px-md py-sm rounded-lg font-label-md text-label-md transition-all duration-200 group ${
                   isActive
                     ? 'text-tertiary border-l-4 border-tertiary bg-surface-container-highest translate-x-1'
@@ -62,6 +65,7 @@ export default function Sidebar() {
         <li className="mt-auto pt-sm border-t border-outline-variant/30">
           <Link
             to="/admin"
+            data-testid="nav-admin"
             className={`flex items-center gap-md px-md py-sm rounded-lg font-label-md text-label-md transition-all duration-200 group ${
               location.pathname.startsWith('/admin')
                 ? 'text-tertiary border-l-4 border-tertiary bg-surface-container-highest translate-x-1'

@@ -1,5 +1,5 @@
 /**
- * OffshoreHelper shared theme — SINGLE SOURCE OF TRUTH for web + mobile.
+ * AplifyAI shared theme — SINGLE SOURCE OF TRUTH for web + mobile.
  * Both apps import this file from their src/index.css:
  *     @import "tailwindcss";
  *     @import "../../shared/theme.css";
@@ -160,6 +160,9 @@
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -169,18 +172,18 @@
   }
 
   /* Entrance animations */
-  @keyframes oh-fade-in {
+  @keyframes aplifyai-fade-in {
     from { opacity: 0; }
     to { opacity: 1; }
   }
-  @keyframes oh-slide-up {
+  @keyframes aplifyai-slide-up {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
   }
   .animate-fade-in {
-    animation: oh-fade-in 0.5s ease both;
+    animation: aplifyai-fade-in 0.5s ease both;
   }
   .animate-slide-up {
-    animation: oh-slide-up 0.5s ease both;
+    animation: aplifyai-slide-up 0.5s ease both;
   }
 }

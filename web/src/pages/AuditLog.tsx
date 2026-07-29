@@ -52,7 +52,7 @@ function exportCsv(events: AuditEvent[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `offshorehelper-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `aplifyai-audit-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -67,7 +67,7 @@ export default function AuditLog() {
   }, [events, query]);
 
   return (
-    <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl">
+    <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl" data-testid="audit-log-page">
       <div className="flex justify-between items-end">
         <div>
           <h2 className="font-headline-lg text-headline-lg font-semibold text-on-surface">System Audit Log</h2>
@@ -79,6 +79,7 @@ export default function AuditLog() {
           type="button"
           disabled={!filtered.length}
           onClick={() => exportCsv(filtered)}
+          data-testid="audit-export-csv"
           className="px-md py-sm rounded border border-outline-variant bg-transparent text-on-surface hover:bg-surface-variant transition-colors font-label-md text-label-md flex items-center gap-sm disabled:opacity-50"
         >
           <Download size={18} />
@@ -112,8 +113,11 @@ export default function AuditLog() {
         <EmptyState title="No matching events" body="Try a different search term." />
       )}
 
-      {!loading && !error && filtered.length > 0 && (
-        <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden overflow-x-auto">
+          {!loading && !error && filtered.length > 0 && (
+        <div
+          className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden overflow-x-auto"
+          data-testid="audit-table"
+        >
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
               <tr className="bg-surface-variant/50 border-b border-outline-variant">
@@ -127,7 +131,11 @@ export default function AuditLog() {
             </thead>
             <tbody>
               {filtered.map((event) => (
-                <tr key={event.id} className="border-b border-outline-variant/30 hover:bg-surface-variant/30 transition-colors">
+                <tr
+                  key={event.id}
+                  className="border-b border-outline-variant/30 hover:bg-surface-variant/30 transition-colors"
+                  data-testid={`audit-row-${event.id}`}
+                >
                   <td className="p-md font-body-sm text-body-sm text-on-surface whitespace-nowrap">
                     <span className="inline-flex items-center gap-xs">
                       <Clock size={14} className="text-on-surface-variant" />
@@ -139,7 +147,12 @@ export default function AuditLog() {
                     <span className="block">{humanize(event.actor.type)}</span>
                     <span className="font-mono text-label-sm text-on-surface-variant">{event.actor.id}</span>
                   </td>
-                  <td className="p-md font-body-sm text-body-sm text-on-surface font-mono">{event.action}</td>
+                  <td
+                    className="p-md font-body-sm text-body-sm text-on-surface font-mono"
+                    data-testid={`audit-action-${event.id}`}
+                  >
+                    {event.action}
+                  </td>
                   <td className="p-md font-body-sm text-body-sm text-on-surface">
                     <span className="block">{humanize(event.resource.type)}</span>
                     <span className="font-mono text-label-sm text-on-surface-variant">{event.resource.id}</span>

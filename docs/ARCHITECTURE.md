@@ -82,9 +82,9 @@ Uses MCP tools to gather repo context, docs, linked systems, and attach relevant
 
 Runs agents in the customer-selected environment:
 
-- Public managed (if allowed)  
-- Private VPC / dedicated  
-- Customer AWS / Azure / GCP / private cloud  
+- Public managed (if allowed)
+- Private VPC / dedicated
+- Customer AWS / Azure / GCP / private cloud
 
 ### 8. Artifact & audit store
 
@@ -92,38 +92,38 @@ Stores redacted prompts (optional), outputs, patches, completion estimates, toke
 
 ## Data flow (AI-first ticket)
 
-1. Board webhook / poll creates or updates `WorkItem` in OffshoreHelper.  
-2. Manager swipe or org policy sets `aiFirst = true`.  
-3. Orchestrator loads project policy (model, cloud, tokens, security, PII).  
-4. Connector fetches ticket payload + linked context.  
-5. PII firewall produces a **sanitized work packet**.  
-6. MCP layer enriches packet with allowed tools only.  
-7. AI runner executes within token budget toward target completion %.  
-8. Artifacts attached to board ticket; status updated (e.g. “AI Draft Ready”).  
-9. Human assignee notified; continues in their kit (with or without override rights).  
+1. Board webhook / poll creates or updates `WorkItem` in AplifyAI.
+2. Manager swipe or org policy sets `aiFirst = true`.
+3. Orchestrator loads project policy (model, cloud, tokens, security, PII).
+4. Connector fetches ticket payload + linked context.
+5. PII firewall produces a **sanitized work packet**.
+6. MCP layer enriches packet with allowed tools only.
+7. AI runner executes within token budget toward target completion %.
+8. Artifacts attached to board ticket; status updated (e.g. “AI Draft Ready”).
+9. Human assignee notified; continues in their kit (with or without override rights).
 
 ## Connection rules
 
-- Boards remain source of truth for ticket identity and human workflow.  
-- OffshoreHelper never sends unsanitized PII to models.  
-- Customer cloud credentials stay in a secrets vault; never in agent prompts.  
-- Employee kit override is gated by policy and audited.  
-- All AI actions are attributable (who/what/when/tokens/cloud).  
+- Boards remain source of truth for ticket identity and human workflow.
+- AplifyAI never sends unsanitized PII to models.
+- Customer cloud credentials stay in a secrets vault; never in agent prompts.
+- Employee kit override is gated by policy and audited.
+- All AI actions are attributable (who/what/when/tokens/cloud).
 
 ## Multi-tenancy
 
-- Hard tenant isolation at DB, storage, queue, and key levels.  
-- Optional dedicated deployment per enterprise.  
-- Cross-tenant data access is forbidden by design.  
+- Hard tenant isolation at DB, storage, queue, and key levels.
+- Optional dedicated deployment per enterprise.
+- Cross-tenant data access is forbidden by design.
 
 ## Tech direction (foundation recommendation)
 
 Document intent only — implementation choices land in FOUNDATION:
 
-- API: versioned REST + webhooks  
-- Auth: SSO (SAML/OIDC) + RBAC + MFA  
-- Queues for AI jobs  
-- Encrypted object storage for artifacts  
-- Feature flags for security layers and integrations  
+- API: versioned REST + webhooks
+- Auth: SSO (SAML/OIDC) + RBAC + MFA
+- Queues for AI jobs
+- Encrypted object storage for artifacts
+- Feature flags for security layers and integrations
 
 See also: [FOUNDATION.md](FOUNDATION.md), [security/SECURITY.md](security/SECURITY.md).

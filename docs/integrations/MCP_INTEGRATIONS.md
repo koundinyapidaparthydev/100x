@@ -1,6 +1,6 @@
 # MCP Integrations
 
-OffshoreHelper uses **MCP (Model Context Protocol) tools** to gather context and produce attachments without hard-coding every integration into the model prompt.
+AplifyAI uses **MCP (Model Context Protocol) tools** to gather context and produce attachments without hard-coding every integration into the model prompt.
 
 ## Why MCP
 

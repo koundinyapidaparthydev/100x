@@ -8,21 +8,39 @@ import express, { type Express } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { attachAuth } from './auth';
+import { createBoardConnector, type BoardConnector } from './connectors/board';
+import type { OrchestratorDeps } from './orchestrator';
 import { createRouter } from './routes';
+import { createModelRunner, type ModelRunner } from './runners/model';
 import { createSeedStore, type Store } from './store';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// backend/src → backend → repo root
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
-export function createApp(store: Store = createSeedStore()): Express {
+export interface AppOptions {
+  store?: Store;
+  modelRunner?: ModelRunner;
+  boardConnector?: BoardConnector;
+}
+
+export function createApp(options: AppOptions | Store = {}): Express {
+  // Back-compat: createApp(store) used by tests.
+  const opts: AppOptions =
+    options && 'workItems' in (options as Store) ? { store: options as Store } : (options as AppOptions);
+
+  const store = opts.store ?? createSeedStore();
+  const modelRunner = opts.modelRunner ?? createModelRunner();
+  const boardConnector = opts.boardConnector ?? createBoardConnector(store);
+  const deps: OrchestratorDeps = { modelRunner, boardConnector };
+
   const app = express();
   app.use(cors());
   app.use(express.json());
+  app.use(attachAuth);
 
-  app.use('/api/v1', createRouter(store));
+  app.use('/api/v1', createRouter(store, deps));
 
-  // Serve built clients only if their dist folders exist (graceful in dev/CI).
   const webDist = path.join(REPO_ROOT, 'web', 'dist');
   if (fs.existsSync(webDist)) {
     app.use(express.static(webDist));
@@ -32,12 +50,10 @@ export function createApp(store: Store = createSeedStore()): Express {
     app.use('/mobile', express.static(mobileDist));
   }
 
-  // JSON 404 for anything unmatched (API contract: errors are {error} bodies).
   app.use((req, res) => {
     res.status(404).json({ error: `not found: ${req.method} ${req.path}` });
   });
 
-  // Error middleware — no stack traces or internals leak to clients.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err instanceof SyntaxError && 'body' in err) {

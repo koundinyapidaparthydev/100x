@@ -1,5 +1,5 @@
 /**
- * Shared contracts for OffshoreHelper.
+ * Shared contracts for AplifyAI.
  * Source of truth: docs/SCHEMA_SKETCH.md — keep in sync; update the doc if these change.
  * Used by the single backend (`backend/`) and both clients (`web/`, `mobile/`).
  */
@@ -310,4 +310,35 @@ export interface WorkItemAssigneeUpdate {
 
 export interface AccessRequestBody {
   reason?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Auth (H1)
+// ---------------------------------------------------------------------------
+
+export type UserRole = 'founder' | 'manager' | 'engineer' | 'auditor';
+
+export interface AuthUser {
+  id: string;
+  displayName: string;
+  email: string;
+  role: UserRole;
+  tenantId: string;
+  surface: 'web' | 'mobile';
+}
+
+export interface AuthSession {
+  token: string;
+  user: AuthUser;
+  expiresAt: string;
+}
+
+export interface LoginRequest {
+  /** Demo identity: founder | manager | engineer | auditor (or email of a seeded user). */
+  identity: string;
+  surface?: 'web' | 'mobile';
+}
+
+export interface LoginResponse {
+  session: AuthSession;
 }

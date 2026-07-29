@@ -1,44 +1,48 @@
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { ShieldCheck, Lock, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { setApiActor } from '@shared/api';
-
-const DEMO_SESSION_KEY = 'oh-demo-actor';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { api } from '@shared/api';
+import { readDemoSession, writeDemoSession } from '../lib/session';
 
 export default function Login() {
   const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(DEMO_SESSION_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as { id?: string; surface?: 'web' | 'mobile' };
-      if (parsed.id) {
-        setApiActor(parsed.id, parsed.surface ?? 'web');
-      }
-    } catch {
-      /* ignore corrupt demo session */
-    }
-  }, []);
+  if (readDemoSession()) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
-  const handleSso = () => {
-    setApiActor('web-admin-1', 'web');
+  const handleLogin = async (identity: 'founder' | 'manager' | 'engineer') => {
+    setBusy(true);
+    setError(null);
     try {
-      localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({ id: 'web-admin-1', surface: 'web' }));
-    } catch {
-      /* private mode / blocked storage */
+      const { session } = await api.login({ identity, surface: 'web' });
+      writeDemoSession({
+        token: session.token,
+        id: session.user.id,
+        role: session.user.role,
+        surface: 'web',
+      });
+      navigate('/dashboard');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Login failed');
+    } finally {
+      setBusy(false);
     }
-    navigate('/dashboard');
   };
 
   return (
-    <div className="bg-surface-dim text-on-surface font-body-md min-h-screen flex flex-col relative mesh-background">
+    <div
+      className="bg-surface-dim text-on-surface font-body-md min-h-screen flex flex-col relative mesh-background"
+      data-testid="login-page"
+    >
       <main className="flex-grow flex flex-col items-center justify-center relative z-10 px-margin">
         <div className="flex flex-col items-center text-center max-w-[800px] w-full">
           <div className="flex items-center gap-sm mb-2xl">
             <ShieldCheck className="text-tertiary" size={32} fill="currentColor" />
             <span className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
-              OffshoreHelper
+              AplifyAI
             </span>
           </div>
 
@@ -47,20 +51,48 @@ export default function Login() {
           </h1>
 
           <p className="font-body-lg text-body-lg text-on-surface-variant max-w-[600px] mb-3xl">
-            AI-first project management engineered for high-stakes enterprise scale. Secure, precise, and fully accountable.
+            AI-first project management engineered for high-stakes enterprise scale. Secure, precise,
+            and fully accountable.
           </p>
 
+          <div className="flex flex-col sm:flex-row gap-md w-full max-w-md">
+            <button
+              type="button"
+              disabled={busy}
+              data-testid="login-manager"
+              onClick={() => void handleLogin('manager')}
+              className="flex-1 bg-tertiary hover:bg-tertiary-fixed text-on-tertiary font-label-md text-label-md px-xl py-[16px] rounded-lg transition-all duration-200 flex items-center justify-center gap-sm disabled:opacity-50"
+            >
+              <Lock size={18} />
+              <span>{busy ? 'Signing in…' : 'Manager login'}</span>
+              <ArrowRight size={18} />
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              data-testid="login-founder"
+              onClick={() => void handleLogin('founder')}
+              className="flex-1 border border-outline-variant text-on-surface font-label-md text-label-md px-xl py-[16px] rounded-lg transition-all duration-200 disabled:opacity-50"
+            >
+              Founder login
+            </button>
+          </div>
           <button
             type="button"
-            onClick={handleSso}
-            className="bg-tertiary hover:bg-tertiary-fixed text-on-tertiary font-label-md text-label-md px-xl py-[16px] rounded-full transition-all duration-200 flex items-center justify-center gap-sm group shadow-[0_0_20px_rgba(59,130,246,0.1)] hover:shadow-[0_0_30px_rgba(59,130,246,0.2)]"
+            disabled={busy}
+            data-testid="login-engineer"
+            onClick={() => void handleLogin('engineer')}
+            className="mt-md font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface underline-offset-2 hover:underline disabled:opacity-50"
           >
-            <Lock size={18} />
-            <span>Login / SSO with Enterprise ID</span>
-            <ArrowRight size={18} className="group-hover:translate-x-xs transition-transform duration-200" />
+            Engineer login (read-only demo)
           </button>
+          {error && (
+            <p className="font-label-sm text-error mt-md" data-testid="login-error">
+              {error}
+            </p>
+          )}
           <p className="font-label-sm text-label-sm text-on-surface-variant mt-md">
-            Demo mode — real SSO/vault in H1 · actor web-admin-1
+            Demo sessions issue Bearer tokens · real SSO/OIDC replaces this in later H1
           </p>
         </div>
       </main>
@@ -69,16 +101,8 @@ export default function Login() {
         <div className="flex items-center gap-sm">
           <Lock size={16} className="text-tertiary animate-pulse" fill="currentColor" />
           <span className="font-label-sm text-label-sm text-tertiary uppercase tracking-wider">
-            Encryption Active | Model: GPT-4o-Enterprise | Cloud: Azure East US | PII Redaction: Enabled
+            Encryption Active | Session auth | PII Redaction: Enabled
           </span>
-        </div>
-        <div className="flex items-center gap-lg">
-          <a href="#" className="font-label-sm text-label-sm text-on-surface-variant hover:text-tertiary transition-colors duration-200">
-            Security Policy
-          </a>
-          <a href="#" className="font-label-sm text-label-sm text-on-surface-variant hover:text-tertiary transition-colors duration-200">
-            Audit Protocols
-          </a>
         </div>
       </footer>
     </div>

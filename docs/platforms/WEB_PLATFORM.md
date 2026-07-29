@@ -1,6 +1,6 @@
 # Web Platform
 
-Primary control plane for OffshoreHelper. **No desktop app in v1** — web covers configuration, monitoring, and deep ticket review.
+Primary control plane for AplifyAI. **No desktop app in v1** — web covers configuration, monitoring, and deep ticket review.
 
 ## Goals
 

@@ -1,12 +1,48 @@
 /**
  * Production bootstrap: one backend on port 4000 (PORT env override).
+ * Set PERSIST=1 to write store.json under ./data (or DATA_DIR).
+ * Set DATABASE_URL to load/save a PostgreSQL JSONB snapshot instead.
+ * Set OPENAI_API_KEY for live model runs; JIRA_* for live Jira connector.
  */
 
 import { createApp } from './app';
+import { createBoardConnector } from './connectors/board';
+import { initializePersistence } from './persist';
+import { createModelRunner } from './runners/model';
 
 const port = Number(process.env.PORT ?? 4000);
-const app = createApp();
+const { store, persistence } = await initializePersistence();
+const modelRunner = createModelRunner();
+const boardConnector = createBoardConnector(store);
 
-app.listen(port, () => {
-  console.log(`[offshorehelper-backend] listening on http://localhost:${port} (api: /api/v1)`);
+const app = createApp({ store, modelRunner, boardConnector });
+
+const server = app.listen(port, () => {
+  console.log(`[aplifyai-backend] listening on http://localhost:${port} (api: /api/v1)`);
+  console.log(
+    `[aplifyai-backend] model=${modelRunner.kind} board=${boardConnector.kind} persist=${persistence.kind}`,
+  );
 });
+
+let shuttingDown = false;
+const shutdown = (signal: NodeJS.Signals) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[aplifyai-backend] ${signal} received; draining requests and flushing persistence`);
+  server.close(async (err) => {
+    try {
+      await persistence.close();
+      if (err) throw err;
+      process.exitCode = 0;
+    } catch (closeError) {
+      console.error(
+        '[aplifyai-backend] graceful shutdown failed:',
+        closeError instanceof Error ? closeError.message : closeError,
+      );
+      process.exitCode = 1;
+    }
+  });
+};
+
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);

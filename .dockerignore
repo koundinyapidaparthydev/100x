@@ -1,0 +1,27 @@
+# Context for: docker build -f backend/Dockerfile .
+.git
+.github
+.cursor
+**/.DS_Store
+**/node_modules
+**/dist
+**/build
+**/coverage
+**/data
+**/.env
+**/.env.*
+!**/.env.example
+**/*.md
+!README.md
+web/**
+!web/package.json
+mobile/**
+!mobile/package.json
+docs
+infra
+**/*.test.ts
+**/__tests__
+**/bun.lock
+**/*.log
+.idea
+.vscode

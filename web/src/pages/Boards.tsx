@@ -118,7 +118,7 @@ export default function Boards() {
   };
 
   return (
-    <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl">
+    <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl" data-testid="boards-page">
       <div className="flex justify-between items-end">
         <div>
           <h2 className="font-headline-lg text-headline-lg font-semibold text-on-surface">Jira Sync Health</h2>
@@ -131,6 +131,7 @@ export default function Boards() {
             type="button"
             disabled={busy || !boards?.length}
             onClick={syncAll}
+            data-testid="boards-sync-all"
             className="px-md py-sm rounded border border-outline-variant text-on-surface font-label-md text-label-md flex items-center gap-xs hover:bg-surface-variant transition-colors disabled:opacity-50"
           >
             {busy ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
@@ -139,6 +140,7 @@ export default function Boards() {
           <button
             type="button"
             onClick={() => setConnectOpen(true)}
+            data-testid="boards-connect-open"
             className="px-md py-sm rounded bg-tertiary text-on-tertiary font-label-md text-label-md flex items-center gap-xs hover:bg-tertiary-fixed transition-colors font-bold"
           >
             <Plus size={18} />
@@ -147,7 +149,11 @@ export default function Boards() {
         </div>
       </div>
 
-      {actionError && <p className="font-body-sm text-body-sm text-error">{actionError}</p>}
+      {actionError && !connectOpen && (
+        <p className="font-body-sm text-body-sm text-error" data-testid="boards-action-error">
+          {actionError}
+        </p>
+      )}
 
       <div className="bg-surface-container rounded-lg border border-outline-variant p-sm flex items-center gap-md overflow-x-auto">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
@@ -168,7 +174,7 @@ export default function Boards() {
         <EmptyState
           icon={<Compass size={22} />}
           title="No boards connected"
-          body="Connect a Jira project to start syncing work items into OffshoreHelper."
+          body="Connect a Jira project to start syncing work items into AplifyAI."
         />
       )}
 
@@ -183,6 +189,7 @@ export default function Boards() {
                 type="button"
                 key={board.projectId}
                 onClick={() => setSelectedProjectId(board.projectId)}
+                data-testid={`board-card-${board.projectId}`}
                 className={`text-left bg-surface-container border rounded-xl p-lg flex flex-col gap-md relative overflow-hidden group transition-colors ${
                   selected
                     ? 'border-tertiary/60 ring-1 ring-tertiary/30'
@@ -263,6 +270,7 @@ export default function Boards() {
                       type="button"
                       disabled={syncingId === board.projectId}
                       onClick={() => syncOne(board.projectId)}
+                      data-testid={`board-sync-${board.projectId}`}
                       className="px-sm py-xs rounded border border-outline-variant text-on-surface font-label-sm text-label-sm flex items-center gap-xs hover:bg-surface-variant transition-colors disabled:opacity-50"
                     >
                       {syncingId === board.projectId ? (
@@ -293,7 +301,7 @@ export default function Boards() {
           {items.loading && <LoadingState label="Loading work items…" />}
           {!items.loading && items.error && <ErrorState message={items.error} onRetry={items.reload} />}
           {!items.loading && !items.error && items.data && items.data.length === 0 && (
-            <EmptyState title="No work items" body="Sync this board to pull issues into OffshoreHelper." />
+            <EmptyState title="No work items" body="Sync this board to pull issues into AplifyAI." />
           )}
           {!items.loading && !items.error && items.data && items.data.length > 0 && (
             <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
@@ -314,6 +322,7 @@ export default function Boards() {
                         <Link
                           to={`/boards/task/${encodeURIComponent(item.id)}`}
                           className="font-mono text-body-sm text-tertiary hover:underline"
+                          data-testid={`work-item-link-${item.id}`}
                         >
                           {item.board.issueKey}
                         </Link>
@@ -345,7 +354,7 @@ export default function Boards() {
       )}
 
       {connectOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-margin">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-margin" data-testid="boards-connect-modal">
           <div className="w-full max-w-md bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-md shadow-lg">
             <div className="flex items-center justify-between">
               <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">Connect Board</h3>
@@ -353,10 +362,16 @@ export default function Boards() {
                 type="button"
                 onClick={() => setConnectOpen(false)}
                 className="p-sm rounded hover:bg-surface-variant text-on-surface-variant"
+                data-testid="boards-connect-close"
               >
                 <X size={18} />
               </button>
             </div>
+            {actionError && (
+              <p className="font-body-sm text-body-sm text-error" data-testid="boards-action-error" role="alert">
+                {actionError}
+              </p>
+            )}
             <label className="flex flex-col gap-xs">
               <span className="font-label-sm text-label-sm text-on-surface-variant">Project ID</span>
               <input
@@ -364,6 +379,7 @@ export default function Boards() {
                 value={projectId}
                 placeholder="e.g. ACME"
                 onChange={(e) => setProjectId(e.target.value)}
+                data-testid="boards-connect-project-id"
               />
             </label>
             <label className="flex flex-col gap-xs">
@@ -373,6 +389,7 @@ export default function Boards() {
                 value={boardName}
                 placeholder="e.g. Platform Engineering"
                 onChange={(e) => setBoardName(e.target.value)}
+                data-testid="boards-connect-name"
               />
             </label>
             <div className="flex justify-end gap-sm pt-sm">
@@ -387,6 +404,7 @@ export default function Boards() {
                 type="button"
                 disabled={busy}
                 onClick={connect}
+                data-testid="boards-connect-submit"
                 className="px-md py-sm rounded bg-tertiary text-on-tertiary font-label-md text-label-md font-bold hover:bg-tertiary-fixed disabled:opacity-50"
               >
                 {busy ? 'Connecting…' : 'Connect'}

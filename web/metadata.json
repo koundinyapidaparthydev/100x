@@ -1,5 +1,5 @@
 {
-  "name": "OffshoreHelper",
+  "name": "AplifyAI",
   "description": "Enterprise AI Governance and Autonomous Jira Delegation",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

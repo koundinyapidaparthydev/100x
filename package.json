@@ -1,0 +1,27 @@
+{
+  "name": "aplifyai",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AplifyAI monorepo — backend, shared contracts, web control plane, mobile triage.",
+  "workspaces": [
+    "backend",
+    "shared",
+    "web",
+    "mobile"
+  ],
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "packageManager": "npm@10.9.2",
+  "scripts": {
+    "dev": "npm run dev -w aplifyai-backend",
+    "dev:backend": "npm run dev -w aplifyai-backend",
+    "dev:web": "npm run dev -w aplifyai-web",
+    "dev:mobile": "npm run dev -w aplifyai-mobile",
+    "typecheck": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e:web": "npm run test:e2e -w aplifyai-web",
+    "test:e2e:mobile": "npm run test:e2e -w aplifyai-mobile",
+    "build": "npm run build --workspaces --if-present"
+  }
+}

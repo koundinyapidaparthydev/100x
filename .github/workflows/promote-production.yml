@@ -1,0 +1,110 @@
+name: Promote to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_digest:
+        description: "Staging API digest to promote (sha256:...)"
+        required: true
+        type: string
+      release_notes:
+        description: "Optional release notes or change reference"
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  promote:
+    name: Approve and promote digest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Configure required reviewers on this GitHub environment. The job cannot
+    # access environment secrets or deploy until a reviewer approves it.
+    environment:
+      name: production
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+      REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+      SERVICE: ${{ vars.GCP_PRODUCTION_CLOUD_RUN_SERVICE }}
+      DIGEST: ${{ inputs.image_digest }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Validate promotion inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in PROJECT_ID REGION REPOSITORY SERVICE; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing production GitHub variable ${name}"
+              exit 1
+            fi
+          done
+          if [[ ! "${DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::image_digest must be an immutable sha256 digest"
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify promoted digest exists
+        env:
+          IMAGE_URI: ${{ format('{0}-docker.pkg.dev/{1}/{2}/api@{3}', vars.GCP_REGION, vars.GCP_PROJECT_ID, vars.GCP_ARTIFACT_REPOSITORY, inputs.image_digest) }}
+        run: |
+          gcloud artifacts docker images describe "${IMAGE_URI}" \
+            --project="${PROJECT_ID}" \
+            --format='value(image_summary.digest)'
+
+      - name: Deploy exact digest to production
+        env:
+          IMAGE_URI: ${{ format('{0}-docker.pkg.dev/{1}/{2}/api@{3}', vars.GCP_REGION, vars.GCP_PROJECT_ID, vars.GCP_ARTIFACT_REPOSITORY, inputs.image_digest) }}
+        run: |
+          gcloud run deploy "${SERVICE}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --image="${IMAGE_URI}" \
+            --quiet
+
+      - name: Write production checklist
+        if: always()
+        env:
+          RELEASE_NOTES: ${{ inputs.release_notes || 'Not provided' }}
+          DEPLOYMENT_CHECKED: ${{ job.status == 'success' && 'x' || ' ' }}
+        run: |
+          {
+            echo "## Production promotion checklist"
+            echo
+            echo "- [x] Production environment approval passed"
+            echo "- [x] Immutable digest format validated"
+            echo "- [x] Digest existence checked in Artifact Registry"
+            echo "- [${DEPLOYMENT_CHECKED}] Cloud Run deployment completed"
+            echo "- [ ] Verify production health endpoint"
+            echo "- [ ] Review Cloud Run logs and error rate"
+            echo "- [ ] Confirm rollback digest is recorded"
+            echo
+            echo "**Digest:** \`${DIGEST}\`"
+            echo "**Release notes:** ${RELEASE_NOTES}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,21 @@
+# Local Terraform / GCP artifacts — never commit credentials or state.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+backend.*.hcl
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+*.pem
+sa-key.json
+credentials.json
+# Keep .terraform.lock.hcl tracked for reproducible provider versions.

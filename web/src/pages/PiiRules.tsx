@@ -69,7 +69,7 @@ export default function PiiRules() {
   };
 
   return (
-    <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl">
+    <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl" data-testid="pii-rules-page">
       <div className="flex justify-between items-end gap-md">
         <div>
           <h2 className="font-headline-lg text-headline-lg font-semibold text-on-surface">PII Rules</h2>
@@ -80,7 +80,10 @@ export default function PiiRules() {
         {policy && draft && (
           <div className="flex items-center gap-md shrink-0">
             {message && (
-              <span className={`font-body-sm text-body-sm ${message.tone === 'ok' ? 'text-tertiary' : 'text-error'}`}>
+              <span
+                data-testid="pii-save-message"
+                className={`font-body-sm text-body-sm ${message.tone === 'ok' ? 'text-tertiary' : 'text-error'}`}
+              >
                 {message.text}
               </span>
             )}
@@ -88,6 +91,7 @@ export default function PiiRules() {
               type="button"
               disabled={saving}
               onClick={() => save(policy)}
+              data-testid="pii-save"
               className="px-md py-sm rounded bg-tertiary text-on-tertiary font-label-md text-label-md font-bold hover:bg-tertiary-fixed transition-colors disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save Changes'}
@@ -146,6 +150,7 @@ export default function PiiRules() {
                   <select
                     className={selectClass}
                     value={mode}
+                    data-testid={`pii-mode-${category}`}
                     onChange={(e) =>
                       setDraft((prev) => (prev ? { ...prev, [category]: e.target.value as PiiMode } : prev))
                     }

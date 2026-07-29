@@ -127,7 +127,7 @@ If two agents need the same interface change: update the shared schema PR first,
 ## Prompt template for spawning an agent
 
 ```text
-You are implementing workstream <WS-ID> for OffshoreHelper.
+You are implementing workstream <WS-ID> for AplifyAI.
 Read docs/agents/AGENT_HANDOFF.md and your source docs listed there.
 Follow docs/FOUNDATION.md constraints.
 Do not implement other workstreams.

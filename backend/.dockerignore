@@ -1,0 +1,16 @@
+# Used when the build context is backend/ (prefer repo-root context; see Dockerfile).
+node_modules
+npm-debug.log*
+data
+coverage
+dist
+build
+.env
+.env.*
+!.env.example
+*.md
+.git
+.gitignore
+**/*.test.ts
+**/__tests__
+.DS_Store

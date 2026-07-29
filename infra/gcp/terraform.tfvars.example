@@ -1,0 +1,43 @@
+# Compatibility entry point for the existing stage stack. New workflows should
+# copy terraform.stage.tfvars.example instead. Do not commit credentials,
+# secret values, or personal email addresses.
+
+project_id      = "jobseek-459701"
+region          = "us-central1"
+environment     = "stage"
+vpc_subnet_cidr = "10.10.0.0/24"
+
+# Leave empty for the first apply (creates registry, SQL, buckets, IAM, secrets).
+# After pushing an image, set this and re-apply — or deploy with gcloud run deploy.
+cloud_run_image = ""
+
+# The browser clients use application-level Bearer auth and reach /api through
+# the HTTPS load balancer, so staging permits invocation at the Cloud Run layer.
+cloud_run_allow_unauthenticated = true
+
+# Demo login is disabled outside dev.
+auth_allow_demo_login = false
+
+# Optional live Jira connector. Keep the API token in Secret Manager.
+# jira_base_url = "https://your-domain.atlassian.net"
+# jira_email    = "you@company.com"
+
+# Public frontend delivery for stage.aplifyai.com. DNS is managed at the registrar
+# (currently Namecheap/registrar-servers). Point A records to the Terraform
+# output static_load_balancer_ip after apply.
+enable_static_cdn = true
+static_domains    = ["stage.aplifyai.com"]
+#
+# Optionally create A records in an existing Cloud DNS managed zone. Leave empty
+# when DNS is managed elsewhere, then create equivalent A records yourself.
+# static_dns_managed_zone = "aplifyai-com"
+
+# Optional: email for 5xx alert notifications.
+# alert_email = "you@example.com"
+
+sql_deletion_protection = true
+
+labels = {
+  team    = "aplifyai"
+  product = "aplifyai"
+}

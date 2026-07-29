@@ -6,7 +6,7 @@
  * per `createApp()`).
  *
  * Seed coverage required by the build spec:
- *  - 8 WorkItems across 3 Jira projects (OH, INFRA, FE)
+ *  - 8 WorkItems across 3 Jira projects (APLIFYAI, INFRA, FE)
  *  - one ticket with an email in its description (→ redact path, succeeds)
  *  - one ticket with an SSN in its description (→ blocked_pii path)
  *  - 1 org policy (azure eastus private_vpc, gpt-4o, 50k token budget)
@@ -108,9 +108,9 @@ export function createSeedStore(): Store {
 
   const workItems: WorkItem[] = [
     {
-      id: 'wi-oh-101',
+      id: 'wi-aplifyai-101',
       tenantId: TENANT_ID,
-      board: { type: 'jira', projectId: 'OH', issueKey: 'OH-101', issueId: '10001' },
+      board: { type: 'jira', projectId: 'APLIFYAI', issueKey: 'APLIFYAI-101', issueId: '10001' },
       title: 'Refactor authentication middleware',
       status: 'To Do',
       assigneeExternalId: null,
@@ -127,9 +127,9 @@ export function createSeedStore(): Store {
       updatedAt: hoursAgo(3),
     },
     {
-      id: 'wi-oh-102',
+      id: 'wi-aplifyai-102',
       tenantId: TENANT_ID,
-      board: { type: 'jira', projectId: 'OH', issueKey: 'OH-102', issueId: '10002' },
+      board: { type: 'jira', projectId: 'APLIFYAI', issueKey: 'APLIFYAI-102', issueId: '10002' },
       title: 'Fix pagination on audit log API',
       status: 'In Progress',
       assigneeExternalId: 'u-priya',
@@ -146,9 +146,9 @@ export function createSeedStore(): Store {
       updatedAt: hoursAgo(1),
     },
     {
-      id: 'wi-oh-103',
+      id: 'wi-aplifyai-103',
       tenantId: TENANT_ID,
-      board: { type: 'jira', projectId: 'OH', issueKey: 'OH-103', issueId: '10003' },
+      board: { type: 'jira', projectId: 'APLIFYAI', issueKey: 'APLIFYAI-103', issueId: '10003' },
       title: 'Add retry logic to webhook delivery',
       status: 'To Do',
       assigneeExternalId: null,
@@ -267,7 +267,7 @@ export function createSeedStore(): Store {
   const jobs: AiJob[] = [
     {
       id: 'job-running-1',
-      workItemId: 'wi-oh-102',
+      workItemId: 'wi-aplifyai-102',
       tenantId: TENANT_ID,
       state: 'running',
       model: { provider: policy.model.provider, modelId: policy.model.modelId },
@@ -325,11 +325,11 @@ export function createSeedStore(): Store {
       {
         id: 'ntf-1',
         kind: 'ai_ready',
-        title: 'AI draft ready on OH-97',
+        title: 'AI draft ready on APLIFYAI-97',
         body: 'Summary + patch attached to the board. Review before handing off.',
         createdAt: hoursAgo(7),
         read: true,
-        workItemId: 'wi-oh-101',
+        workItemId: 'wi-aplifyai-101',
       },
       {
         id: 'ntf-2',
@@ -362,13 +362,13 @@ export function createSeedStore(): Store {
         id: 'ntf-5',
         kind: 'system',
         title: 'Jira sync completed',
-        body: 'Projects OH, INFRA and FE synced. 8 work items mirrored.',
+        body: 'Projects APLIFYAI, INFRA and FE synced. 8 work items mirrored.',
         createdAt: hoursAgo(10),
         read: true,
       },
     ],
     boards: [
-      { projectId: 'OH', name: 'OffshoreHelper Core', connectedAt: hoursAgo(24), lastSyncAt: hoursAgo(1) },
+      { projectId: 'APLIFYAI', name: 'AplifyAI Core', connectedAt: hoursAgo(24), lastSyncAt: hoursAgo(1) },
       { projectId: 'INFRA', name: 'Infrastructure', connectedAt: hoursAgo(24), lastSyncAt: hoursAgo(2) },
       { projectId: 'FE', name: 'Frontend', connectedAt: hoursAgo(24), lastSyncAt: hoursAgo(4) },
     ],
@@ -389,7 +389,7 @@ export function createSeedStore(): Store {
     { type: 'system', id: 'orchestrator' },
     'job.state.queued',
     { type: 'ai_job', id: 'job-running-1' },
-    { workItemId: 'wi-oh-102' },
+    { workItemId: 'wi-aplifyai-102' },
     [1, 2, 3],
   );
   emitAudit(
@@ -397,7 +397,7 @@ export function createSeedStore(): Store {
     { type: 'system', id: 'orchestrator' },
     'job.state.sanitizing',
     { type: 'ai_job', id: 'job-running-1' },
-    { workItemId: 'wi-oh-102', piiRedactions: 0, piiBlocks: [] },
+    { workItemId: 'wi-aplifyai-102', piiRedactions: 0, piiBlocks: [] },
     [1, 2, 3, 5],
   );
   emitAudit(
@@ -405,7 +405,7 @@ export function createSeedStore(): Store {
     { type: 'system', id: 'orchestrator' },
     'job.state.running',
     { type: 'ai_job', id: 'job-running-1' },
-    { workItemId: 'wi-oh-102', model: 'gpt-4o', cloud: 'azure/eastus' },
+    { workItemId: 'wi-aplifyai-102', model: 'gpt-4o', cloud: 'azure/eastus' },
     [1, 2, 3, 4, 5],
   );
 

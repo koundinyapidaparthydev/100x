@@ -20,17 +20,23 @@ import { createSeedStore, type Store } from './store';
 let store: Store;
 let app: Express;
 let req: ReturnType<typeof supertest>;
+let managerToken: string;
 
-beforeEach(() => {
+beforeEach(async () => {
   store = createSeedStore();
   app = createApp(store);
   req = supertest(app);
+  const login = await req.post('/api/v1/auth/login').send({ identity: 'manager' });
+  managerToken = login.body.session.token as string;
 });
 
 describe('health', () => {
-  it('GET /health returns ok + version', async () => {
+  it('GET /health returns ok + version + adapters', async () => {
     const res = await req.get('/api/v1/health').expect(200);
-    expect(res.body).toEqual({ status: 'ok', version: expect.any(String) });
+    expect(res.body.status).toBe('ok');
+    expect(res.body.version).toEqual(expect.any(String));
+    expect(res.body.modelRunner).toBe('sandbox');
+    expect(res.body.boardConnector).toBe('sandbox');
   });
 });
 
@@ -39,7 +45,7 @@ describe('work items', () => {
     const res = await req.get('/api/v1/work-items').expect(200);
     const items = res.body as WorkItem[];
     expect(items).toHaveLength(8);
-    expect(new Set(items.map((w) => w.board.projectId))).toEqual(new Set(['OH', 'INFRA', 'FE']));
+    expect(new Set(items.map((w) => w.board.projectId))).toEqual(new Set(['APLIFYAI', 'INFRA', 'FE']));
   });
 
   it('filters by aiStatus and aiFirst', async () => {
@@ -52,8 +58,8 @@ describe('work items', () => {
   });
 
   it('gets one work item, 404 {error} when missing', async () => {
-    const ok = await req.get('/api/v1/work-items/wi-oh-101').expect(200);
-    expect((ok.body as WorkItem).board.issueKey).toBe('OH-101');
+    const ok = await req.get('/api/v1/work-items/wi-aplifyai-101').expect(200);
+    expect((ok.body as WorkItem).board.issueKey).toBe('APLIFYAI-101');
 
     const missing = await req.get('/api/v1/work-items/nope').expect(404);
     expect(missing.body.error).toBeTruthy();
@@ -64,7 +70,8 @@ describe('triage: human-first', () => {
   it('sets aiFirst=false, durable lastTriageDecision, job=null, and writes an audit event', async () => {
     const before = store.auditEvents.length;
     const res = await req
-      .post('/api/v1/work-items/wi-oh-101/triage')
+      .post('/api/v1/work-items/wi-aplifyai-101/triage')
+      .set('Authorization', `Bearer ${managerToken}`)
       .send({ aiFirst: false })
       .expect(200);
     const body = res.body as TriageResponse;
@@ -78,19 +85,20 @@ describe('triage: human-first', () => {
 
     // Leaves the triage queue permanently.
     const pending = await req.get('/api/v1/work-items?triagePending=true').expect(200);
-    expect((pending.body as WorkItem[]).some((w) => w.id === 'wi-oh-101')).toBe(false);
+    expect((pending.body as WorkItem[]).some((w) => w.id === 'wi-aplifyai-101')).toBe(false);
   });
 
   it('400 on missing aiFirst, 404 on unknown work item', async () => {
-    await req.post('/api/v1/work-items/wi-oh-101/triage').send({}).expect(400);
-    await req.post('/api/v1/work-items/unknown/triage').send({ aiFirst: true }).expect(404);
+    await req.post('/api/v1/work-items/wi-aplifyai-101/triage').set('Authorization', `Bearer ${managerToken}`).send({}).expect(400);
+    await req.post('/api/v1/work-items/unknown/triage').set('Authorization', `Bearer ${managerToken}`).send({ aiFirst: true }).expect(404);
   });
 });
 
 describe('triage: ai-first happy path', () => {
   it('runs the full pipeline to ready_for_human with artifacts + audit trail', async () => {
     const res = await req
-      .post('/api/v1/work-items/wi-oh-101/triage')
+      .post('/api/v1/work-items/wi-aplifyai-101/triage')
+      .set('Authorization', `Bearer ${managerToken}`)
       .send({ aiFirst: true, targetCompletionPercent: 20 })
       .expect(200);
     const body = res.body as TriageResponse;
@@ -137,7 +145,8 @@ describe('triage: ai-first happy path', () => {
 
   it('redacts the seeded email ticket and still succeeds', async () => {
     const res = await req
-      .post('/api/v1/work-items/wi-oh-103/triage')
+      .post('/api/v1/work-items/wi-aplifyai-103/triage')
+      .set('Authorization', `Bearer ${managerToken}`)
       .send({ aiFirst: true })
       .expect(200);
     const job = (res.body as TriageResponse).job as AiJob;
@@ -153,6 +162,7 @@ describe('triage: ai-first PII block', () => {
   it('blocks the seeded SSN ticket with zero token usage', async () => {
     const res = await req
       .post('/api/v1/work-items/wi-infra-221/triage')
+      .set('Authorization', `Bearer ${managerToken}`)
       .send({ aiFirst: true })
       .expect(200);
     const body = res.body as TriageResponse;
@@ -179,14 +189,15 @@ describe('triage: ai-first PII block', () => {
 
 describe('token budget enforcement', () => {
   it('fails before running when the estimate exceeds the budget', async () => {
-    // Lower the org budget so the estimate for wi-oh-101 cannot fit.
+    // Lower the org budget so the estimate for wi-aplifyai-101 cannot fit.
     const policy = store.policies[0]!;
-    const wi = store.workItems.find((w) => w.id === 'wi-oh-101')!;
+    const wi = store.workItems.find((w) => w.id === 'wi-aplifyai-101')!;
     const estimate = estimateTokens(`${wi.title}\n\n${wi.description}`.length);
     policy.tokenBudget.maxTotalTokens = estimate.total - 1;
 
     const res = await req
-      .post('/api/v1/work-items/wi-oh-101/triage')
+      .post('/api/v1/work-items/wi-aplifyai-101/triage')
+      .set('Authorization', `Bearer ${managerToken}`)
       .send({ aiFirst: true })
       .expect(200);
     const body = res.body as TriageResponse;
@@ -224,12 +235,12 @@ describe('jobs / policies / boards / audit / notifications', () => {
     const res = await req.get('/api/v1/boards').expect(200);
     expect(res.body).toHaveLength(3);
     const keys = res.body.map((b: { issuePrefix: string }) => b.issuePrefix).sort();
-    expect(keys).toEqual(['FE', 'INFRA', 'OH']);
+    expect(keys).toEqual(['APLIFYAI', 'FE', 'INFRA']);
     expect(res.body.every((b: { activeIssues: number }) => b.activeIssues > 0)).toBe(true);
   });
 
   it('returns audit events newest first', async () => {
-    await req.post('/api/v1/work-items/wi-oh-101/triage').send({ aiFirst: false });
+    await req.post('/api/v1/work-items/wi-aplifyai-101/triage').set('Authorization', `Bearer ${managerToken}`).send({ aiFirst: false });
     const res = await req.get('/api/v1/audit-events').expect(200);
     const events = res.body as AuditEvent[];
     expect(events.length).toBeGreaterThan(0);
@@ -245,10 +256,13 @@ describe('jobs / policies / boards / audit / notifications', () => {
   });
 
   it('patches org policy and audits the change', async () => {
+    const login = await req.post('/api/v1/auth/login').send({ identity: 'manager', surface: 'web' }).expect(200);
+    const token = login.body.session.token as string;
     const list = await req.get('/api/v1/policies').expect(200);
     const id = list.body[0].id as string;
     const res = await req
       .patch(`/api/v1/policies/${id}`)
+      .set('Authorization', `Bearer ${token}`)
       .send({ tokenBudget: { maxTotalTokens: 40_000 }, securityLevel: 'enterprise' })
       .expect(200);
     expect(res.body.tokenBudget.maxTotalTokens).toBe(40_000);
@@ -257,8 +271,11 @@ describe('jobs / policies / boards / audit / notifications', () => {
   });
 
   it('connects and syncs a sandbox board', async () => {
+    const login = await req.post('/api/v1/auth/login').send({ identity: 'founder' }).expect(200);
+    const token = login.body.session.token as string;
     const connected = await req
       .post('/api/v1/boards/connect')
+      .set('Authorization', `Bearer ${token}`)
       .send({
         projectId: 'demo',
         name: 'Demo Board',
@@ -269,16 +286,119 @@ describe('jobs / policies / boards / audit / notifications', () => {
     expect(connected.body.connected).toBe(true);
     expect(connected.body.activeIssues).toBe(1);
 
-    const synced = await req.post('/api/v1/boards/DEMO/sync').expect(200);
+    const synced = await req
+      .post('/api/v1/boards/DEMO/sync')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
     expect(synced.body.projectId).toBe('DEMO');
 
-    await req.post('/api/v1/boards/connect').send({ projectId: 'DEMO', name: 'Dup' }).expect(409);
+    await req
+      .post('/api/v1/boards/connect')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ projectId: 'DEMO', name: 'Dup' })
+      .expect(409);
+  });
+
+  it('rejects policy patch without auth', async () => {
+    const list = await req.get('/api/v1/policies').expect(200);
+    await req.patch(`/api/v1/policies/${list.body[0].id}`).send({ securityLevel: 'standard' }).expect(401);
   });
 
   it('marks notifications read', async () => {
     const unread = store.notifications.find((n) => !n.read)!;
-    const res = await req.post(`/api/v1/notifications/${unread.id}/read`).expect(200);
+    const res = await req
+      .post(`/api/v1/notifications/${unread.id}/read`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
     expect(res.body.read).toBe(true);
+  });
+});
+
+describe('auth', () => {
+  it('logs in a demo manager and returns /auth/me', async () => {
+    const login = await req.post('/api/v1/auth/login').send({ identity: 'manager', surface: 'mobile' }).expect(200);
+    expect(login.body.session.token).toMatch(/^oh1\./);
+    expect(login.body.session.user.role).toBe('manager');
+    const me = await req
+      .get('/api/v1/auth/me')
+      .set('Authorization', `Bearer ${login.body.session.token}`)
+      .expect(200);
+    expect(me.body.user.id).toBe(login.body.session.user.id);
+  });
+
+  it('forbids engineers from connecting boards', async () => {
+    const login = await req.post('/api/v1/auth/login').send({ identity: 'engineer' }).expect(200);
+    await req
+      .post('/api/v1/boards/connect')
+      .set('Authorization', `Bearer ${login.body.session.token}`)
+      .send({ projectId: 'X', name: 'Nope' })
+      .expect(403);
+  });
+
+  it('accepts a signed session after an app restart and rejects tampering', async () => {
+    const token = managerToken;
+    const restarted = supertest(createApp(createSeedStore()));
+    await restarted.get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`).expect(200);
+    const [hdr, payload] = token.split('.');
+    const tampered = `${hdr}.${payload}.dGFtcGVyZWQtc2lnbmF0dXJl`;
+    await restarted.get('/api/v1/auth/me').set('Authorization', `Bearer ${tampered}`).expect(401);
+  });
+
+  it('never treats x-actor-id as an authenticated manager', async () => {
+    await req
+      .post('/api/v1/work-items/wi-aplifyai-101/triage')
+      .set('x-actor-id', 'synthetic-manager')
+      .send({ aiFirst: false })
+      .expect(401);
+  });
+
+  it('enforces mutation RBAC for triage, approvals, notifications, and assignees', async () => {
+    const login = await req.post('/api/v1/auth/login').send({ identity: 'engineer' }).expect(200);
+    const token = login.body.session.token as string;
+    const bearer = { Authorization: `Bearer ${token}` };
+    await req.post('/api/v1/work-items/wi-aplifyai-101/triage').set(bearer).send({ aiFirst: false }).expect(403);
+    await req
+      .post('/api/v1/approvals/app-infra-221/decision')
+      .set(bearer)
+      .send({ decision: 'approved' })
+      .expect(403);
+    await req.post('/api/v1/notifications/ntf-2/read').set(bearer).expect(403);
+    await req
+      .patch('/api/v1/work-items/wi-aplifyai-101/assignee')
+      .set(bearer)
+      .send({ assigneeExternalId: 'someone' })
+      .expect(403);
+  });
+
+  it('forbids engineers from mutating policies, boards, and triage (RBAC matrix)', async () => {
+    const login = await req.post('/api/v1/auth/login').send({ identity: 'engineer' }).expect(200);
+    const bearer = { Authorization: `Bearer ${login.body.session.token as string}` };
+    const policies = await req.get('/api/v1/policies').expect(200);
+    const policyId = policies.body[0].id as string;
+
+    await req
+      .patch(`/api/v1/policies/${policyId}`)
+      .set(bearer)
+      .send({ securityLevel: 'enterprise' })
+      .expect(403);
+
+    await req
+      .post('/api/v1/boards/connect')
+      .set(bearer)
+      .send({ projectId: 'ENG-DENIED', name: 'Denied' })
+      .expect(403);
+
+    await req.post('/api/v1/boards/APLIFYAI/sync').set(bearer).expect(403);
+
+    await req
+      .post('/api/v1/work-items/wi-aplifyai-101/triage')
+      .set(bearer)
+      .send({ aiFirst: false })
+      .expect(403);
+
+    // Read paths remain available to engineers.
+    await req.get('/api/v1/policies').set(bearer).expect(200);
+    await req.get('/api/v1/boards').set(bearer).expect(200);
   });
 });
 
@@ -287,6 +407,7 @@ describe('approvals', () => {
     const before = store.auditEvents.length;
     const res = await req
       .post('/api/v1/approvals/app-infra-221/decision')
+      .set('Authorization', `Bearer ${managerToken}`)
       .send({ decision: 'approved' })
       .expect(200);
     const approval = res.body as ApprovalItem;
@@ -300,6 +421,7 @@ describe('approvals', () => {
     const before = store.auditEvents.length;
     const res = await req
       .post('/api/v1/approvals/app-fe-118/decision')
+      .set('Authorization', `Bearer ${managerToken}`)
       .send({ decision: 'rejected' })
       .expect(200);
     expect((res.body as ApprovalItem).status).toBe('rejected');
@@ -307,11 +429,11 @@ describe('approvals', () => {
   });
 
   it('400 on a bad decision value', async () => {
-    await req.post('/api/v1/approvals/app-infra-221/decision').send({ decision: 'maybe' }).expect(400);
+    await req.post('/api/v1/approvals/app-infra-221/decision').set('Authorization', `Bearer ${managerToken}`).send({ decision: 'maybe' }).expect(400);
   });
 
   it('404 on an unknown approval', async () => {
-    await req.post('/api/v1/approvals/nope/decision').send({ decision: 'approved' }).expect(404);
+    await req.post('/api/v1/approvals/nope/decision').set('Authorization', `Bearer ${managerToken}`).send({ decision: 'approved' }).expect(404);
   });
 });
 
@@ -339,7 +461,7 @@ describe('stats', () => {
   });
 
   it('reflects a PII block within the 24h window', async () => {
-    await req.post('/api/v1/work-items/wi-infra-221/triage').send({ aiFirst: true });
+    await req.post('/api/v1/work-items/wi-infra-221/triage').set('Authorization', `Bearer ${managerToken}`).send({ aiFirst: true });
     const res = await req.get('/api/v1/stats').expect(200);
     expect((res.body as DashboardStats).piiBlocks24h).toBe(1);
   });

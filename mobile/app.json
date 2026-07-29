@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "AplifyAI",
+    "slug": "aplifyai-mobile",
+    "scheme": "aplifyai",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ai.aplify.mobile"
+    },
+    "android": {
+      "package": "ai.aplify.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#F4F6F8"
+      }
+    },
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

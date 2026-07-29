@@ -17,5 +17,17 @@ coverage/
 .idea/
 .vscode/
 
-# Locks from alternate package managers (npm lockfiles are kept)
-# bun.lock can stay if used by the project
+# Alternate package managers — this repo standardizes on npm (root package-lock.json)
+bun.lock
+bun.lockb
+yarn.lock
+pnpm-lock.yaml
+
+# H1 file-backed store
+backend/data/
+
+# Playwright
+web/playwright-report/
+web/test-results/
+web/blob-report/
+web/playwright/.cache/

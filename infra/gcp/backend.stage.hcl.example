@@ -1,0 +1,3 @@
+# Dev and stage may share a bucket, but must never share a state prefix.
+bucket = "jobseek-459701-aplifyai-tfstate"
+prefix = "aplifyai/stage"

@@ -109,6 +109,20 @@ export default function TaskDetail() {
     }
   };
 
+  const handleHumanFirst = async () => {
+    if (!id) return;
+    setActionPending(true);
+    setActionError(null);
+    try {
+      await api.triageWorkItem(id, { aiFirst: false });
+      reload();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Action failed');
+    } finally {
+      setActionPending(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -137,12 +151,13 @@ export default function TaskDetail() {
   const effectiveStep = !job ? -1 : job.state === 'ready_for_human' ? PIPELINE.length : isTerminalError ? 1 : currentStep;
 
   return (
-    <div className="font-body-md text-body-md antialiased min-h-screen bg-background">
+    <div className="font-body-md text-body-md antialiased min-h-screen bg-background" data-testid="task-detail-page">
       <header className="w-full flex items-center justify-between py-md px-margin border-b border-outline-variant bg-background sticky top-0 z-40">
         <div className="flex items-center gap-sm">
           <button
             onClick={() => navigate(-1)}
             className="p-sm hover:bg-surface-variant rounded-full text-on-surface-variant transition-colors"
+            data-testid="task-back"
           >
             <ArrowLeft size={20} />
           </button>
@@ -150,7 +165,10 @@ export default function TaskDetail() {
             <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
               Project: {wi.board.projectId}
             </span>
-            <h1 className="font-headline-sm text-headline-sm text-on-surface font-semibold flex items-center gap-xs">
+            <h1
+              className="font-headline-sm text-headline-sm text-on-surface font-semibold flex items-center gap-xs"
+              data-testid="task-issue-key"
+            >
               {wi.board.issueKey}
               <Lock size={16} className="text-tertiary" fill="currentColor" />
             </h1>
@@ -164,14 +182,24 @@ export default function TaskDetail() {
             </div>
           )}
           {wi.lastTriageDecision && (
-            <Chip tone="secondary">{humanize(wi.lastTriageDecision)}</Chip>
+            <span data-testid="task-triage-decision">
+              <Chip tone="secondary">{humanize(wi.lastTriageDecision)}</Chip>
+            </span>
           )}
-          <button className="px-md py-sm border border-outline-variant text-on-surface font-label-md text-label-md rounded hover:bg-surface-variant transition-colors">
-            Reassign
+          <button
+            type="button"
+            onClick={handleHumanFirst}
+            disabled={actionPending}
+            data-testid="task-human-first"
+            className="px-md py-sm border border-outline-variant text-on-surface font-label-md text-label-md rounded hover:bg-surface-variant transition-colors disabled:opacity-50"
+          >
+            Human-first
           </button>
           <button
+            type="button"
             onClick={handleApprove}
             disabled={actionPending}
+            data-testid="task-ai-first"
             className="px-md py-sm bg-tertiary text-on-tertiary font-label-md text-label-md rounded font-bold hover:opacity-90 transition-opacity flex items-center gap-xs disabled:opacity-50"
           >
             {actionPending ? <Loader2 size={16} className="animate-spin" /> : null}
@@ -183,7 +211,9 @@ export default function TaskDetail() {
 
       {actionError && (
         <div className="max-w-container-max mx-auto px-margin pt-md">
-          <p className="font-body-sm text-body-sm text-error">{actionError}</p>
+          <p className="font-body-sm text-body-sm text-error" data-testid="task-action-error">
+            {actionError}
+          </p>
         </div>
       )}
 

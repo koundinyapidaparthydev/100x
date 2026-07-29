@@ -48,7 +48,9 @@ export default function Dashboard() {
     <div className="p-margin md:p-3xl max-w-container-max mx-auto w-full flex flex-col gap-xl">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-md mb-md">
         <div>
-          <h2 className="font-display-lg text-display-lg text-on-surface mb-xs">Command Center</h2>
+          <h2 className="font-display-lg text-display-lg text-on-surface mb-xs" data-testid="dashboard-heading">
+            Command Center
+          </h2>
           <p className="font-body-md text-body-md text-on-surface-variant">Real-time overview of AI delegation, compliance, and resource utilization.</p>
         </div>
         <div className="flex gap-md">

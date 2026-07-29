@@ -24,7 +24,7 @@ export default function Admin() {
   }, []);
 
   return (
-    <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl">
+    <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl" data-testid="admin-page">
       <div className="flex justify-between items-end">
         <div>
           <h2 className="font-headline-lg text-headline-lg font-semibold text-on-surface">System Administration</h2>
@@ -56,7 +56,10 @@ export default function Admin() {
               <span className="font-headline-md text-headline-md text-on-surface">{formatNumber(data.policyCount)}</span>
               <span className="font-body-sm text-body-sm text-on-surface-variant">Org policy count</span>
             </Link>
-            <div className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-sm">
+            <div
+              className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-sm"
+              data-testid="admin-pending-approvals"
+            >
               <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Pending approvals</span>
               <span className="font-headline-md text-headline-md text-on-surface">{formatNumber(data.pendingApprovals)}</span>
               <span className="font-body-sm text-body-sm text-on-surface-variant">Awaiting manager decision</span>

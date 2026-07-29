@@ -83,19 +83,21 @@ function OrgPolicyEditor({ policy, onSaved }: { policy: Policy; onSaved: () => v
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
+        data-testid="policy-edit-toggle"
         className="w-full flex items-center justify-between text-left font-label-md text-label-md text-tertiary hover:underline"
       >
         Edit org policy
         {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
       {open && (
-        <div className="mt-md flex flex-col gap-md">
+        <div className="mt-md flex flex-col gap-md" data-testid="policy-edit-form">
           <label className="flex flex-col gap-xs">
             <span className="font-label-sm text-label-sm text-on-surface-variant">Security level</span>
             <select
               className={inputClass}
               value={securityLevel}
               onChange={(e) => setSecurityLevel(e.target.value as SecurityLevel)}
+              data-testid="policy-security-level"
             >
               {SECURITY_LEVELS.map((level) => (
                 <option key={level} value={level}>
@@ -113,6 +115,7 @@ function OrgPolicyEditor({ policy, onSaved }: { policy: Policy; onSaved: () => v
               className={inputClass}
               value={targetCompletion}
               onChange={(e) => setTargetCompletion(Number(e.target.value))}
+              data-testid="policy-target-completion"
             />
           </label>
           <label className="flex flex-col gap-xs">
@@ -123,6 +126,7 @@ function OrgPolicyEditor({ policy, onSaved }: { policy: Policy; onSaved: () => v
               className={inputClass}
               value={maxTokens}
               onChange={(e) => setMaxTokens(Number(e.target.value))}
+              data-testid="policy-max-tokens"
             />
           </label>
           <label className="flex items-center gap-sm font-body-sm text-body-sm text-on-surface">
@@ -131,6 +135,7 @@ function OrgPolicyEditor({ policy, onSaved }: { policy: Policy; onSaved: () => v
               checked={aiFirstDefault}
               onChange={(e) => setAiFirstDefault(e.target.checked)}
               className="rounded border-outline-variant"
+              data-testid="policy-ai-first-default"
             />
             AI-first default
           </label>
@@ -139,12 +144,14 @@ function OrgPolicyEditor({ policy, onSaved }: { policy: Policy; onSaved: () => v
               type="button"
               disabled={saving}
               onClick={save}
+              data-testid="policy-save"
               className="px-md py-sm rounded bg-tertiary text-on-tertiary font-label-md text-label-md font-bold hover:bg-tertiary-fixed transition-colors disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             {message && (
               <span
+                data-testid="policy-save-message"
                 className={`font-body-sm text-body-sm ${message.tone === 'ok' ? 'text-tertiary' : 'text-error'}`}
               >
                 {message.text}
@@ -168,7 +175,7 @@ export default function Policies() {
   });
 
   return (
-    <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl">
+    <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl" data-testid="policies-page">
       <div className="flex justify-between items-end">
         <div>
           <h2 className="font-headline-lg text-headline-lg font-semibold text-on-surface">Delegation Policies</h2>

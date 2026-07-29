@@ -1,0 +1,3 @@
+# Production state belongs in the isolated production project.
+bucket = "aplifyai-prod-2026-tfstate"
+prefix = "aplifyai/production"

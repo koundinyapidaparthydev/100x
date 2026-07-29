@@ -1,7 +1,12 @@
 node_modules/
-build/
 dist/
 coverage/
+artifacts/
+.expo/
+.expo-shared/
+android/
+ios/
+expo-env.d.ts
 .DS_Store
 *.log
 .env*

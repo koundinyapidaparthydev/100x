@@ -1,30 +1,42 @@
 /**
  * AI job orchestrator (docs/ai/AI_DELEGATION.md, docs/SCHEMA_SKETCH.md hard rules).
  *
- * State machine (synchronous + deterministic so tests can assert end state):
- *
+ * State machine:
  *   queued → sanitizing → (blocked_pii | running) → packaging → attaching → ready_for_human
  *
- * `enriching_mcp` is intentionally SKIPPED: the MCP context layer (ARCHITECTURE.md
- * component 6) has no real tool servers in this foundation build, and the org
- * policy allowlist only grants read-only Jira tools whose data is already on the
- * WorkItem. The state remains in the shared type for when MCP lands.
+ * `enriching_mcp` is intentionally SKIPPED until MCP servers exist.
  *
- * Hard rules enforced here:
- *  - a job NEVER enters 'running' unless the sanitizing step succeeded (no PII blocks)
+ * Hard rules:
+ *  - a job NEVER enters 'running' unless sanitizing succeeded
  *  - EVERY state transition emits an AuditEvent
- *  - artifact storage URIs respect policy.cloud.provider/region
+ *  - model receives ONLY sanitized text via ModelRunner
+ *  - board write-back goes through BoardConnector
  *  - token estimate is checked against policy.tokenBudget BEFORE the model runs
  */
 
 import { createHash } from 'node:crypto';
 import type { AiJob, AiJobState, Artifact, Policy, WorkItem } from '../../shared/types';
+import type { BoardConnector } from './connectors/board';
 import { sanitize } from './pii';
+import type { ModelRunner } from './runners/model';
+import { SandboxModelRunner } from './runners/model';
 import { emitAudit, nextId, type Store, TENANT_ID } from './store';
+import { SandboxBoardConnector } from './connectors/board';
 
 const ACTOR = { type: 'system', id: 'orchestrator' } as const;
 
-/** Record a transition: mutate job state + emit the mandatory audit event. */
+export interface OrchestratorDeps {
+  modelRunner: ModelRunner;
+  boardConnector: BoardConnector;
+}
+
+function defaultDeps(store: Store): OrchestratorDeps {
+  return {
+    modelRunner: new SandboxModelRunner(),
+    boardConnector: new SandboxBoardConnector(store),
+  };
+}
+
 function transition(
   store: Store,
   job: AiJob,
@@ -43,74 +55,47 @@ export function estimateTokens(textLength: number): { input: number; output: num
   return { input, output, total: input + output };
 }
 
-/**
- * Dummy/sandbox model runner (FOUNDATION F4 — no real model calls in CI).
- * Output is derived deterministically from the sanitized ticket text.
- */
-function runSandboxModel(workItem: WorkItem, sanitized: string, targetPercent: number): string {
-  return [
-    `# AI Draft (${targetPercent}% target) — ${workItem.board.issueKey}: ${workItem.title}`,
-    '',
-    '## Understanding',
-    `Sanitized ticket payload (${sanitized.length} chars) was analyzed by the sandbox runner.`,
-    '',
-    '## Draft plan',
-    `- Restate scope: ${workItem.title.toLowerCase()}.`,
-    '- Identify touched modules and write a failing test sketch.',
-    '- Produce a draft patch; leave merge + edge cases to the human assignee.',
-    '',
-    '## Remaining work (human hand-off)',
-    '- Verify assumptions against the real repo.',
-    '- Complete implementation past the draft and run full CI.',
-  ].join('\n');
-}
-
 function makeArtifact(
   store: Store,
   job: AiJob,
   policy: Policy,
   kind: Artifact['kind'],
   content: string,
+  boardAttachmentId: string | null,
 ): Artifact {
   const id = nextId('art');
-  store.attachmentCounter += 1;
   return {
     id,
     aiJobId: job.id,
     kind,
     storage: {
       provider: policy.cloud.provider,
-      // Hard rule: storage URI must respect tenant cloud policy (provider + region).
       uri: `${policy.cloud.provider}://${policy.cloud.region}/artifacts/${id}.md`,
     },
     checksum: createHash('sha256').update(content).digest('hex'),
-    boardAttachmentId: `att-${store.attachmentCounter}`,
+    boardAttachmentId,
     preview: content.split('\n').slice(0, 2).join(' ').slice(0, 140),
     content,
   };
 }
 
 /**
- * Run the full pipeline for a freshly created job. Synchronous by design.
+ * Run the full pipeline. Async so real ModelRunner / BoardConnector can await I/O.
  * Returns the job in its terminal state (ready_for_human | blocked_pii | failed).
  */
-export function runJobPipeline(
+export async function runJobPipeline(
   store: Store,
   job: AiJob,
   workItem: WorkItem,
   policy: Policy,
   targetCompletionPercent: number,
-): AiJob {
-  // --- sanitizing (mandatory PII gate; nothing reaches the model without it) ---
+  deps: OrchestratorDeps = defaultDeps(store),
+): Promise<AiJob> {
   transition(store, job, 'sanitizing', { workItemId: workItem.id }, [1, 2, 3, 5]);
-  const { sanitized, report } = sanitize(
-    `${workItem.title}\n\n${workItem.description}`,
-    policy,
-  );
+  const { sanitized, report } = sanitize(`${workItem.title}\n\n${workItem.description}`, policy);
   job.piiReport = report;
 
   if (report.blocks.length > 0) {
-    // Blocked: never enter 'running', never consume tokens.
     workItem.aiStatus = 'blocked_pii';
     workItem.lastAiJobId = job.id;
     workItem.updatedAt = new Date().toISOString();
@@ -143,7 +128,6 @@ export function runJobPipeline(
     return job;
   }
 
-  // --- token budget gate: estimate BEFORE the model runs ---
   const estimate = estimateTokens(sanitized.length);
   if (estimate.total > policy.tokenBudget.maxTotalTokens) {
     workItem.aiStatus = 'failed';
@@ -176,41 +160,98 @@ export function runJobPipeline(
     return job;
   }
 
-  // --- running (only reachable after a clean sanitizing step) ---
   workItem.aiStatus = 'running';
   transition(
     store,
     job,
     'running',
-    { workItemId: workItem.id, model: policy.model.modelId, cloud: `${policy.cloud.provider}/${policy.cloud.region}` },
+    {
+      workItemId: workItem.id,
+      model: policy.model.modelId,
+      cloud: `${policy.cloud.provider}/${policy.cloud.region}`,
+      runner: deps.modelRunner.kind,
+    },
     [1, 2, 3, 4, 5],
   );
-  const draft = runSandboxModel(workItem, sanitized, targetCompletionPercent);
-  job.tokenUsage = estimate; // deterministic runner: actual == estimate
 
-  // --- packaging: summary + patch artifacts with checksums ---
-  transition(store, job, 'packaging', { workItemId: workItem.id, tokens: job.tokenUsage.total }, [1, 2, 3, 4]);
-  job.artifacts = [
-    makeArtifact(store, job, policy, 'summary', draft),
-    makeArtifact(
+  let draft: string;
+  try {
+    const result = await deps.modelRunner.run({
+      workItem,
+      sanitized,
+      policy,
+      targetCompletionPercent,
+    });
+    draft = result.draft;
+    job.model = { provider: result.provider, modelId: result.modelId };
+  } catch (err) {
+    workItem.aiStatus = 'failed';
+    workItem.lastAiJobId = job.id;
+    workItem.updatedAt = new Date().toISOString();
+    job.error = err instanceof Error ? err.message : 'model_runner_failed';
+    job.tokenUsage = { input: 0, output: 0, total: 0 };
+    job.finishedAt = new Date().toISOString();
+    transition(
       store,
       job,
-      policy,
-      'patch',
-      `--- a/${workItem.board.issueKey.toLowerCase()}.md\n+++ b/${workItem.board.issueKey.toLowerCase()}.md\n@@ draft @@\n+${draft.split('\n')[0]}\n`,
-    ),
-  ];
+      'failed',
+      { workItemId: workItem.id, error: job.error },
+      [1, 2, 3, 4],
+    );
+    return job;
+  }
 
-  // --- attaching: write-back to the board ---
-  transition(
-    store,
-    job,
-    'attaching',
-    { workItemId: workItem.id, artifactIds: job.artifacts.map((a) => a.id) },
-    [1, 2, 3, 6],
-  );
+  job.tokenUsage = estimate;
 
-  // --- ready_for_human: hand-off package complete ---
+  transition(store, job, 'packaging', { workItemId: workItem.id, tokens: job.tokenUsage.total }, [1, 2, 3, 4]);
+
+  transition(store, job, 'attaching', { workItemId: workItem.id, board: deps.boardConnector.kind }, [1, 2, 3, 6]);
+  try {
+    const summaryAttach = await deps.boardConnector.addAttachment(workItem, {
+      filename: `aplifyai-ai-${job.id}-summary.md`,
+      contentType: 'text/markdown',
+      body: draft,
+    });
+    const patchBody = `--- a/${workItem.board.issueKey.toLowerCase()}.md\n+++ b/${workItem.board.issueKey.toLowerCase()}.md\n@@ draft @@\n+${draft.split('\n')[0]}\n`;
+    const patchAttach = await deps.boardConnector.addAttachment(workItem, {
+      filename: `aplifyai-ai-${job.id}.patch`,
+      contentType: 'text/x-diff',
+      body: patchBody,
+    });
+
+    job.artifacts = [
+      makeArtifact(store, job, policy, 'summary', draft, summaryAttach.attachmentId),
+      makeArtifact(store, job, policy, 'patch', patchBody, patchAttach.attachmentId),
+    ];
+
+    const comment = await deps.boardConnector.addComment(
+      workItem,
+      `AplifyAI AI draft ready (${targetCompletionPercent}% target). Artifacts: ${job.artifacts
+        .map((a) => a.boardAttachmentId)
+        .join(', ')}. Review before human hand-off.`,
+    );
+    emitAudit(
+      store,
+      ACTOR,
+      'board.writeback.completed',
+      { type: 'work_item', id: workItem.id },
+      {
+        jobId: job.id,
+        commentId: comment.commentId,
+        attachmentIds: job.artifacts.map((artifact) => artifact.boardAttachmentId),
+      },
+      [1, 2, 3, 6],
+    );
+  } catch (err) {
+    workItem.aiStatus = 'failed';
+    workItem.lastAiJobId = job.id;
+    workItem.updatedAt = new Date().toISOString();
+    job.error = err instanceof Error ? err.message : 'board_writeback_failed';
+    job.finishedAt = new Date().toISOString();
+    transition(store, job, 'failed', { workItemId: workItem.id, error: job.error }, [1, 2, 3, 6]);
+    return job;
+  }
+
   job.finishedAt = new Date().toISOString();
   workItem.aiStatus = 'ready_for_human';
   workItem.lastAiJobId = job.id;

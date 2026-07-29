@@ -1,0 +1,3 @@
+# Bootstrap this bucket once, then replace with its globally unique name.
+bucket = "jobseek-459701-aplifyai-tfstate"
+prefix = "aplifyai/dev"

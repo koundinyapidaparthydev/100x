@@ -1,5 +1,5 @@
 /**
- * Typed client for the single OffshoreHelper backend.
+ * Typed client for the single AplifyAI backend.
  * Both web and mobile apps use this — there is exactly one API.
  * In dev, each Vite server proxies `/api` → http://localhost:4000.
  */
@@ -10,9 +10,12 @@ import type {
   ApprovalItem,
   ApprovalStatus,
   AuditEvent,
+  AuthSession,
+  AuthUser,
   BoardConnectRequest,
   BoardHealth,
   DashboardStats,
+  LoginRequest,
   NotificationItem,
   Policy,
   PolicyUpdate,
@@ -35,8 +38,9 @@ export class ApiError extends Error {
 
 let actorId: string | null = null;
 let actorSurface: 'web' | 'mobile' = 'web';
+let sessionToken: string | null = null;
 
-/** Demo session identity used for audit attribution (H0 — not real SSO). */
+/** Demo session identity used for audit attribution (H0 compat headers). */
 export function setApiActor(id: string | null, surface: 'web' | 'mobile' = 'web'): void {
   actorId = id;
   actorSurface = surface;
@@ -46,11 +50,28 @@ export function getApiActor(): { id: string | null; surface: 'web' | 'mobile' } 
   return { id: actorId, surface: actorSurface };
 }
 
+/** H1 Bearer session token. Preferred over legacy actor headers. */
+export function setSessionToken(token: string | null): void {
+  sessionToken = token;
+}
+
+export function getSessionToken(): string | null {
+  return sessionToken;
+}
+
+export function clearSession(): void {
+  sessionToken = null;
+  actorId = null;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(init?.headers as Record<string, string> | undefined),
   };
+  if (sessionToken) {
+    headers.Authorization = `Bearer ${sessionToken}`;
+  }
   if (actorId) {
     headers['x-actor-id'] = actorId;
     headers['x-actor-surface'] = actorSurface;
@@ -83,9 +104,31 @@ function qs(params: Record<string, string | number | boolean | undefined>): stri
 }
 
 export const api = {
-  health: () => request<{ status: 'ok'; version: string }>('/health'),
+  health: () =>
+    request<{ status: 'ok'; version: string; modelRunner?: string; boardConnector?: string }>('/health'),
 
-  // Work items (Jira tickets mirrored into OffshoreHelper)
+  // Auth
+  listDemoUsers: () =>
+    request<Array<Pick<AuthUser, 'id' | 'displayName' | 'email' | 'role'>>>('/auth/demo-users'),
+  login: async (body: LoginRequest) => {
+    const res = await request<{ session: AuthSession }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    setSessionToken(res.session.token);
+    setApiActor(res.session.user.id, res.session.user.surface);
+    return res;
+  },
+  logout: async () => {
+    try {
+      await request<{ ok: boolean }>('/auth/logout', { method: 'POST', body: JSON.stringify({}) });
+    } finally {
+      clearSession();
+    }
+  },
+  me: () => request<{ user: AuthUser }>('/auth/me'),
+
+  // Work items
   listWorkItems: (filter?: {
     aiStatus?: AiStatus;
     aiFirst?: boolean;
@@ -101,7 +144,6 @@ export const api = {
       })}`,
     ),
   getWorkItem: (id: string) => request<WorkItem>(`/work-items/${encodeURIComponent(id)}`),
-  /** Manager swipe decision. aiFirst=true enqueues an AI job through the PII gate. */
   triageWorkItem: (id: string, body: TriageRequest) =>
     request<TriageResponse>(`/work-items/${encodeURIComponent(id)}/triage`, {
       method: 'POST',
@@ -118,7 +160,6 @@ export const api = {
       body: JSON.stringify({ reason }),
     }),
 
-  // Boards (Jira projects + sync health)
   listBoards: () => request<BoardHealth[]>('/boards'),
   connectBoard: (body: BoardConnectRequest) =>
     request<BoardHealth>('/boards/connect', {
@@ -131,11 +172,9 @@ export const api = {
       body: JSON.stringify({}),
     }),
 
-  // AI jobs
   listJobs: () => request<AiJob[]>('/ai-jobs'),
   getJob: (id: string) => request<AiJob>(`/ai-jobs/${encodeURIComponent(id)}`),
 
-  // Policies
   listPolicies: () => request<Policy[]>('/policies'),
   getPolicy: (id: string) => request<Policy>(`/policies/${encodeURIComponent(id)}`),
   updatePolicy: (id: string, body: PolicyUpdate) =>
@@ -144,13 +183,9 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  // Audit
   listAuditEvents: () => request<AuditEvent[]>('/audit-events'),
-
-  // Dashboard aggregate
   stats: () => request<DashboardStats>('/stats'),
 
-  // Approvals (high-risk AI actions awaiting manager decision)
   listApprovals: () => request<ApprovalItem[]>('/approvals'),
   decideApproval: (id: string, decision: Exclude<ApprovalStatus, 'pending'>) =>
     request<ApprovalItem>(`/approvals/${encodeURIComponent(id)}/decision`, {
@@ -158,7 +193,6 @@ export const api = {
       body: JSON.stringify({ decision }),
     }),
 
-  // Notifications
   listNotifications: () => request<NotificationItem[]>('/notifications'),
   markNotificationRead: (id: string) =>
     request<NotificationItem>(`/notifications/${encodeURIComponent(id)}/read`, {

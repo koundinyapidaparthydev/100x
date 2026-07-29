@@ -9,24 +9,28 @@ import type {
   BoardConnectRequest,
   BoardHealth,
   DashboardStats,
+  LoginRequest,
   PolicyUpdate,
   TriageRequest,
   TriageResponse,
   WorkItem,
   WorkItemAssigneeUpdate,
 } from '../../shared/types';
+import {
+  actorFromAuth,
+  demoAuthEnabled,
+  issueSession,
+  listDemoUsers,
+  requireRoles,
+  revokeSession,
+  type AuthedRequest,
+} from './auth';
+import type { OrchestratorDeps } from './orchestrator';
 import { createJob, runJobPipeline } from './orchestrator';
+import { scheduleSave } from './persist';
 import { emitAudit, nextId, ORG_POLICY_ID, type Store, TENANT_ID } from './store';
 
 const MS_24H = 24 * 3_600_000;
-
-function actorFrom(req: { headers: Record<string, unknown> }): { type: 'manager_mobile' | 'user'; id: string } {
-  const raw = req.headers['x-actor-id'];
-  const id = typeof raw === 'string' && raw.trim() ? raw.trim() : 'manager-1';
-  const surface = req.headers['x-actor-surface'];
-  const type = surface === 'web' ? 'user' : 'manager_mobile';
-  return { type, id };
-}
 
 function boardHealth(store: Store): BoardHealth[] {
   return store.boards.map((board) => {
@@ -47,15 +51,113 @@ function boardHealth(store: Store): BoardHealth[] {
   });
 }
 
-export function createRouter(store: Store): Router {
+export function createRouter(store: Store, deps: OrchestratorDeps): Router {
   const router = Router();
 
   const findWorkItem = (id: string) => store.workItems.find((w) => w.id === id);
   const orgPolicy = () => store.policies.find((p) => p.id === ORG_POLICY_ID) ?? store.policies[0];
+  const touch = () => scheduleSave(store);
+  const upsertBoardIssue = (issue: Awaited<ReturnType<OrchestratorDeps['boardConnector']['syncProject']>>['issues'][number]) => {
+    const existing = store.workItems.find(
+      (item) => item.board.issueId === issue.issueId || item.board.issueKey === issue.issueKey,
+    );
+    if (existing) {
+      existing.board.projectId = issue.projectId;
+      existing.title = issue.title;
+      existing.description = issue.description;
+      existing.status = issue.status;
+      existing.assigneeExternalId = issue.assigneeExternalId;
+      existing.labels = [...issue.labels];
+      existing.priority = issue.priority;
+      existing.updatedAt = issue.updatedAt;
+      return existing;
+    }
+    const item: WorkItem = {
+      id: nextId('wi'),
+      tenantId: TENANT_ID,
+      board: {
+        type: 'jira',
+        projectId: issue.projectId,
+        issueKey: issue.issueKey,
+        issueId: issue.issueId,
+      },
+      title: issue.title,
+      description: issue.description,
+      status: issue.status,
+      assigneeExternalId: issue.assigneeExternalId,
+      labels: [...issue.labels],
+      priority: issue.priority,
+      updatedAt: issue.updatedAt,
+      aiFirst: false,
+      targetCompletionPercent: orgPolicy()?.targetCompletionPercentDefault ?? 20,
+      aiStatus: 'none',
+      lastAiJobId: null,
+      lastTriageDecision: null,
+    };
+    store.workItems.push(item);
+    return item;
+  };
+
+  // -- auth (H1) ---------------------------------------------------------------
+  router.get('/auth/demo-users', (_req, res) => {
+    if (!demoAuthEnabled()) {
+      res.status(404).json({ error: 'not found' });
+      return;
+    }
+    res.json(listDemoUsers().map(({ id, displayName, email, role }) => ({ id, displayName, email, role })));
+  });
+
+  router.post('/auth/login', (req, res) => {
+    const body = (req.body ?? {}) as Partial<LoginRequest>;
+    if (typeof body.identity !== 'string' || !body.identity.trim()) {
+      res.status(400).json({ error: 'body.identity is required (founder|manager|engineer|auditor or email)' });
+      return;
+    }
+    if (!demoAuthEnabled()) {
+      res.status(404).json({ error: 'demo login disabled' });
+      return;
+    }
+    const session = issueSession({
+      identity: body.identity,
+      surface: body.surface === 'mobile' ? 'mobile' : 'web',
+    });
+    if (!session) {
+      res.status(401).json({ error: 'unknown identity' });
+      return;
+    }
+    emitAudit(
+      store,
+      { type: session.user.surface === 'mobile' ? 'manager_mobile' : 'user', id: session.user.id },
+      'auth.login',
+      { type: 'session', id: session.user.id },
+      { role: session.user.role, surface: session.user.surface },
+      [1, 2],
+    );
+    touch();
+    res.json({ session });
+  });
+
+  router.post('/auth/logout', (req: AuthedRequest, res) => {
+    if (req.authToken) revokeSession(req.authToken);
+    res.json({ ok: true });
+  });
+
+  router.get('/auth/me', (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    res.json({ user: req.auth });
+  });
 
   // -- health ----------------------------------------------------------------
   router.get('/health', (_req, res) => {
-    res.json({ status: 'ok', version: '0.1.0' });
+    res.json({
+      status: 'ok',
+      version: '0.2.0',
+      modelRunner: deps.modelRunner.kind,
+      boardConnector: deps.boardConnector.kind,
+    });
   });
 
   // -- work items --------------------------------------------------------------
@@ -87,8 +189,8 @@ export function createRouter(store: Store): Router {
     res.json(item);
   });
 
-  router.patch('/work-items/:id/assignee', (req, res) => {
-    const item = findWorkItem(req.params.id);
+  router.patch('/work-items/:id/assignee', requireRoles('founder', 'manager'), (req, res) => {
+    const item = findWorkItem(String(req.params.id));
     if (!item) {
       res.status(404).json({ error: `work item not found: ${req.params.id}` });
       return;
@@ -106,17 +208,18 @@ export function createRouter(store: Store): Router {
     item.updatedAt = new Date().toISOString();
     emitAudit(
       store,
-      actorFrom(req),
+      actorFromAuth(req as AuthedRequest),
       'work_item.assignee_updated',
       { type: 'work_item', id: item.id },
       { assigneeExternalId: item.assigneeExternalId, issueKey: item.board.issueKey },
       [1, 2, 3],
     );
+    touch();
     res.json(item);
   });
 
-  router.post('/work-items/:id/request-access', (req, res) => {
-    const item = findWorkItem(req.params.id);
+  router.post('/work-items/:id/request-access', requireRoles('founder', 'manager'), (req, res) => {
+    const item = findWorkItem(String(req.params.id));
     if (!item) {
       res.status(404).json({ error: `work item not found: ${req.params.id}` });
       return;
@@ -146,19 +249,20 @@ export function createRouter(store: Store): Router {
     });
     emitAudit(
       store,
-      actorFrom(req),
+      actorFromAuth(req as AuthedRequest),
       'pii.access_requested',
       { type: 'approval', id: approval.id },
       { workItemId: item.id, issueKey: item.board.issueKey },
       [1, 2, 5],
     );
+    touch();
     res.status(201).json(approval);
   });
 
   // Manager swipe decision (mobile). aiFirst=true runs the orchestrator pipeline
   // SYNCHRONOUSLY so the response carries the job's terminal state.
-  router.post('/work-items/:id/triage', (req, res) => {
-    const item = findWorkItem(req.params.id);
+  router.post('/work-items/:id/triage', requireRoles('founder', 'manager'), async (req, res) => {
+    const item = findWorkItem(String(req.params.id));
     if (!item) {
       res.status(404).json({ error: `work item not found: ${req.params.id}` });
       return;
@@ -187,7 +291,7 @@ export function createRouter(store: Store): Router {
       item.lastTriageDecision = 'human_first';
       emitAudit(
         store,
-        actorFrom(req),
+        actorFromAuth(req as AuthedRequest),
         'triage.human_first',
         { type: 'work_item', id: item.id },
         { issueKey: item.board.issueKey, targetCompletionPercent: item.targetCompletionPercent },
@@ -198,7 +302,7 @@ export function createRouter(store: Store): Router {
       item.lastTriageDecision = 'ai_first';
       emitAudit(
         store,
-        actorFrom(req),
+        actorFromAuth(req as AuthedRequest),
         'triage.ai_first',
         { type: 'work_item', id: item.id },
         { issueKey: item.board.issueKey, targetCompletionPercent: item.targetCompletionPercent },
@@ -206,9 +310,10 @@ export function createRouter(store: Store): Router {
       );
       item.aiStatus = 'queued';
       const job = createJob(store, item, policy);
-      runJobPipeline(store, job, item, policy, item.targetCompletionPercent);
+      await runJobPipeline(store, job, item, policy, item.targetCompletionPercent, deps);
       response = { workItem: item, job };
     }
+    touch();
     res.json(response);
   });
 
@@ -217,7 +322,7 @@ export function createRouter(store: Store): Router {
     res.json(boardHealth(store));
   });
 
-  router.post('/boards/connect', (req, res) => {
+  router.post('/boards/connect', requireRoles('founder', 'manager'), async (req, res) => {
     const body = (req.body ?? {}) as Partial<BoardConnectRequest>;
     if (typeof body.projectId !== 'string' || !body.projectId.trim()) {
       res.status(400).json({ error: 'body.projectId is required' });
@@ -232,13 +337,21 @@ export function createRouter(store: Store): Router {
       res.status(409).json({ error: `board already connected: ${projectId}` });
       return;
     }
+    try {
+      await deps.boardConnector.connectProject(projectId, body.name.trim());
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'board connection failed' });
+      return;
+    }
     const now = new Date().toISOString();
-    store.boards.push({
-      projectId,
-      name: body.name.trim(),
-      connectedAt: now,
-      lastSyncAt: now,
-    });
+    if (!store.boards.some((board) => board.projectId === projectId)) {
+      store.boards.push({
+        projectId,
+        name: body.name.trim(),
+        connectedAt: now,
+        lastSyncAt: now,
+      });
+    }
 
     const seeds = Array.isArray(body.seedIssues) ? body.seedIssues : [];
     for (const [index, seed] of seeds.entries()) {
@@ -272,31 +385,45 @@ export function createRouter(store: Store): Router {
 
     emitAudit(
       store,
-      actorFrom(req),
+      actorFromAuth(req as AuthedRequest),
       'board.connected',
       { type: 'board', id: projectId },
       { name: body.name.trim(), seeded: seeds.length },
       [1, 2, 3],
     );
+    touch();
     res.status(201).json(boardHealth(store).find((b) => b.projectId === projectId));
   });
 
-  router.post('/boards/:projectId/sync', (req, res) => {
-    const projectId = req.params.projectId.toUpperCase();
+  router.post('/boards/:projectId/sync', requireRoles('founder', 'manager'), async (req, res) => {
+    const projectId = String(req.params.projectId ?? '').toUpperCase();
+    if (!projectId) {
+      res.status(400).json({ error: 'projectId is required' });
+      return;
+    }
     const board = store.boards.find((b) => b.projectId === projectId);
     if (!board) {
       res.status(404).json({ error: `board not connected: ${projectId}` });
       return;
     }
+    let syncResult: Awaited<ReturnType<OrchestratorDeps['boardConnector']['syncProject']>>;
+    try {
+      syncResult = await deps.boardConnector.syncProject(projectId);
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'board sync failed' });
+      return;
+    }
+    for (const issue of syncResult.issues) upsertBoardIssue(issue);
     board.lastSyncAt = new Date().toISOString();
     emitAudit(
       store,
-      actorFrom(req),
+      actorFromAuth(req as AuthedRequest),
       'board.synced',
       { type: 'board', id: projectId },
-      { activeIssues: store.workItems.filter((w) => w.board.projectId === projectId).length },
+      { activeIssues: syncResult.issueCount, upsertedIssues: syncResult.issues.length },
       [1, 2, 3],
     );
+    touch();
     res.json(boardHealth(store).find((b) => b.projectId === projectId));
   });
 
@@ -328,7 +455,7 @@ export function createRouter(store: Store): Router {
     res.json(policy);
   });
 
-  router.patch('/policies/:id', (req, res) => {
+  router.patch('/policies/:id', requireRoles('founder', 'manager'), (req, res) => {
     const policy = store.policies.find((p) => p.id === req.params.id);
     if (!policy) {
       res.status(404).json({ error: `policy not found: ${req.params.id}` });
@@ -385,12 +512,13 @@ export function createRouter(store: Store): Router {
 
     emitAudit(
       store,
-      actorFrom(req),
+      actorFromAuth(req as AuthedRequest),
       'policy.updated',
       { type: 'policy', id: policy.id },
       { changed },
       [1, 2, 3, 4],
     );
+    touch();
     res.json(policy);
   });
 
@@ -445,11 +573,11 @@ export function createRouter(store: Store): Router {
   });
 
   // -- approvals ---------------------------------------------------------------------
-  router.get('/approvals', (_req, res) => {
+  router.get('/approvals', requireRoles('founder', 'manager', 'auditor'), (_req, res) => {
     res.json(store.approvals);
   });
 
-  router.post('/approvals/:id/decision', (req, res) => {
+  router.post('/approvals/:id/decision', requireRoles('founder', 'manager'), (req, res) => {
     const approval = store.approvals.find((a) => a.id === req.params.id);
     if (!approval) {
       res.status(404).json({ error: `approval not found: ${req.params.id}` });
@@ -463,12 +591,13 @@ export function createRouter(store: Store): Router {
     approval.status = decision;
     emitAudit(
       store,
-      actorFrom(req),
+      actorFromAuth(req as AuthedRequest),
       `approval.${decision}`,
       { type: 'approval', id: approval.id },
       { workItemId: approval.workItemId, title: approval.title, risk: approval.risk },
       [1, 2, 4],
     );
+    touch();
     res.json(approval);
   });
 
@@ -477,18 +606,20 @@ export function createRouter(store: Store): Router {
     res.json([...store.notifications].reverse());
   });
 
-  router.post('/notifications/:id/read', (req, res) => {
+  router.post('/notifications/:id/read', requireRoles('founder', 'manager'), (req, res) => {
     const ntf = store.notifications.find((n) => n.id === req.params.id);
     if (!ntf) {
       res.status(404).json({ error: `notification not found: ${req.params.id}` });
       return;
     }
     ntf.read = true;
+    touch();
     res.json(ntf);
   });
 
-  router.post('/notifications/read-all', (_req, res) => {
+  router.post('/notifications/read-all', requireRoles('founder', 'manager'), (_req, res) => {
     for (const n of store.notifications) n.read = true;
+    touch();
     res.json({ ok: true, count: store.notifications.length });
   });
 

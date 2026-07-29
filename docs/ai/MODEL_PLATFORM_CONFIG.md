@@ -28,10 +28,10 @@ Catalog is org-managed so employees pick only from approved models.
 
 “Platform” means where the agent operates on code and tools:
 
-- Managed OffshoreHelper runner  
-- Customer CI / agent VM  
-- Developer kit integrations (IDE agent kits, CLI runners)  
-- Future: desktop kit (not v1)  
+- Managed AplifyAI runner
+- Customer CI / agent VM
+- Developer kit integrations (IDE agent kits, CLI runners)
+- Future: desktop kit (not v1)
 
 Policy example:
 
@@ -55,15 +55,15 @@ Question customers ask: *Can AI change code in our kit?*
 
 `workspace_override` requires:
 
-- Employer enablement  
-- Audit of every file touch  
-- Optional manager approval above risk score  
+- Employer enablement
+- Audit of every file touch
+- Optional manager approval above risk score
 
 ## Public vs private GenAI area
 
-- **Public**: approved vendor APIs  
-- **Private / customer GenAI area**: inference stays in customer network  
-- **Managed GenAI area**: OffshoreHelper-hosted private-ish plane for smaller customers  
+- **Public**: approved vendor APIs
+- **Private / customer GenAI area**: inference stays in customer network
+- **Managed GenAI area**: AplifyAI-hosted private-ish plane for smaller customers
 
 See [CLOUD_CUSTOMIZATION.md](../integrations/CLOUD_CUSTOMIZATION.md).
 
@@ -71,15 +71,15 @@ See [CLOUD_CUSTOMIZATION.md](../integrations/CLOUD_CUSTOMIZATION.md).
 
 Employees may set personal defaults **within** org allowlists:
 
-- Preferred approved model  
-- Notification prefs when AI draft ready  
-- Local kit path / override preference if permitted  
+- Preferred approved model
+- Notification prefs when AI draft ready
+- Local kit path / override preference if permitted
 
 They cannot disable PII firewall or lower security level below org minimum.
 
 ## UX surfaces
 
-- Web: full policy editor, catalogs, locks  
-- Mobile: quick model profile picker only if unlocked; otherwise read-only display  
+- Web: full policy editor, catalogs, locks
+- Mobile: quick model profile picker only if unlocked; otherwise read-only display
 
 Related: [AI_DELEGATION.md](AI_DELEGATION.md), [../security/SECURITY.md](../security/SECURITY.md).
