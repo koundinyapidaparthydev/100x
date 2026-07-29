@@ -8,7 +8,8 @@ resource "google_cloud_run_v2_service" "api" {
   location = var.region
   ingress  = "INGRESS_TRAFFIC_ALL"
 
-  labels = local.default_labels
+  deletion_protection = var.environment == "production"
+  labels              = local.default_labels
 
   template {
     service_account = google_service_account.api.email
