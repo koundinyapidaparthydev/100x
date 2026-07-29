@@ -1,0 +1,186 @@
+/**
+ * OffshoreHelper shared theme — SINGLE SOURCE OF TRUTH for web + mobile.
+ * Both apps import this file from their src/index.css:
+ *     @import "tailwindcss";
+ *     @import "../../shared/theme.css";
+ * Do not fork these tokens per app; change them here so both stay in sync.
+ */
+
+@theme {
+  /* Surfaces (dark, enterprise) */
+  --color-background: #0a0a0b;
+  --color-on-background: #e4e4e7;
+  --color-surface: #0e0e10;
+  --color-surface-dim: #08080a;
+  --color-surface-bright: #1c1c1f;
+  --color-surface-variant: #1c1c1f;
+  --color-surface-container-lowest: #0a0a0b;
+  --color-surface-container-low: #121214;
+  --color-surface-container: #161618;
+  --color-surface-container-high: #1c1c1f;
+  --color-surface-container-highest: #27272a;
+  --color-on-surface: #e4e4e7;
+  --color-on-surface-variant: #a1a1aa;
+  --color-surface-tint: #3b82f6;
+
+  /* Outlines */
+  --color-outline: #52525b;
+  --color-outline-variant: #27272a;
+
+  /* Primary — emerald (AI success / healthy / token-efficient) */
+  --color-primary: #10b981;
+  --color-on-primary: #032018;
+  --color-primary-container: #064e3b;
+  --color-on-primary-container: #a7f3d0;
+  --color-primary-fixed: #34d399;
+  --color-primary-fixed-dim: #059669;
+
+  /* Secondary — indigo */
+  --color-secondary: #6366f1;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #312e81;
+  --color-on-secondary-container: #e0e7ff;
+  --color-secondary-fixed: #818cf8;
+  --color-secondary-fixed-dim: #4f46e5;
+
+  /* Tertiary — blue (primary actions, links, live status) */
+  --color-tertiary: #3b82f6;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #1e3a8a;
+  --color-on-tertiary-container: #bfdbfe;
+  --color-tertiary-fixed: #60a5fa;
+  --color-tertiary-fixed-dim: #2563eb;
+
+  /* Error */
+  --color-error: #ef4444;
+  --color-on-error: #ffffff;
+  --color-error-container: #7f1d1d;
+  --color-on-error-container: #fecaca;
+
+  /* Warning (PII blocked, approaching thresholds) */
+  --color-warning: #f59e0b;
+  --color-on-warning: #221000;
+  --color-warning-container: #78350f;
+  --color-on-warning-container: #fde68a;
+
+  /* Typography */
+  --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Spacing scale additions */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  --spacing-margin: 32px;
+  --spacing-gutter: 24px;
+  --spacing-container-max: 1440px;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+    overscroll-behavior: none;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-on-background);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #root {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-tertiary) 30%, transparent);
+    color: var(--color-on-surface);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-surface-container-highest);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-outline);
+  }
+}
+
+@layer utilities {
+  /* Type scale */
+  .font-display-lg { font-family: var(--font-sans); font-size: 48px; line-height: 56px; letter-spacing: -0.02em; font-weight: 600; }
+  .font-headline-lg { font-family: var(--font-sans); font-size: 32px; line-height: 40px; letter-spacing: -0.01em; font-weight: 600; }
+  .font-headline-md { font-family: var(--font-sans); font-size: 24px; line-height: 32px; font-weight: 500; }
+  .font-headline-sm { font-family: var(--font-sans); font-size: 20px; line-height: 28px; font-weight: 500; }
+  .font-body-lg { font-family: var(--font-sans); font-size: 18px; line-height: 28px; font-weight: 400; }
+  .font-body-md { font-family: var(--font-sans); font-size: 16px; line-height: 24px; font-weight: 400; }
+  .font-body-sm { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 400; }
+  .font-label-md { font-family: var(--font-sans); font-size: 12px; line-height: 16px; letter-spacing: 0.05em; font-weight: 600; }
+  .font-label-sm { font-family: var(--font-sans); font-size: 10px; line-height: 12px; letter-spacing: 0.05em; font-weight: 700; }
+
+  .text-display-lg { font-size: 48px; line-height: 56px; letter-spacing: -0.02em; font-weight: 600; }
+  .text-headline-lg { font-size: 32px; line-height: 40px; letter-spacing: -0.01em; font-weight: 600; }
+  .text-headline-md { font-size: 24px; line-height: 32px; font-weight: 500; }
+  .text-headline-sm { font-size: 20px; line-height: 28px; font-weight: 500; }
+  .text-body-lg { font-size: 18px; line-height: 28px; font-weight: 400; }
+  .text-body-md { font-size: 16px; line-height: 24px; font-weight: 400; }
+  .text-body-sm { font-size: 14px; line-height: 20px; font-weight: 400; }
+  .text-label-md { font-size: 12px; line-height: 16px; letter-spacing: 0.05em; font-weight: 600; }
+  .text-label-sm { font-size: 10px; line-height: 12px; letter-spacing: 0.05em; font-weight: 700; }
+
+  /* Surfaces */
+  .glass-panel {
+    background: var(--color-surface-container);
+    border: 1px solid var(--color-outline-variant);
+  }
+  .mesh-background {
+    background-color: var(--color-background);
+  }
+  .cyan-glow {
+    box-shadow: 0 0 15px color-mix(in srgb, var(--color-tertiary) 30%, transparent);
+  }
+
+  /* Mobile helpers */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Entrance animations */
+  @keyframes oh-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes oh-slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in {
+    animation: oh-fade-in 0.5s ease both;
+  }
+  .animate-slide-up {
+    animation: oh-slide-up 0.5s ease both;
+  }
+}

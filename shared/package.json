@@ -1,0 +1,16 @@
+{
+  "name": "@offshorehelper/shared",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Shared contracts, API client and theme for the OffshoreHelper backend, web and mobile apps.",
+  "scripts": {
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "typescript": "~5.8.2",
+    "vitest": "^3.1.1"
+  }
+}
