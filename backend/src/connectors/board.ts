@@ -229,7 +229,7 @@ export function createBoardConnector(store: Store): BoardConnector {
   const base = process.env.JIRA_BASE_URL?.replace(/\/$/, '');
   const email = process.env.JIRA_EMAIL;
   const token = process.env.JIRA_API_TOKEN;
-  if (base && email && token) {
+  if (base && email && token && !token.startsWith('REPLACE_ME_') && token !== 'DISABLED') {
     return new JiraBoardConnector(base, email, token);
   }
   return new SandboxBoardConnector(store);

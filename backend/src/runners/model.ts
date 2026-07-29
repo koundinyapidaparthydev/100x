@@ -109,6 +109,8 @@ export class OpenAiModelRunner implements ModelRunner {
 
 export function createModelRunner(): ModelRunner {
   const key = process.env.OPENAI_API_KEY?.trim();
-  if (key) return new OpenAiModelRunner(key);
+  if (key && !key.startsWith('REPLACE_ME_') && key !== 'DISABLED') {
+    return new OpenAiModelRunner(key);
+  }
   return new SandboxModelRunner();
 }
