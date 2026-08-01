@@ -131,6 +131,7 @@ describe('triage: ai-first happy path', () => {
     const expected = [
       'job.state.queued',
       'job.state.sanitizing',
+      'job.state.enriching_mcp',
       'job.state.running',
       'job.state.packaging',
       'job.state.attaching',
@@ -464,6 +465,107 @@ describe('stats', () => {
     await req.post('/api/v1/work-items/wi-infra-221/triage').set('Authorization', `Bearer ${managerToken}`).send({ aiFirst: true });
     const res = await req.get('/api/v1/stats').expect(200);
     expect((res.body as DashboardStats).piiBlocks24h).toBe(1);
+  });
+});
+
+describe('onboarding', () => {
+  it('returns null profile then persists a free-plan profile with MCP stubs', async () => {
+    const empty = await req
+      .get('/api/v1/onboarding')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(empty.body.profile).toBeNull();
+
+    const profile = {
+      plan: 'free' as const,
+      completedAt: new Date().toISOString(),
+      selectedServices: ['jira', 'slack', 'github'],
+      otherByCategory: { boards: 'Shortcut' },
+      lite: { teamSize: '6-20' as const, biggestPain: 'Triage backlog' },
+      updatedAt: new Date().toISOString(),
+    };
+    const saved = await req
+      .put('/api/v1/onboarding')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ profile })
+      .expect(200);
+    expect(saved.body.profile.plan).toBe('free');
+    expect(saved.body.profile.selectedServices).toEqual(['jira', 'slack', 'github']);
+
+    const again = await req
+      .get('/api/v1/onboarding')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(again.body.profile.selectedServices).toContain('jira');
+
+    const policies = await req.get('/api/v1/policies').expect(200);
+    const org = (policies.body as Array<{ mcpAllowlist: Array<{ server: string }> }>)[0]!;
+    const servers = org.mcpAllowlist.map((e) => e.server);
+    expect(servers).toEqual(expect.arrayContaining(['jira', 'slack', 'github']));
+  });
+
+  it('rejects unauthenticated and invalid bodies', async () => {
+    await req.get('/api/v1/onboarding').expect(401);
+    await req
+      .put('/api/v1/onboarding')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ profile: { plan: 'free' } })
+      .expect(400);
+  });
+});
+
+describe('mcp connections', () => {
+  it('lists providers and connects / disconnects Jira with a permission level', async () => {
+    const providers = await req.get('/api/v1/mcp/providers').expect(200);
+    expect(providers.body.providers.length).toBeGreaterThan(10);
+    expect(providers.body.providers.some((p: { serviceId: string }) => p.serviceId === 'jira')).toBe(
+      true,
+    );
+
+    const empty = await req
+      .get('/api/v1/mcp/connections')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(empty.body.connections).toEqual([]);
+
+    const connected = await req
+      .post('/api/v1/mcp/connections/jira')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(201);
+    expect(connected.body.connection.status).toBe('connected');
+    expect(connected.body.connection.grantedTools).toContain('jira_get_issue');
+
+    const listed = await req
+      .get('/api/v1/mcp/connections')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(listed.body.connections).toHaveLength(1);
+
+    await req
+      .post('/api/v1/mcp/connections/jira/tools/jira_get_issue')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({})
+      .expect(200);
+
+    await req
+      .post('/api/v1/mcp/connections/jira/tools/jira_add_comment')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({})
+      .expect(403);
+
+    await req
+      .delete('/api/v1/mcp/connections/jira')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+  });
+
+  it('rejects connect for services without MCP', async () => {
+    await req
+      .post('/api/v1/mcp/connections/smartsheet')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(400);
   });
 });
 

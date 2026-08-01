@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { colors } from '@/src/ui';
 
 export default function TabsLayout() {
@@ -8,18 +8,37 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.surface },
-        headerTintColor: colors.primary,
+        headerStyle: {
+          backgroundColor: colors.surface,
+          shadowColor: 'transparent',
+          elevation: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        },
+        headerTintColor: colors.text,
+        headerTitleStyle: { fontWeight: '700', fontSize: 17 },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 2 },
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
+          height: 62,
+          paddingTop: 6,
+          paddingBottom: 8,
+        },
+        tabBarItemStyle: { borderRadius: 14, marginHorizontal: 4 },
+        tabBarActiveBackgroundColor: colors.primarySoft,
         headerRight: () => (
           <Pressable
             testID="notifications-button"
             accessibilityLabel="Notifications"
             onPress={() => router.push('/notifications')}
-            style={{ padding: 14 }}>
-            <MaterialCommunityIcons name="bell-outline" size={23} color={colors.primary} />
+            style={styles.bell}>
+            <View style={styles.bellShell}>
+              <MaterialCommunityIcons name="bell-outline" size={22} color={colors.primary} />
+            </View>
           </Pressable>
         ),
       }}>
@@ -66,3 +85,15 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  bell: { paddingHorizontal: 12, paddingVertical: 8 },
+  bellShell: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

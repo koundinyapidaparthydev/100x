@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="rocket.chat">
+  <rect width="64" height="64" rx="14" fill="#F5455C"/>
+  <path d="M18 40c8-18 20-26 30-28-2 10-10 22-28 30l-4-2 2-4z" fill="#fff"/>
+     <circle cx="40" cy="22" r="4" fill="#F5455C"/>
+</svg>

@@ -2,9 +2,9 @@
  * AI job orchestrator (docs/ai/AI_DELEGATION.md, docs/SCHEMA_SKETCH.md hard rules).
  *
  * State machine:
- *   queued → sanitizing → (blocked_pii | running) → packaging → attaching → ready_for_human
+ *   queued → sanitizing → enriching_mcp → (blocked_pii | running) → packaging → attaching → ready_for_human
  *
- * `enriching_mcp` is intentionally SKIPPED until MCP servers exist.
+ * `enriching_mcp` runs when the tenant has connected MCP providers; otherwise it is a no-op hop.
  *
  * Hard rules:
  *  - a job NEVER enters 'running' unless sanitizing succeeded
@@ -17,9 +17,10 @@
 import { createHash } from 'node:crypto';
 import type { AiJob, AiJobState, Artifact, Policy, WorkItem } from '../../shared/types';
 import type { BoardConnector } from './connectors/board';
-import { sanitize } from './pii';
+import { mergePiiReports, sanitize, sanitizeForWriteback } from './pii';
 import type { ModelRunner } from './runners/model';
 import { SandboxModelRunner } from './runners/model';
+import { enrichFromConnections } from './mcp/gateway';
 import { emitAudit, nextId, type Store, TENANT_ID } from './store';
 import { SandboxBoardConnector } from './connectors/board';
 
@@ -92,7 +93,10 @@ export async function runJobPipeline(
   deps: OrchestratorDeps = defaultDeps(store),
 ): Promise<AiJob> {
   transition(store, job, 'sanitizing', { workItemId: workItem.id }, [1, 2, 3, 5]);
-  const { sanitized, report } = sanitize(`${workItem.title}\n\n${workItem.description}`, policy);
+  const titleResult = sanitize(workItem.title, policy);
+  const bodyResult = sanitize(workItem.description, policy);
+  let report = mergePiiReports(titleResult.report, bodyResult.report);
+  let sanitized = `${titleResult.sanitized}\n\n${bodyResult.sanitized}`;
   job.piiReport = report;
 
   if (report.blocks.length > 0) {
@@ -160,6 +164,60 @@ export async function runJobPipeline(
     return job;
   }
 
+  const mcpConnections = store.mcpConnectionsByTenant[TENANT_ID] ?? [];
+  const enrichment = await enrichFromConnections(mcpConnections, workItem.board.issueKey);
+  transition(
+    store,
+    job,
+    'enriching_mcp',
+    {
+      workItemId: workItem.id,
+      mcpServers: enrichment.servers,
+      mcpCalls: enrichment.calls.length,
+    },
+    [1, 2, 5],
+  );
+
+  let modelInput = sanitized;
+  if (enrichment.snippets.length > 0) {
+    const mcpResult = sanitize(enrichment.snippets.join('\n'), policy);
+    report = mergePiiReports(report, mcpResult.report);
+    job.piiReport = report;
+    if (mcpResult.report.blocks.length > 0) {
+      workItem.aiStatus = 'blocked_pii';
+      workItem.lastAiJobId = job.id;
+      workItem.updatedAt = new Date().toISOString();
+      job.tokenUsage = { input: 0, output: 0, total: 0 };
+      job.finishedAt = new Date().toISOString();
+      transition(
+        store,
+        job,
+        'blocked_pii',
+        { workItemId: workItem.id, piiBlocks: report.blocks, source: 'mcp' },
+        [1, 2, 3, 5],
+      );
+      emitAudit(
+        store,
+        ACTOR,
+        'pii.block',
+        { type: 'work_item', id: workItem.id },
+        { jobId: job.id, categories: report.blocks, source: 'mcp' },
+        [5],
+      );
+      store.notifications.push({
+        id: nextId('ntf'),
+        kind: 'pii_block',
+        title: `PII block on ${workItem.board.issueKey}`,
+        body: `AI job blocked: restricted data in MCP context (${mcpResult.report.blocks.join(', ')}).`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        workItemId: workItem.id,
+      });
+      return job;
+    }
+    modelInput = `${sanitized}\n\n--- MCP context ---\n${mcpResult.sanitized}`;
+  }
+
   workItem.aiStatus = 'running';
   transition(
     store,
@@ -170,6 +228,7 @@ export async function runJobPipeline(
       model: policy.model.modelId,
       cloud: `${policy.cloud.provider}/${policy.cloud.region}`,
       runner: deps.modelRunner.kind,
+      mcpEnriched: enrichment.snippets.length > 0,
     },
     [1, 2, 3, 4, 5],
   );
@@ -178,7 +237,8 @@ export async function runJobPipeline(
   try {
     const result = await deps.modelRunner.run({
       workItem,
-      sanitized,
+      sanitized: modelInput,
+      sanitizedTitle: titleResult.sanitized,
       policy,
       targetCompletionPercent,
     });
@@ -200,6 +260,9 @@ export async function runJobPipeline(
     );
     return job;
   }
+
+  // Secondary scan: clear any PII the model echoed before board write-back.
+  draft = sanitizeForWriteback(draft, policy).sanitized;
 
   job.tokenUsage = estimate;
 

@@ -1,117 +1,102 @@
-import { useEffect, useState } from 'react';
-import { Cloud as CloudIcon, Globe, KeyRound, Lock, LockOpen, ShieldCheck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Cloud as CloudIcon, Globe, Lock } from 'lucide-react';
 import { api } from '@shared/api';
 import type { CloudProvider, Policy } from '@shared/types';
+import GovernanceNav from '../components/GovernanceNav';
 import { useAsync } from '../lib/useAsync';
-import { EmptyState, ErrorState, LoadingState } from '../components/AsyncStates';
-import Chip from '../components/Chip';
+import { AsyncBoundary, Card, Field, PageContainer, PageHeader, SaveBar, StatusBadge } from '../components/ui';
 import { cloudModeDisplay, humanize, providerDisplay } from '../lib/format';
-
-const inputClass =
-  'w-full h-9 bg-surface-variant border border-outline-variant/50 rounded text-body-sm text-on-surface px-3 outline-none focus:border-outline-variant disabled:opacity-60';
+import { readDemoSession } from '../lib/session';
 
 const PROVIDERS: CloudProvider[] = ['aws', 'azure', 'gcp', 'private'];
 const MODES: Policy['cloud']['mode'][] = ['public_managed', 'private_vpc', 'customer_cloud'];
+const selectClass =
+  'mt-1.5 min-h-10 w-full rounded-lg border border-outline-variant bg-surface px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:bg-surface-container disabled:text-on-surface-variant';
 
 export default function Cloud() {
+  const canManage = ['founder', 'manager'].includes(readDemoSession()?.role ?? '');
   const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), []);
-  const policy = policies?.[0] ?? null;
+  const policy = policies?.find((item) => item.scope === 'org') ?? policies?.[0] ?? null;
 
   const [provider, setProvider] = useState<CloudProvider>('azure');
   const [mode, setMode] = useState<Policy['cloud']['mode']>('private_vpc');
   const [region, setRegion] = useState('');
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const resetDraft = (source: Policy) => {
+    setProvider(source.cloud.provider);
+    setMode(source.cloud.mode);
+    setRegion(source.cloud.region);
+  };
 
   useEffect(() => {
-    if (!policy) return;
-    setProvider(policy.cloud.provider);
-    setMode(policy.cloud.mode);
-    setRegion(policy.cloud.region);
+    if (policy) resetDraft(policy);
   }, [policy]);
 
   const locked = policy?.locks.cloud ?? false;
+  const readOnly = locked || !canManage;
+  const dirty = useMemo(
+    () => Boolean(policy && (provider !== policy.cloud.provider || mode !== policy.cloud.mode || region !== policy.cloud.region)),
+    [mode, policy, provider, region],
+  );
 
   const save = async () => {
-    if (!policy) return;
+    if (!policy || readOnly) return;
     setSaving(true);
     setMessage(null);
     try {
       await api.updatePolicy(policy.id, {
         cloud: { provider, mode, region },
       });
-      setMessage({ tone: 'ok', text: 'Cloud configuration saved.' });
+      setMessage('Cloud runtime settings saved.');
       reload();
-    } catch (e) {
-      setMessage({ tone: 'err', text: e instanceof Error ? e.message : 'Save failed' });
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'Cloud runtime settings could not be saved.');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl">
-      <div className="flex justify-between items-end gap-md">
-        <div>
-          <h2 className="font-headline-lg text-headline-lg font-semibold text-on-surface">Cloud & Security</h2>
-          <p className="font-body-md text-body-md text-on-surface-variant mt-sm max-w-2xl">
-            Where AI jobs execute — provider, deployment mode, and region are set by policy and locked by the founder.
-          </p>
-        </div>
-        {policy && (
-          <div className="flex items-center gap-md shrink-0">
-            {message && (
-              <span className={`font-body-sm text-body-sm ${message.tone === 'ok' ? 'text-tertiary' : 'text-error'}`}>
-                {message.text}
-              </span>
-            )}
-            <button
-              type="button"
-              disabled={saving || locked}
-              onClick={save}
-              className="px-md py-sm rounded bg-tertiary text-on-tertiary font-label-md text-label-md font-bold hover:bg-tertiary-fixed transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save Changes'}
-            </button>
-          </div>
-        )}
-      </div>
+    <PageContainer width="form" className="flex flex-col gap-6">
+      <PageHeader
+        eyebrow="Governance / Policy workspace / Runtime"
+        title="Cloud runtime"
+        description="Set the provider, deployment mode, and region recorded on future AI jobs."
+        actions={locked ? <StatusBadge status="blocked" label="Editing locked by policy" /> : undefined}
+      />
 
-      {loading && <LoadingState label="Loading cloud configuration…" />}
-      {!loading && error && <ErrorState message={error} onRetry={reload} />}
-      {!loading && !error && !policy && (
-        <EmptyState
-          icon={<CloudIcon size={22} />}
-          title="No cloud configuration"
-          body="Create a policy to choose the cloud provider, deployment mode, and region for AI execution."
-        />
+      <GovernanceNav />
+      {!canManage && (
+        <p className="rounded-lg bg-surface-container px-3 py-2 text-sm text-on-surface-variant">
+          Your role can review cloud runtime settings but cannot change them.
+        </p>
       )}
 
-      {!loading && !error && policy && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg">
-          <div className="lg:col-span-2 glass-panel rounded-xl p-lg flex flex-col justify-between gap-xl">
-            <div className="flex justify-between items-start">
-              <div className="flex items-center gap-sm">
-                <CloudIcon size={32} className="text-tertiary" />
-                <h3 className="font-headline-md text-headline-md font-semibold text-on-surface">
-                  {providerDisplay(provider)}
-                </h3>
-              </div>
-              <div className="px-sm py-1 bg-tertiary/10 border border-tertiary/30 text-tertiary font-label-sm text-label-sm rounded uppercase tracking-wider flex items-center gap-xs">
-                <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
-                {region || policy.cloud.region}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
-              <label className="bg-surface-container-high p-md rounded border border-outline-variant flex flex-col gap-sm">
-                <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-xs">
-                  <CloudIcon size={14} /> Provider
-                </span>
+      <AsyncBoundary
+        loading={loading}
+        error={error}
+        empty={!loading && !error && !policy}
+        loadingLabel="Loading cloud runtime…"
+        emptyTitle="No policy configured"
+        emptyBody="Cloud runtime settings become available when an organization policy exists."
+        onRetry={reload}
+      >
+        {policy && (
+          <>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(17rem,0.6fr)]">
+              <Card
+                title="Execution configuration"
+                description={readOnly ? 'These fields are read-only for the current role or policy.' : 'Changes affect future jobs after you save.'}
+              >
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <label className="block text-sm font-medium text-on-surface">
+                    Provider
                 <select
-                  className={inputClass}
+                  className={selectClass}
                   value={provider}
-                  disabled={locked}
+                  disabled={readOnly}
                   onChange={(e) => setProvider(e.target.value as CloudProvider)}
                 >
                   {PROVIDERS.map((p) => (
@@ -120,26 +105,19 @@ export default function Cloud() {
                     </option>
                   ))}
                 </select>
-              </label>
-              <label className="bg-surface-container-high p-md rounded border border-outline-variant flex flex-col gap-sm">
-                <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-xs">
-                  <Globe size={14} /> Region
-                </span>
-                <input
-                  className={inputClass}
+                  </label>
+                  <Field
+                  label="Region"
                   value={region}
-                  disabled={locked}
+                  disabled={readOnly}
                   onChange={(e) => setRegion(e.target.value)}
                 />
-              </label>
-              <label className="bg-surface-container-high p-md rounded border border-outline-variant flex flex-col gap-sm">
-                <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-xs">
-                  <KeyRound size={14} /> Mode
-                </span>
+                  <label className="block text-sm font-medium text-on-surface">
+                    Deployment mode
                 <select
-                  className={inputClass}
+                  className={selectClass}
                   value={mode}
-                  disabled={locked}
+                  disabled={readOnly}
                   onChange={(e) => setMode(e.target.value as Policy['cloud']['mode'])}
                 >
                   {MODES.map((m) => (
@@ -148,59 +126,39 @@ export default function Cloud() {
                     </option>
                   ))}
                 </select>
-              </label>
-            </div>
-          </div>
+                  </label>
+                </div>
+              </Card>
 
-          <div className="glass-panel rounded-xl p-lg flex flex-col gap-md">
-            <div className="flex items-center gap-sm mb-xs">
-              <ShieldCheck size={24} className="text-on-surface" />
-              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">Execution Governance</h3>
-            </div>
-
-            <div className="flex justify-between items-center p-sm rounded bg-surface-container-highest border border-outline-variant/30">
-              <span className="font-body-sm text-body-sm text-on-surface">Cloud lock</span>
-              {locked ? (
-                <Chip tone="error">
-                  <Lock size={12} /> Locked
-                </Chip>
-              ) : (
-                <Chip tone="surface">
-                  <LockOpen size={12} /> Editable
-                </Chip>
-              )}
-            </div>
-            <div className="flex justify-between items-center p-sm rounded bg-surface-container-highest border border-outline-variant/30">
-              <span className="font-body-sm text-body-sm text-on-surface">Code override</span>
-              <Chip
-                tone={
-                  policy.platform.codeOverrideMode === 'forbidden'
-                    ? 'error'
-                    : policy.platform.codeOverrideMode === 'allowed_with_audit'
-                      ? 'warning'
-                      : 'tertiary'
-                }
-              >
-                {humanize(policy.platform.codeOverrideMode)}
-              </Chip>
-            </div>
-            <div className="flex justify-between items-center p-sm rounded bg-surface-container-highest border border-outline-variant/30">
-              <span className="font-body-sm text-body-sm text-on-surface">Budget exhaustion</span>
-              <Chip tone={policy.tokenBudget.onExhaustion === 'block' ? 'error' : 'warning'}>
-                {humanize(policy.tokenBudget.onExhaustion)}
-              </Chip>
-            </div>
-            <div className="flex justify-between items-center p-sm rounded bg-surface-container-highest border border-outline-variant/30">
-              <span className="font-body-sm text-body-sm text-on-surface">Security level</span>
-              <Chip tone="primary">{humanize(policy.securityLevel)}</Chip>
+              <Card title="Saved runtime" actions={<CloudIcon size={20} className="text-on-surface-variant" />}>
+                <dl className="space-y-3 text-sm">
+                  <div><dt className="text-on-surface-variant">Provider</dt><dd className="font-medium text-on-surface">{providerDisplay(policy.cloud.provider)}</dd></div>
+                  <div><dt className="text-on-surface-variant">Region</dt><dd className="flex items-center gap-1.5 text-on-surface"><Globe size={14} /> {policy.cloud.region}</dd></div>
+                  <div><dt className="text-on-surface-variant">Mode</dt><dd className="text-on-surface">{cloudModeDisplay(policy.cloud.mode)}</dd></div>
+                  <div className="flex items-center gap-2 border-t border-outline-variant pt-3 text-xs text-on-surface-variant">
+                    <Lock size={14} /> {locked ? 'Cloud setting lock is enabled.' : 'Cloud settings are editable.'}
+                  </div>
+                </dl>
+              </Card>
             </div>
 
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-auto pt-md border-t border-outline-variant">
-              Every job records its cloud execution (provider, mode, region) on the work item for audit.
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
+            <Card title="What this setting means" className="bg-surface-container-low">
+              <p className="text-sm leading-6 text-on-surface-variant">
+                The selected provider, mode, and region are passed into job records and runtime configuration.
+                This page does not verify network isolation, account ownership, deployment health, or the physical location of a provider's infrastructure.
+              </p>
+            </Card>
+            {message && <p className="text-sm text-on-surface-variant">{message}</p>}
+            <SaveBar
+              dirty={dirty && !readOnly}
+              saving={saving}
+              message="Cloud runtime has unsaved changes."
+              onSave={() => void save()}
+              onDiscard={() => resetDraft(policy)}
+            />
+          </>
+        )}
+      </AsyncBoundary>
+    </PageContainer>
   );
 }

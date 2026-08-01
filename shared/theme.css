@@ -4,64 +4,113 @@
  *     @import "tailwindcss";
  *     @import "../../shared/theme.css";
  * Do not fork these tokens per app; change them here so both stay in sync.
+ *
+ * Pastel token contract (downstream agents):
+ * - Paper: background / surface* remain warm off-white
+ * - Brand action: primary stays indigo (#4f63b6); do not restyle CTAs to pastels
+ * - Attention pastels: mint / butter / blush containers for state surfaces only
+ * - Radii: radius-card (cards), radius-chip (pills), radius-lg+ for soft panels
+ * - Elevation: shadow-card / shadow-sm — light only, no glow
+ * - Utilities: bg-mint-container, bg-butter-container, bg-blush-container,
+ *   rounded-card, rounded-chip, shadow-card
  */
 
 @theme {
-  /* Surfaces (dark, enterprise) */
-  --color-background: #0a0a0b;
-  --color-on-background: #e4e4e7;
-  --color-surface: #0e0e10;
-  --color-surface-dim: #08080a;
-  --color-surface-bright: #1c1c1f;
-  --color-surface-variant: #1c1c1f;
-  --color-surface-container-lowest: #0a0a0b;
-  --color-surface-container-low: #121214;
-  --color-surface-container: #161618;
-  --color-surface-container-high: #1c1c1f;
-  --color-surface-container-highest: #27272a;
-  --color-on-surface: #e4e4e7;
-  --color-on-surface-variant: #a1a1aa;
-  --color-surface-tint: #3b82f6;
+  /* Warm paper surfaces */
+  --color-background: #f6f3ec;
+  --color-on-background: #262522;
+  --color-surface: #fffef9;
+  --color-surface-dim: #efebe3;
+  --color-surface-bright: #ffffff;
+  --color-surface-variant: #ece7de;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #faf7f1;
+  --color-surface-container: #f3efe7;
+  --color-surface-container-high: #ebe6dc;
+  --color-surface-container-highest: #e2dcd0;
+  --color-on-surface: #262522;
+  --color-on-surface-variant: #6d6961;
+  --color-surface-tint: #4f63b6;
 
   /* Outlines */
-  --color-outline: #52525b;
-  --color-outline-variant: #27272a;
+  --color-outline: #aaa397;
+  --color-outline-variant: #ded9cf;
 
-  /* Primary — emerald (AI success / healthy / token-efficient) */
-  --color-primary: #10b981;
-  --color-on-primary: #032018;
-  --color-primary-container: #064e3b;
-  --color-on-primary-container: #a7f3d0;
-  --color-primary-fixed: #34d399;
-  --color-primary-fixed-dim: #059669;
+  /* Primary — restrained indigo (actions / focus; not pastel brand) */
+  --color-primary: #4f63b6;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #e5e8f7;
+  --color-on-primary-container: #2f3d79;
+  --color-primary-fixed: #6074c6;
+  --color-primary-fixed-dim: #40539f;
 
-  /* Secondary — indigo */
-  --color-secondary: #6366f1;
+  /* Secondary — muted plum */
+  --color-secondary: #795a7a;
   --color-on-secondary: #ffffff;
-  --color-secondary-container: #312e81;
-  --color-on-secondary-container: #e0e7ff;
-  --color-secondary-fixed: #818cf8;
-  --color-secondary-fixed-dim: #4f46e5;
+  --color-secondary-container: #f0e5ef;
+  --color-on-secondary-container: #553d56;
+  --color-secondary-fixed: #8a6a8b;
+  --color-secondary-fixed-dim: #684869;
 
-  /* Tertiary — blue (primary actions, links, live status) */
-  --color-tertiary: #3b82f6;
+  /* Tertiary remains an action alias for existing screens */
+  --color-tertiary: #4f63b6;
   --color-on-tertiary: #ffffff;
-  --color-tertiary-container: #1e3a8a;
-  --color-on-tertiary-container: #bfdbfe;
-  --color-tertiary-fixed: #60a5fa;
-  --color-tertiary-fixed-dim: #2563eb;
+  --color-tertiary-container: #e5e8f7;
+  --color-on-tertiary-container: #2f3d79;
+  --color-tertiary-fixed: #6074c6;
+  --color-tertiary-fixed-dim: #40539f;
 
   /* Error */
-  --color-error: #ef4444;
+  --color-error: #b3443f;
   --color-on-error: #ffffff;
-  --color-error-container: #7f1d1d;
-  --color-on-error-container: #fecaca;
+  --color-error-container: #f7e3df;
+  --color-on-error-container: #762d29;
 
   /* Warning (PII blocked, approaching thresholds) */
-  --color-warning: #f59e0b;
-  --color-on-warning: #221000;
-  --color-warning-container: #78350f;
-  --color-on-warning-container: #fde68a;
+  --color-warning: #94651e;
+  --color-on-warning: #ffffff;
+  --color-warning-container: #f7ead1;
+  --color-on-warning-container: #6c4815;
+
+  /* Semantic aliases */
+  --color-success: #3f7653;
+  --color-on-success: #ffffff;
+  --color-success-container: #e1eee4;
+  --color-on-success-container: #295138;
+  --color-danger: #b3443f;
+  --color-danger-container: #f7e3df;
+
+  /*
+   * Attention pastels — state surfaces for cards/strips (not brand).
+   * mint  → healthy / in-flight / info-adjacent attention
+   * butter → needs review / medium priority
+   * blush  → blocked / high risk / rejection-adjacent
+   */
+  --color-mint: #3f7a62;
+  --color-mint-container: #d8efe4;
+  --color-on-mint-container: #1f4a38;
+  --color-butter: #9a7420;
+  --color-butter-container: #f5ecc4;
+  --color-on-butter-container: #5c4510;
+  --color-blush: #b05a5a;
+  --color-blush-container: #f5ded9;
+  --color-on-blush-container: #6b2e2e;
+
+  /* Radii — larger soft surfaces */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-card: 1.25rem;
+  --radius-chip: 9999px;
+
+  /* Light elevation — no heavy glow */
+  --shadow-xs: 0 1px 2px rgb(38 37 34 / 0.04);
+  --shadow-sm: 0 1px 3px rgb(38 37 34 / 0.06), 0 1px 2px rgb(38 37 34 / 0.04);
+  --shadow-md: 0 4px 12px rgb(38 37 34 / 0.06), 0 1px 3px rgb(38 37 34 / 0.04);
+  --shadow-card: 0 2px 8px rgb(38 37 34 / 0.05), 0 1px 2px rgb(38 37 34 / 0.04);
+  --shadow-elevated: 0 8px 24px rgb(38 37 34 / 0.08), 0 2px 6px rgb(38 37 34 / 0.04);
 
   /* Typography */
   --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
@@ -76,9 +125,27 @@
   --spacing-xl: 32px;
   --spacing-2xl: 48px;
   --spacing-3xl: 64px;
-  --spacing-margin: 32px;
+  --spacing-margin: clamp(16px, 4vw, 32px);
   --spacing-gutter: 24px;
   --spacing-container-max: 1440px;
+
+  /*
+   * Restore max-w-{sm|md|lg|xl|2xl|…} to container sizes.
+   * Tailwind v4 prefers --spacing-* over --container-* for max-w when names
+   * collide, so custom --spacing-2xl (48px) made max-w-2xl 48px and crushed
+   * page copy into a one-word column. --max-width-* wins that lookup.
+   */
+  --max-width-xs: 20rem;
+  --max-width-sm: 24rem;
+  --max-width-md: 28rem;
+  --max-width-lg: 32rem;
+  --max-width-xl: 36rem;
+  --max-width-2xl: 42rem;
+  --max-width-3xl: 48rem;
+  --max-width-4xl: 56rem;
+  --max-width-5xl: 64rem;
+  --max-width-6xl: 72rem;
+  --max-width-7xl: 80rem;
 }
 
 @layer base {
@@ -93,6 +160,7 @@
     color: var(--color-on-background);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   #root {
@@ -102,7 +170,7 @@
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--color-tertiary) 30%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 22%, transparent);
     color: var(--color-on-surface);
   }
 
@@ -144,16 +212,18 @@
   .text-label-md { font-size: 12px; line-height: 16px; letter-spacing: 0.05em; font-weight: 600; }
   .text-label-sm { font-size: 10px; line-height: 12px; letter-spacing: 0.05em; font-weight: 700; }
 
-  /* Surfaces */
-  .glass-panel {
-    background: var(--color-surface-container);
-    border: 1px solid var(--color-outline-variant);
+  /* Pastel attention surface helpers */
+  .surface-mint {
+    background-color: var(--color-mint-container);
+    color: var(--color-on-mint-container);
   }
-  .mesh-background {
-    background-color: var(--color-background);
+  .surface-butter {
+    background-color: var(--color-butter-container);
+    color: var(--color-on-butter-container);
   }
-  .cyan-glow {
-    box-shadow: 0 0 15px color-mix(in srgb, var(--color-tertiary) 30%, transparent);
+  .surface-blush {
+    background-color: var(--color-blush-container);
+    color: var(--color-on-blush-container);
   }
 
   /* Mobile helpers */
@@ -169,21 +239,5 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
-  }
-
-  /* Entrance animations */
-  @keyframes aplifyai-fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  @keyframes aplifyai-slide-up {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .animate-fade-in {
-    animation: aplifyai-fade-in 0.5s ease both;
-  }
-  .animate-slide-up {
-    animation: aplifyai-slide-up 0.5s ease both;
   }
 }

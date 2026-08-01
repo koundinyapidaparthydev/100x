@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="azure">
+  <rect width="64" height="64" rx="14" fill="#0078D4"/>
+  <path fill="#fff" d="M28 14l-16 36h12l6-14 8 14h14L36 14H28zm2 10l8 18H24l6-18z"/>
+</svg>

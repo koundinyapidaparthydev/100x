@@ -17,12 +17,18 @@ export interface SessionRecord {
 }
 
 interface SessionClaims {
-  v: 1;
+  /** 1 = seeded demo user lookup; 2 = federated profile embedded in token */
+  v: 1 | 2;
   sub: string;
   surface: 'web' | 'mobile';
   iat: number;
   exp: number;
   nonce: string;
+  email?: string;
+  displayName?: string;
+  role?: UserRole;
+  tenantId?: string;
+  authProvider?: 'demo' | 'okta';
 }
 
 const SEEDED_USERS: AuthUser[] = [
@@ -107,21 +113,33 @@ function resolveIdentity(identity: string, surface: 'web' | 'mobile'): AuthUser 
   return null;
 }
 
-export function issueSession(body: LoginRequest): AuthSession | null {
-  if (!demoAuthEnabled()) return null;
-  const surface = body.surface ?? 'web';
-  const user = resolveIdentity(body.identity, surface);
-  if (!user) return null;
+function mintSession(user: AuthUser, opts?: { authProvider?: 'demo' | 'okta'; federated?: boolean }): AuthSession {
   const now = Date.now();
   const expiresAt = now + SESSION_TTL_MS;
-  const claims: SessionClaims = {
-    v: 1,
-    sub: user.id,
-    surface,
-    iat: now,
-    exp: expiresAt,
-    nonce: randomBytes(16).toString('base64url'),
-  };
+  const federated = opts?.federated === true;
+  const claims: SessionClaims = federated
+    ? {
+        v: 2,
+        sub: user.id,
+        surface: user.surface,
+        iat: now,
+        exp: expiresAt,
+        nonce: randomBytes(16).toString('base64url'),
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        tenantId: user.tenantId,
+        authProvider: opts?.authProvider ?? 'okta',
+      }
+    : {
+        v: 1,
+        sub: user.id,
+        surface: user.surface,
+        iat: now,
+        exp: expiresAt,
+        nonce: randomBytes(16).toString('base64url'),
+        authProvider: 'demo',
+      };
   const unsigned = `oh1.${encode(claims)}`;
   const token = `${unsigned}.${sign(unsigned)}`;
   return {
@@ -129,6 +147,19 @@ export function issueSession(body: LoginRequest): AuthSession | null {
     user,
     expiresAt: new Date(expiresAt).toISOString(),
   };
+}
+
+export function issueSession(body: LoginRequest): AuthSession | null {
+  if (!demoAuthEnabled()) return null;
+  const surface = body.surface ?? 'web';
+  const user = resolveIdentity(body.identity, surface);
+  if (!user) return null;
+  return mintSession(user, { authProvider: 'demo', federated: false });
+}
+
+/** Issue a session for an Okta (or other IdP) authenticated user. */
+export function issueFederatedSession(user: AuthUser, authProvider: 'okta' = 'okta'): AuthSession {
+  return mintSession(user, { authProvider, federated: true });
 }
 
 export function revokeSession(token: string): boolean {
@@ -147,13 +178,33 @@ export function getSession(token: string): SessionRecord | null {
     if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
     const claims = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString('utf8')) as Partial<SessionClaims>;
     if (
-      claims.v !== 1 ||
+      (claims.v !== 1 && claims.v !== 2) ||
       typeof claims.sub !== 'string' ||
       (claims.surface !== 'web' && claims.surface !== 'mobile') ||
       typeof claims.exp !== 'number' ||
       claims.exp <= Date.now()
     ) {
       return null;
+    }
+    if (claims.v === 2) {
+      if (
+        typeof claims.email !== 'string' ||
+        typeof claims.displayName !== 'string' ||
+        typeof claims.role !== 'string' ||
+        typeof claims.tenantId !== 'string' ||
+        !['founder', 'manager', 'engineer', 'auditor'].includes(claims.role)
+      ) {
+        return null;
+      }
+      const user: AuthUser = {
+        id: claims.sub,
+        email: claims.email,
+        displayName: claims.displayName,
+        role: claims.role,
+        tenantId: claims.tenantId,
+        surface: claims.surface,
+      };
+      return { token, user, expiresAt: claims.exp };
     }
     const seeded = SEEDED_USERS.find((candidate) => candidate.id === claims.sub);
     if (!seeded) return null;

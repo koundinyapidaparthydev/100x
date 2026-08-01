@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="planview">
+  <rect width="64" height="64" rx="14" fill="#E31837"/>
+  <path fill="#fff" d="M14 44V20l18-8 18 8v24l-18 8-18-8zm18-4l10-4V24l-10-4-10 4v12l10 4z"/>
+</svg>

@@ -1,8 +1,9 @@
 /**
- * PII firewall — mandatory gate in front of every model call (docs/security/PII_RESTRICTIONS.md).
+ * PII / PCI firewall — mandatory gate in front of every model call
+ * (docs/security/PII_RESTRICTIONS.md).
  *
- * Modes come from the tenant Policy:
- *   redact → replace with a stable placeholder ([EMAIL_1], …)
+ * Modes come from the tenant Policy (per category):
+ *   redact → clear via configured style (placeholder / fixed / mask last / mask domain)
  *   block  → refuse the AI job entirely (report carries CATEGORY NAMES ONLY)
  *   hash   → irreversible correlation token (sha256, first 12 hex chars)
  *   allow  → pass through untouched
@@ -11,14 +12,15 @@
  */
 
 import { createHash } from 'node:crypto';
-import type { PiiCategory, PiiMode, PiiReport, Policy } from '../../shared/types';
+import type { PiiCategory, PiiCategoryRule, PiiReport, Policy } from '../../shared/types';
+import { normalizeCustomerNames, normalizePiiMap, normalizePiiRule } from '../../shared/piiPolicy';
 
-/** Configurable end-customer names seeded into the org policy (demo extension of the Policy type). */
 export function customerNamesFromPolicy(policy: Policy): string[] {
-  const extra = policy as Policy & { customerNames?: unknown };
-  return Array.isArray(extra.customerNames)
-    ? (extra.customerNames as unknown[]).filter((n): n is string => typeof n === 'string')
-    : [];
+  return normalizeCustomerNames(policy.customerNames);
+}
+
+export function ruleFor(policy: Policy, category: PiiCategory): PiiCategoryRule {
+  return normalizePiiRule(policy.pii?.[category], category);
 }
 
 export interface SanitizeResult {
@@ -49,36 +51,26 @@ export function luhnValid(digits: string): boolean {
 // requirements.
 // ---------------------------------------------------------------------------
 
-// Zero-width chars attackers hide inside tokens. Each repeat consumes exactly
-// one visible char, so matching stays linear (no catastrophic backtracking).
 const ZW = '[\\u200B\\u200C\\u200D\\uFEFF]?';
 const EMAIL_LOCAL = `(?:${ZW}[A-Za-z0-9._%+-])+`;
 const EMAIL_DOMAIN_SEG = `(?:${ZW}[A-Za-z0-9-])+`;
-// Obfuscation: only bracketed separators ("[at]", "(dot)", …). Bare words
-// "at"/"dot" are NOT treated as separators — they cause false positives
-// ("Reach me at jane.doe@x.com" would otherwise eat "me at jane.doe").
 const EMAIL_AT = '(?:@|\\[at\\]|\\(at\\)|\\{at\\})';
 const EMAIL_DOT = '(?:\\.|\\[dot\\]|\\(dot\\)|\\{dot\\})';
-// Gaps between segments may contain whitespace AND zero-width chars.
 const EMAIL_GAP = '[\\s\\u200B\\u200C\\u200D\\uFEFF]*';
 
-/** Normal email, or obfuscated "name [at] host [dot] tld". */
 const EMAIL_RE = new RegExp(
   `${EMAIL_LOCAL}${EMAIL_GAP}${EMAIL_AT}${EMAIL_GAP}${EMAIL_DOMAIN_SEG}(?:${EMAIL_GAP}${EMAIL_DOT}${EMAIL_GAP}${EMAIL_DOMAIN_SEG})+`,
   'gi',
 );
 
-/** Intl + US phone formats: +1-415-555-0132, (415) 555-0132, 415.555.0132 … */
 const PHONE_RE = new RegExp(
   `(?<![\\w])(?:\\+?1[\\s.\\-]?)?(?:\\(\\d{3}\\)|\\d{3})[\\s.\\-]?\\d{3}[\\s.\\-]\\d{4}(?![\\w])` +
     `|(?<![\\w])\\+\\d{1,3}[\\s.\\-]\\d{2,4}[\\s.\\-]\\d{3,4}[\\s.\\-]\\d{3,4}(?![\\w])`,
   'g',
 );
 
-/** SSN: ###-##-####, or 9 consecutive digits with non-digit boundaries. */
 const SSN_RE = /(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)|(?<![\d])\d{9}(?![\d])/g;
 
-/** Card candidate: 13–19 digits, spaces/dashes allowed between groups. Luhn-checked separately. */
 const CARD_RE = /(?<![\d])(?:\d[ -]?){12,18}\d(?![\d])/g;
 
 const PLACEHOLDER: Record<PiiCategory, string> = {
@@ -102,6 +94,60 @@ interface Match {
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Keep last N digits; mask earlier digits with `*`, preserve separators. */
+export function maskKeepLastDigits(raw: string, keepLast: number): string {
+  const digits = raw.replace(/\D/g, '');
+  const keep = Math.max(0, Math.min(keepLast, digits.length));
+  const hideUntil = digits.length - keep;
+  let digitIdx = 0;
+  return raw.replace(/\d/g, () => {
+    const i = digitIdx++;
+    return i < hideUntil ? '*' : digits[i]!;
+  });
+}
+
+/** `jane.doe@acme.com` → `***@acme.com` (normalizes obfuscated separators). */
+export function maskKeepEmailDomain(raw: string): string {
+  const normalized = raw
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[\[({]\s*at\s*[\])}]/gi, '@')
+    .replace(/[\[({]\s*dot\s*[\])}]/gi, '.');
+  const at = normalized.lastIndexOf('@');
+  if (at <= 0 || at === normalized.length - 1) return '***@cleared.invalid';
+  return `***${normalized.slice(at)}`;
+}
+
+function placeholderFor(category: PiiCategory, index: number): string {
+  return `[${PLACEHOLDER[category]}_${index}]`;
+}
+
+/**
+ * Build the cleared replacement for a match under `redact` mode.
+ */
+export function clearValue(
+  category: PiiCategory,
+  raw: string,
+  rule: PiiCategoryRule,
+  placeholderIndex: number,
+): string {
+  const style = rule.style ?? 'placeholder';
+  switch (style) {
+    case 'fixed': {
+      const fixed = rule.fixedReplacement?.trim();
+      return fixed || placeholderFor(category, placeholderIndex);
+    }
+    case 'mask_keep_last':
+      return maskKeepLastDigits(raw, rule.keepLastDigits ?? 4);
+    case 'mask_keep_domain':
+      if (category === 'email') return maskKeepEmailDomain(raw);
+      return placeholderFor(category, placeholderIndex);
+    case 'placeholder':
+    default:
+      return placeholderFor(category, placeholderIndex);
+  }
 }
 
 /**
@@ -147,7 +193,6 @@ function detect(text: string, customerNames: string[]): Match[] {
     }
   }
 
-  // Sort: leftmost first; for ties, longest first. Drop overlapping losers.
   matches.sort((a, b) => a.start - b.start || b.end - a.end);
   const kept: Match[] = [];
   let lastEnd = -1;
@@ -161,7 +206,7 @@ function detect(text: string, customerNames: string[]): Match[] {
 }
 
 /**
- * Scan `text` against the policy's per-category modes.
+ * Scan `text` against the policy's per-category modes / clearing styles.
  *
  * If any category in 'block' mode matched, `report.blocks` lists those
  * category names (deduped, NO raw values) and callers MUST NOT use
@@ -169,30 +214,27 @@ function detect(text: string, customerNames: string[]): Match[] {
  */
 export function sanitize(text: string, policy: Policy): SanitizeResult {
   const names = customerNamesFromPolicy(policy);
+  const pii = normalizePiiMap(policy.pii);
   const matches = detect(text, names);
 
   const blocks: string[] = [];
   let redactions = 0;
 
-  // Apply replacements right-to-left so earlier offsets stay valid.
   let sanitized = text;
   const ordered = [...matches].sort((a, b) => b.start - a.start);
 
   for (const m of matches) {
-    const mode: PiiMode = policy.pii[m.category];
+    const mode = pii[m.category].mode;
     if (mode === 'block' && !blocks.includes(m.category)) blocks.push(m.category);
   }
 
   for (const m of ordered) {
-    const mode: PiiMode = policy.pii[m.category];
+    const rule = pii[m.category];
     let replacement: string | null = null;
-    switch (mode) {
+    switch (rule.mode) {
       case 'redact': {
-        // Number placeholders per category in reading order (left→right).
-        const seenBefore = matches
-          .filter((x) => x.category === m.category && x.start < m.start)
-          .length;
-        replacement = `[${PLACEHOLDER[m.category]}_${seenBefore + 1}]`;
+        const seenBefore = matches.filter((x) => x.category === m.category && x.start < m.start).length;
+        replacement = clearValue(m.category, m.raw, rule, seenBefore + 1);
         redactions += 1;
         break;
       }
@@ -202,7 +244,7 @@ export function sanitize(text: string, policy: Policy): SanitizeResult {
         break;
       case 'block':
       case 'allow':
-        replacement = null; // untouched
+        replacement = null;
         break;
     }
     if (replacement !== null) {
@@ -211,4 +253,39 @@ export function sanitize(text: string, policy: Policy): SanitizeResult {
   }
 
   return { sanitized, report: { redactions, blocks } };
+}
+
+/**
+ * Secondary scan for board write-back: never leave blocked categories intact.
+ * Categories configured as `block` are cleared with that category's redact style
+ * (or placeholder) so comments/attachments do not echo raw PII/PCI.
+ */
+export function sanitizeForWriteback(text: string, policy: Policy): SanitizeResult {
+  const pii = normalizePiiMap(policy.pii);
+  const writeback: Policy = {
+    ...policy,
+    pii: Object.fromEntries(
+      Object.entries(pii).map(([category, rule]) => [
+        category,
+        rule.mode === 'block' || rule.mode === 'allow'
+          ? {
+              ...rule,
+              mode: 'redact' as const,
+              style: rule.style ?? (category === 'email' ? 'fixed' : 'mask_keep_last'),
+            }
+          : rule,
+      ]),
+    ) as Policy['pii'],
+    customerNames: customerNamesFromPolicy(policy),
+  };
+  return sanitize(text, writeback);
+}
+
+/** Merge two PII reports (e.g. ticket text + MCP snippets). */
+export function mergePiiReports(a: PiiReport, b: PiiReport): PiiReport {
+  const blocks = [...a.blocks];
+  for (const cat of b.blocks) {
+    if (!blocks.includes(cat)) blocks.push(cat);
+  }
+  return { redactions: a.redactions + b.redactions, blocks };
 }

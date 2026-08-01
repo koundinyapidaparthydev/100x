@@ -22,13 +22,13 @@ describe('AplifyAI manager journey', () => {
 
   it('navigates every manager tab', async () => {
     await element(by.id('tab-jobs')).tap();
-    await waitForVisible(by.text('Queued, running, ready, and blocked AI work across Jira projects.'));
+    await waitForVisible(by.text('AI work that is queued, blocked, or ready for review.'));
 
     await element(by.id('tab-approvals')).tap();
-    await waitForVisible(by.text('High-risk AI actions and mutating tool calls waiting on a manager decision.'));
+    await waitForVisible(by.text('Review exception requests. Decisions are recorded but do not enact the requested exception.'));
 
     await element(by.id('tab-pii')).tap();
-    await waitForVisible(by.text('Blocked by the PII firewall'));
+    await waitForVisible(by.text('Sensitive data'));
 
     await element(by.id('tab-triage')).tap();
     await waitForVisible(by.id('triage-ai-button'));
@@ -73,7 +73,7 @@ describe('AplifyAI manager journey', () => {
     await element(by.text('Blocked before model execution. Review the PII firewall.')).tap();
     await waitForVisible(by.id('pii-request-access-button'));
     await element(by.id('pii-request-access-button')).tap();
-    await waitForVisible(by.text('Access request sent. It now appears under Approvals.'));
+    await waitForVisible(by.text('Review request created. It now appears under Approvals; this does not change the PII rule.'));
   });
 
   test.skip('optionally triages by swiping right', async () => {

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="servicenow">
+  <rect width="64" height="64" rx="14" fill="#81B5A1"/>
+  <path fill="#fff" d="M16 34c0-10 8-16 16-16s12 4 14 8c-3-2-6-3-10-3-8 0-14 6-14 14 0 3 1 6 3 8-5-2-9-6-9-11zm16 14c8 0 14-6 14-14 0-3-1-6-3-8 5 2 9 6 9 11 0 10-8 16-16 16s-12-4-14-8c3 2 6 3 10 3z"/>
+</svg>

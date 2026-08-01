@@ -11,6 +11,8 @@ export interface ModelRunInput {
   workItem: WorkItem;
   /** Already PII-sanitized payload — never pass raw ticket text. */
   sanitized: string;
+  /** Already PII-sanitized title (for headings); never use workItem.title raw. */
+  sanitizedTitle: string;
   policy: Policy;
   targetCompletionPercent: number;
 }
@@ -30,15 +32,15 @@ export class SandboxModelRunner implements ModelRunner {
   readonly kind = 'sandbox' as const;
 
   async run(input: ModelRunInput): Promise<ModelRunResult> {
-    const { workItem, sanitized, targetCompletionPercent, policy } = input;
+    const { workItem, sanitized, sanitizedTitle, targetCompletionPercent, policy } = input;
     const draft = [
-      `# AI Draft (${targetCompletionPercent}% target) — ${workItem.board.issueKey}: ${workItem.title}`,
+      `# AI Draft (${targetCompletionPercent}% target) — ${workItem.board.issueKey}: ${sanitizedTitle}`,
       '',
       '## Understanding',
       `Sanitized ticket payload (${sanitized.length} chars) was analyzed by the sandbox runner.`,
       '',
       '## Draft plan',
-      `- Restate scope: ${workItem.title.toLowerCase()}.`,
+      `- Restate scope: ${sanitizedTitle.toLowerCase()}.`,
       '- Identify touched modules and write a failing test sketch.',
       '- Produce a draft patch; leave merge + edge cases to the human assignee.',
       '',
@@ -60,7 +62,7 @@ export class OpenAiModelRunner implements ModelRunner {
   constructor(private apiKey: string) {}
 
   async run(input: ModelRunInput): Promise<ModelRunResult> {
-    const { workItem, sanitized, targetCompletionPercent, policy } = input;
+    const { workItem, sanitized, sanitizedTitle, targetCompletionPercent, policy } = input;
     const modelId = policy.model.modelId || 'gpt-4o-mini';
     const system = [
       'You are AplifyAI, an enterprise AI drafting assistant.',
@@ -82,7 +84,7 @@ export class OpenAiModelRunner implements ModelRunner {
           { role: 'system', content: system },
           {
             role: 'user',
-            content: `Ticket ${workItem.board.issueKey}: ${workItem.title}\n\n${sanitized}`,
+            content: `Ticket ${workItem.board.issueKey}: ${sanitizedTitle}\n\n${sanitized}`,
           },
         ],
       }),

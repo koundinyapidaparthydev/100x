@@ -47,6 +47,47 @@ describe('api client', () => {
     expect(res.workItem.id).toBe('WI-1');
   });
 
+  it('gets and puts onboarding profiles', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ profile: null }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            profile: {
+              plan: 'free',
+              completedAt: '2026-01-01T00:00:00.000Z',
+              selectedServices: ['jira'],
+              otherByCategory: {},
+              updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await api.getOnboarding();
+    expect(fetchMock.mock.calls[0]![0]).toBe('/api/v1/onboarding');
+
+    await api.putOnboarding({
+      profile: {
+        plan: 'free',
+        completedAt: '2026-01-01T00:00:00.000Z',
+        selectedServices: ['jira'],
+        otherByCategory: {},
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    });
+    expect(fetchMock.mock.calls[1]![0]).toBe('/api/v1/onboarding');
+    expect(fetchMock.mock.calls[1]![1].method).toBe('PUT');
+  });
+
   it('throws ApiError with the backend message on failure', async () => {
     vi.stubGlobal('fetch', mockFetchOnce(404, { error: 'Work item not found' }));
 

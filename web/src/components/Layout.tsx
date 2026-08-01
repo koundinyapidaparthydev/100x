@@ -1,27 +1,56 @@
+import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
-import Footer from './Footer';
+
+function useDesktopNav() {
+  const [desktopNav, setDesktopNav] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : true,
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 768px)');
+    const sync = () => setDesktopNav(media.matches);
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
+
+  return desktopNav;
+}
 
 export default function Layout() {
   const location = useLocation();
-  const isTaskDetail = location.pathname.includes('/boards/task');
+  const desktopNav = useDesktopNav();
+  const [navigationOpen, setNavigationOpen] = useState(false);
 
-  // Task detail page suppresses global nav per guidelines
-  if (isTaskDetail) {
-    return <Outlet />;
-  }
+  useEffect(() => {
+    setNavigationOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!navigationOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setNavigationOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [navigationOpen]);
 
   return (
-    <div className="flex min-h-screen bg-background text-on-background mesh-background selection:bg-tertiary/30 selection:text-tertiary">
-      <Sidebar />
-      <div className="flex-1 flex flex-col md:ml-[280px] min-w-0 relative">
-        <Topbar />
-        <main className="flex-1 overflow-x-hidden pb-[80px]">
-          <Outlet />
-        </main>
-        <Footer />
-      </div>
+    <div className="flex min-h-screen flex-col bg-background text-on-background">
+      <Topbar
+        onOpenNavigation={() => setNavigationOpen(true)}
+        desktopNav={desktopNav}
+      />
+      <Sidebar
+        open={navigationOpen}
+        onClose={() => setNavigationOpen(false)}
+        ownTestIds={!desktopNav}
+      />
+      <main className="min-w-0 flex-1 overflow-x-hidden">
+        <Outlet />
+      </main>
     </div>
   );
 }

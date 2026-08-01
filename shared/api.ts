@@ -17,8 +17,17 @@ import type {
   DashboardStats,
   LoginRequest,
   NotificationItem,
+  OktaExchangeResponse,
+  OktaStatus,
+  McpConnectRequest,
+  McpConnectionsResponse,
+  McpPermissionLevel,
+  OnboardingProfile,
+  OnboardingUpsertRequest,
   Policy,
   PolicyUpdate,
+  ServiceId,
+  ServiceMcpConnection,
   TriageRequest,
   TriageResponse,
   WorkItem,
@@ -128,6 +137,27 @@ export const api = {
   },
   me: () => request<{ user: AuthUser }>('/auth/me'),
 
+  /** Whether Okta OIDC env is configured on the backend. */
+  oktaStatus: () => request<OktaStatus>('/auth/okta/status'),
+
+  /**
+   * Full-page navigate to start Okta (backend 302 → Okta).
+   * Prefer window.location.assign(oktaStartUrl(...)) from the web app.
+   */
+  oktaStartUrl: (intent: 'login' | 'signup' = 'login') =>
+    `${API_BASE}/auth/okta/start?intent=${encodeURIComponent(intent)}&surface=web`,
+
+  /** One-time exchange after Okta callback redirect to /auth/callback. */
+  oktaExchange: async (exchange: string) => {
+    const res = await request<OktaExchangeResponse>('/auth/okta/exchange', {
+      method: 'POST',
+      body: JSON.stringify({ exchange }),
+    });
+    setSessionToken(res.session.token);
+    setApiActor(res.session.user.id, res.session.user.surface);
+    return res;
+  },
+
   // Work items
   listWorkItems: (filter?: {
     aiStatus?: AiStatus;
@@ -204,4 +234,40 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({}),
     }),
+
+  // Onboarding (demo tenant profile)
+  getOnboarding: () => request<{ profile: OnboardingProfile | null }>('/onboarding'),
+  putOnboarding: (body: OnboardingUpsertRequest) =>
+    request<{ profile: OnboardingProfile }>('/onboarding', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  // MCP connections — connect each provider one-by-one with a permission level
+  listMcpConnections: () => request<McpConnectionsResponse>('/mcp/connections'),
+  connectMcpService: (serviceId: ServiceId, permissionLevel: McpPermissionLevel) =>
+    request<{ connection: ServiceMcpConnection }>(
+      `/mcp/connections/${encodeURIComponent(serviceId)}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ permissionLevel } satisfies McpConnectRequest),
+      },
+    ),
+  disconnectMcpService: (serviceId: ServiceId) =>
+    request<{ ok: boolean }>(`/mcp/connections/${encodeURIComponent(serviceId)}`, {
+      method: 'DELETE',
+    }),
+
+  getAtlassianMcpOAuthStatus: () =>
+    request<{
+      enabled: boolean;
+      authorizeReady: boolean;
+      hasAccessToken: boolean;
+      clientId?: string;
+      redirectUri?: string;
+      note: string;
+    }>('/mcp/oauth/atlassian/status'),
+
+  startAtlassianMcpOAuth: () =>
+    request<{ authorizeUrl: string; state: string }>('/mcp/oauth/atlassian/start'),
 };

@@ -3,6 +3,13 @@
  */
 
 import { Router } from 'express';
+import {
+  getMcpProvider,
+  MCP_PROVIDERS,
+  mcpAvailabilityLabel,
+  type McpPermissionLevel,
+} from '../../shared/mcpProviders';
+import { mergePiiUpdate, normalizeCustomerNames } from '../../shared/piiPolicy';
 import type {
   AccessRequestBody,
   AiStatus,
@@ -10,7 +17,13 @@ import type {
   BoardHealth,
   DashboardStats,
   LoginRequest,
+  McpAllowlistEntry,
+  McpConnectRequest,
+  OnboardingProfile,
+  OnboardingUpsertRequest,
   PolicyUpdate,
+  ServiceId,
+  ServiceMcpConnection,
   TriageRequest,
   TriageResponse,
   WorkItem,
@@ -25,12 +38,80 @@ import {
   revokeSession,
   type AuthedRequest,
 } from './auth';
+import {
+  allowlistEntriesFromConnections,
+  callToolAsync,
+  createConnection,
+} from './mcp/gateway';
+import {
+  buildAtlassianAuthorizeUrl,
+  completeAtlassianOAuthCallback,
+  getAtlassianMcpOAuthStatus,
+} from './mcp/atlassianOAuth';
+import { listConfiguredTransports } from './mcp/transports';
+import {
+  buildOktaAuthorizeUrl,
+  completeOktaCallback,
+  consumeOktaExchange,
+  oktaStatus,
+  type OktaIntent,
+} from './okta';
 import type { OrchestratorDeps } from './orchestrator';
 import { createJob, runJobPipeline } from './orchestrator';
 import { scheduleSave } from './persist';
 import { emitAudit, nextId, ORG_POLICY_ID, type Store, TENANT_ID } from './store';
 
+const PERMISSION_LEVELS: McpPermissionLevel[] = ['read', 'write', 'admin'];
+
+function isPermissionLevel(value: unknown): value is McpPermissionLevel {
+  return typeof value === 'string' && (PERMISSION_LEVELS as string[]).includes(value);
+}
+
+function tenantConnections(store: Store, tenantId: string): ServiceMcpConnection[] {
+  if (!store.mcpConnectionsByTenant[tenantId]) {
+    store.mcpConnectionsByTenant[tenantId] = [];
+  }
+  return store.mcpConnectionsByTenant[tenantId]!;
+}
+
+function syncPolicyAllowlistFromConnections(store: Store, tenantId: string): void {
+  const policy = store.policies.find((p) => p.id === ORG_POLICY_ID && p.tenantId === tenantId);
+  if (!policy) return;
+  const fromConn = allowlistEntriesFromConnections(tenantConnections(store, tenantId));
+  if (fromConn.length === 0) return;
+  const byServer = new Map(policy.mcpAllowlist.map((e) => [e.server, e]));
+  for (const entry of fromConn) {
+    byServer.set(entry.server, entry);
+  }
+  policy.mcpAllowlist = [...byServer.values()];
+}
+
 const MS_24H = 24 * 3_600_000;
+
+function mcpStubsFromServices(services: ServiceId[]): McpAllowlistEntry[] {
+  const seen = new Set<string>();
+  const entries: McpAllowlistEntry[] = [];
+  for (const id of services) {
+    const provider = getMcpProvider(id);
+    if (!provider || seen.has(provider.serverId)) continue;
+    seen.add(provider.serverId);
+    entries.push({ server: provider.serverId, tools: ['*'] });
+  }
+  return entries;
+}
+
+function isOnboardingProfile(value: unknown): value is OnboardingProfile {
+  if (!value || typeof value !== 'object') return false;
+  const p = value as Partial<OnboardingProfile>;
+  return (
+    (p.plan === 'free' || p.plan === 'enterprise') &&
+    Array.isArray(p.selectedServices) &&
+    typeof p.updatedAt === 'string' &&
+    (p.completedAt === null || typeof p.completedAt === 'string') &&
+    typeof p.otherByCategory === 'object' &&
+    p.otherByCategory !== null
+  );
+}
 
 function boardHealth(store: Store): BoardHealth[] {
   return store.boards.map((board) => {
@@ -140,6 +221,87 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
   router.post('/auth/logout', (req: AuthedRequest, res) => {
     if (req.authToken) revokeSession(req.authToken);
     res.json({ ok: true });
+  });
+
+  // -- Okta OIDC ---------------------------------------------------------------
+  router.get('/auth/okta/status', (_req, res) => {
+    res.json(oktaStatus());
+  });
+
+  router.get('/auth/okta/start', async (req, res) => {
+    const status = oktaStatus();
+    if (!status.enabled) {
+      res.status(503).json({
+        error: 'Okta is not configured',
+        hint: 'Set OKTA_ISSUER, OKTA_CLIENT_ID, OKTA_CLIENT_SECRET, OKTA_REDIRECT_URI',
+      });
+      return;
+    }
+    const intent: OktaIntent = req.query.intent === 'signup' ? 'signup' : 'login';
+    const surface = req.query.surface === 'mobile' ? 'mobile' : 'web';
+    try {
+      const { url } = await buildOktaAuthorizeUrl({ intent, surface });
+      res.redirect(302, url);
+    } catch (e) {
+      res.status(502).json({ error: e instanceof Error ? e.message : 'Okta start failed' });
+    }
+  });
+
+  router.get('/auth/okta/callback', async (req, res) => {
+    const status = oktaStatus();
+    const webOrigin = process.env.WEB_APP_ORIGIN?.trim() || 'http://localhost:3000';
+    if (!status.enabled) {
+      res.redirect(302, `${webOrigin}/login?okta_error=${encodeURIComponent('Okta is not configured')}`);
+      return;
+    }
+    const err = typeof req.query.error === 'string' ? req.query.error : null;
+    if (err) {
+      const desc = typeof req.query.error_description === 'string' ? req.query.error_description : err;
+      res.redirect(302, `${webOrigin}/login?okta_error=${encodeURIComponent(desc)}`);
+      return;
+    }
+    const code = typeof req.query.code === 'string' ? req.query.code : '';
+    const state = typeof req.query.state === 'string' ? req.query.state : '';
+    if (!code || !state) {
+      res.redirect(302, `${webOrigin}/login?okta_error=${encodeURIComponent('missing code/state')}`);
+      return;
+    }
+    try {
+      const { exchangeCode, intent, webAppOrigin } = await completeOktaCallback({ code, state });
+      const dest = new URL('/auth/callback', webAppOrigin);
+      dest.searchParams.set('exchange', exchangeCode);
+      dest.searchParams.set('intent', intent);
+      res.redirect(302, dest.toString());
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Okta callback failed';
+      res.redirect(302, `${webOrigin}/login?okta_error=${encodeURIComponent(msg)}`);
+    }
+  });
+
+  router.post('/auth/okta/exchange', (req, res) => {
+    const exchange =
+      typeof (req.body as { exchange?: unknown })?.exchange === 'string'
+        ? (req.body as { exchange: string }).exchange.trim()
+        : '';
+    if (!exchange) {
+      res.status(400).json({ error: 'body.exchange is required' });
+      return;
+    }
+    const result = consumeOktaExchange(exchange);
+    if (!result) {
+      res.status(401).json({ error: 'invalid or expired exchange code' });
+      return;
+    }
+    emitAudit(
+      store,
+      { type: result.session.user.surface === 'mobile' ? 'manager_mobile' : 'user', id: result.session.user.id },
+      'auth.login',
+      { type: 'session', id: result.session.user.id },
+      { role: result.session.user.role, surface: result.session.user.surface, provider: 'okta', intent: result.intent },
+      [1, 2],
+    );
+    touch();
+    res.json({ session: result.session, intent: result.intent });
   });
 
   router.get('/auth/me', (req: AuthedRequest, res) => {
@@ -469,8 +631,12 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       changed.push('securityLevel');
     }
     if (body.pii !== undefined) {
-      policy.pii = { ...policy.pii, ...body.pii };
+      policy.pii = mergePiiUpdate(policy.pii, body.pii);
       changed.push('pii');
+    }
+    if (body.customerNames !== undefined) {
+      policy.customerNames = normalizeCustomerNames(body.customerNames);
+      changed.push('customerNames');
     }
     if (body.cloud !== undefined) {
       policy.cloud = { ...policy.cloud, ...body.cloud };
@@ -622,6 +788,248 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     touch();
     res.json({ ok: true, count: store.notifications.length });
   });
+
+  // -- onboarding -------------------------------------------------------------------
+  router.get('/onboarding', (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    const profile = store.onboardingByTenant[req.auth.tenantId] ?? null;
+    res.json({ profile });
+  });
+
+  router.put('/onboarding', requireRoles('founder', 'manager'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    const body = (req.body ?? {}) as Partial<OnboardingUpsertRequest>;
+    if (!isOnboardingProfile(body.profile)) {
+      res.status(400).json({ error: 'body.profile must be a valid OnboardingProfile' });
+      return;
+    }
+    const now = new Date().toISOString();
+    const profile: OnboardingProfile = {
+      ...body.profile,
+      selectedServices: [...body.profile.selectedServices],
+      otherByCategory: { ...body.profile.otherByCategory },
+      updatedAt: now,
+      completedAt: body.profile.completedAt ?? now,
+    };
+    store.onboardingByTenant[req.auth.tenantId] = profile;
+
+    const policy = orgPolicy();
+    if (policy) {
+      const stubs = mcpStubsFromServices(profile.selectedServices);
+      if (stubs.length > 0) {
+        const existing = new Set(policy.mcpAllowlist.map((e) => e.server));
+        for (const stub of stubs) {
+          if (!existing.has(stub.server)) policy.mcpAllowlist.push(stub);
+        }
+      }
+    }
+
+    emitAudit(
+      store,
+      actorFromAuth(req),
+      'onboarding.saved',
+      { type: 'onboarding', id: req.auth.tenantId },
+      { plan: profile.plan, services: profile.selectedServices.length },
+      [1, 2],
+    );
+    touch();
+    res.json({ profile });
+  });
+
+  // -- MCP connections (connect providers one-by-one) ------------------------------
+  router.get('/mcp/providers', (_req, res) => {
+    res.json({
+      providers: MCP_PROVIDERS.map((p) => ({
+        ...p,
+        availabilityLabel: mcpAvailabilityLabel(p.availability),
+      })),
+    });
+  });
+
+  router.get('/mcp/transports', (_req, res) => {
+    res.json({ transports: listConfiguredTransports() });
+  });
+
+  router.get('/mcp/oauth/atlassian/status', (_req, res) => {
+    res.json(getAtlassianMcpOAuthStatus());
+  });
+
+  router.get('/mcp/oauth/atlassian/start', requireRoles('founder', 'manager'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    const started = buildAtlassianAuthorizeUrl();
+    if (!started) {
+      res.status(503).json({
+        error: 'Atlassian MCP OAuth is not configured',
+        status: getAtlassianMcpOAuthStatus(),
+      });
+      return;
+    }
+    res.json({ authorizeUrl: started.url, state: started.state });
+  });
+
+  router.get('/mcp/oauth/atlassian/callback', async (req, res) => {
+    const webOrigin = process.env.WEB_APP_ORIGIN?.trim() || 'http://localhost:3000';
+    const dest = new URL('/connections', webOrigin);
+    const err = typeof req.query.error === 'string' ? req.query.error : null;
+    if (err) {
+      const desc =
+        typeof req.query.error_description === 'string' ? req.query.error_description : err;
+      dest.searchParams.set('atlassian_mcp', 'error');
+      dest.searchParams.set('atlassian_mcp_error', desc);
+      res.redirect(302, dest.toString());
+      return;
+    }
+    const code = typeof req.query.code === 'string' ? req.query.code : '';
+    const state = typeof req.query.state === 'string' ? req.query.state : '';
+    if (!code || !state) {
+      dest.searchParams.set('atlassian_mcp', 'error');
+      dest.searchParams.set('atlassian_mcp_error', 'missing code/state');
+      res.redirect(302, dest.toString());
+      return;
+    }
+    try {
+      await completeAtlassianOAuthCallback({ code, state });
+      dest.searchParams.set('atlassian_mcp', 'ok');
+      res.redirect(302, dest.toString());
+    } catch (e) {
+      dest.searchParams.set('atlassian_mcp', 'error');
+      dest.searchParams.set(
+        'atlassian_mcp_error',
+        e instanceof Error ? e.message : 'token exchange failed',
+      );
+      res.redirect(302, dest.toString());
+    }
+  });
+
+  router.get('/mcp/connections', (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    res.json({ connections: tenantConnections(store, req.auth.tenantId) });
+  });
+
+  router.post(
+    '/mcp/connections/:serviceId',
+    requireRoles('founder', 'manager'),
+    (req: AuthedRequest, res) => {
+      if (!req.auth) {
+        res.status(401).json({ error: 'authentication required' });
+        return;
+      }
+      const serviceId = req.params.serviceId as ServiceId;
+      const provider = getMcpProvider(serviceId);
+      if (!provider?.connectable) {
+        res.status(400).json({ error: `Service '${serviceId}' has no connectable MCP option` });
+        return;
+      }
+      const body = (req.body ?? {}) as Partial<McpConnectRequest>;
+      if (!isPermissionLevel(body.permissionLevel)) {
+        res.status(400).json({ error: 'body.permissionLevel must be read | write | admin' });
+        return;
+      }
+      const connection = createConnection(serviceId, body.permissionLevel);
+      const list = tenantConnections(store, req.auth.tenantId);
+      const idx = list.findIndex((c) => c.serviceId === serviceId);
+      if (idx >= 0) list[idx] = connection;
+      else list.push(connection);
+      syncPolicyAllowlistFromConnections(store, req.auth.tenantId);
+      emitAudit(
+        store,
+        actorFromAuth(req),
+        connection.status === 'connected' ? 'mcp.connected' : 'mcp.connect_failed',
+        { type: 'mcp_connection', id: serviceId },
+        {
+          serverId: connection.serverId,
+          permissionLevel: connection.permissionLevel,
+          tools: connection.grantedTools.length,
+          error: connection.lastError,
+        },
+        [1, 2, 5],
+      );
+      touch();
+      if (connection.status !== 'connected') {
+        res.status(400).json({ connection, error: connection.lastError });
+        return;
+      }
+      res.status(201).json({ connection });
+    },
+  );
+
+  router.delete(
+    '/mcp/connections/:serviceId',
+    requireRoles('founder', 'manager'),
+    (req: AuthedRequest, res) => {
+      if (!req.auth) {
+        res.status(401).json({ error: 'authentication required' });
+        return;
+      }
+      const serviceId = req.params.serviceId as ServiceId;
+      const list = tenantConnections(store, req.auth.tenantId);
+      const next = list.filter((c) => c.serviceId !== serviceId);
+      store.mcpConnectionsByTenant[req.auth.tenantId] = next;
+      emitAudit(
+        store,
+        actorFromAuth(req),
+        'mcp.disconnected',
+        { type: 'mcp_connection', id: serviceId },
+        {},
+        [1, 2],
+      );
+      touch();
+      res.json({ ok: true });
+    },
+  );
+
+  router.post(
+    '/mcp/connections/:serviceId/tools/:tool',
+    requireRoles('founder', 'manager'),
+    async (req: AuthedRequest, res) => {
+      if (!req.auth) {
+        res.status(401).json({ error: 'authentication required' });
+        return;
+      }
+      const serviceId = req.params.serviceId as ServiceId;
+      const tool = req.params.tool!;
+      const connection = tenantConnections(store, req.auth.tenantId).find(
+        (c) => c.serviceId === serviceId,
+      );
+      if (!connection) {
+        res.status(404).json({ error: 'connection not found — connect the provider first' });
+        return;
+      }
+      const result = await callToolAsync(
+        connection,
+        tool,
+        (req.body ?? {}) as Record<string, unknown>,
+      );
+      emitAudit(
+        store,
+        actorFromAuth(req),
+        result.ok ? 'mcp.tool_called' : 'mcp.tool_denied',
+        { type: 'mcp_connection', id: serviceId },
+        {
+          tool,
+          ok: result.ok,
+          bytes: result.bytes,
+          error: result.error,
+          transport: result.transport,
+        },
+        [1, 2, 5],
+      );
+      touch();
+      res.status(result.ok ? 200 : 403).json({ result });
+    },
+  );
 
   return router;
 }

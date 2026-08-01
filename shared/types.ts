@@ -37,6 +37,26 @@ export type PiiMode = 'redact' | 'block' | 'hash' | 'allow';
 
 export type PiiCategory = 'email' | 'phone' | 'ssn' | 'credit_card' | 'customer_name';
 
+/**
+ * How recognized values are cleared when mode is `redact`.
+ * - placeholder: `[EMAIL_1]`, `[PHONE_1]`, …
+ * - fixed: replace with `fixedReplacement` (e.g. a specific cleared email)
+ * - mask_keep_last: keep last N digits (phone / card / SSN)
+ * - mask_keep_domain: `***@domain.tld` for emails
+ */
+export type PiiRedactionStyle = 'placeholder' | 'fixed' | 'mask_keep_last' | 'mask_keep_domain';
+
+/** Per-category PII/PCI handling — mode plus optional clearing customization. */
+export interface PiiCategoryRule {
+  mode: PiiMode;
+  /** Used when mode is `redact`. Defaults to category-specific style. */
+  style?: PiiRedactionStyle;
+  /** Replacement when style is `fixed` (e.g. `user@cleared.invalid`). */
+  fixedReplacement?: string;
+  /** Digits retained when style is `mask_keep_last`. Default 4. */
+  keepLastDigits?: number;
+}
+
 export type ArtifactKind = 'summary' | 'patch' | 'test_stub' | 'note' | 'other';
 
 export type ActorType = 'user' | 'system' | 'manager_mobile';
@@ -126,7 +146,9 @@ export interface Policy {
   tenantId: string;
   scope: PolicyScope;
   securityLevel: SecurityLevel;
-  pii: Record<PiiCategory, PiiMode>;
+  pii: Record<PiiCategory, PiiCategoryRule>;
+  /** End-customer names matched as PII (word-boundary). Empty = name detector off. */
+  customerNames: string[];
   cloud: CloudPolicy;
   model: ModelRef;
   platform: PlatformPolicy;
@@ -282,6 +304,7 @@ export type PolicyUpdate = Partial<
     Policy,
     | 'securityLevel'
     | 'pii'
+    | 'customerNames'
     | 'cloud'
     | 'model'
     | 'platform'
@@ -341,4 +364,188 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   session: AuthSession;
+}
+
+export interface OktaStatus {
+  enabled: boolean;
+  issuer?: string;
+  clientId?: string;
+  redirectUri?: string;
+}
+
+export interface OktaExchangeRequest {
+  exchange: string;
+}
+
+export interface OktaExchangeResponse {
+  session: AuthSession;
+  intent: 'login' | 'signup';
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding (create-application wizard)
+// ---------------------------------------------------------------------------
+
+export type OnboardingPlan = 'free' | 'enterprise';
+
+export type ServiceCategory =
+  | 'conversation'
+  | 'boards'
+  | 'code'
+  | 'docs'
+  | 'cloud'
+  | 'identity';
+
+export type ServiceId =
+  | 'slack'
+  | 'teams'
+  | 'outlook'
+  | 'gmail'
+  | 'discord'
+  | 'zoom_chat'
+  | 'google_chat'
+  | 'webex'
+  | 'mattermost'
+  | 'rocket_chat'
+  | 'ringcentral'
+  | 'jira'
+  | 'linear'
+  | 'azure_devops'
+  | 'asana'
+  | 'monday'
+  | 'servicenow'
+  | 'smartsheet'
+  | 'planview'
+  | 'github_projects'
+  | 'gitlab_boards'
+  | 'trello'
+  | 'clickup'
+  | 'wrike'
+  | 'shortcut'
+  | 'rally'
+  | 'github'
+  | 'github_enterprise'
+  | 'gitlab'
+  | 'gitlab_self_managed'
+  | 'bitbucket'
+  | 'azure_repos'
+  | 'aws_codecommit'
+  | 'gerrit'
+  | 'perforce'
+  | 'gitea'
+  | 'confluence'
+  | 'notion'
+  | 'google_drive'
+  | 'sharepoint'
+  | 'aws'
+  | 'gcp'
+  | 'azure'
+  | 'cursor'
+  | 'okta'
+  | 'azure_ad'
+  | 'google_workspace';
+
+/** MCP / secure-connect readiness for a catalogued service. */
+export type McpConnectionStatus = 'available' | 'planned' | 'needs_secure_setup';
+
+/** Tenant-selected capability band when connecting an MCP provider. */
+export type McpPermissionLevel = 'read' | 'write' | 'admin';
+
+/** Live connection record for one service’s MCP server (no secrets stored in demo). */
+export interface ServiceMcpConnection {
+  serviceId: ServiceId;
+  serverId: string;
+  status: 'connected' | 'pending' | 'error' | 'disconnected';
+  permissionLevel: McpPermissionLevel;
+  /** Tool names granted at the selected permission level. */
+  grantedTools: string[];
+  connectedAt: string | null;
+  updatedAt: string;
+  /** Last error message if status === 'error'. */
+  lastError?: string;
+}
+
+export interface McpConnectRequest {
+  permissionLevel: McpPermissionLevel;
+}
+
+export interface McpConnectionsResponse {
+  connections: ServiceMcpConnection[];
+}
+
+export type TeamSizeBand = '1-5' | '6-20' | '21-100' | '100+';
+export type DeliveryUrgency = 'this_week' | 'this_month' | 'this_quarter' | 'exploring';
+export type WorkspaceIntent = 'triage' | 'connect_tools' | 'govern_ai' | 'explore';
+export type BuyerRole = 'executive' | 'delivery_lead' | 'platform' | 'security' | 'ops';
+export type HumanInTheLoopPref = 'always' | 'high_risk' | 'exceptions' | 'minimal';
+export type HostingPreference = 'private_vpc' | 'customer_cloud' | 'public_managed';
+export type RuntimeModePref = 'request_based' | 'always_on';
+export type CustomModelPref = 'none' | 'side_by_side' | 'trained';
+export type TokenBudgetAppetite = 'conservative' | 'balanced' | 'aggressive';
+export type McpAllowlistAggressiveness = 'strict' | 'balanced' | 'open';
+
+export interface LiteOnboardingAnswers {
+  /** What they want to accomplish first in the workspace. */
+  intent?: WorkspaceIntent;
+  teamSize?: TeamSizeBand;
+  /** Work platforms / boards (multi-select). */
+  primaryBoards?: ServiceId[];
+  /** High-signal pains (multi-select). */
+  biggestPains?: string[];
+  urgency?: DeliveryUrgency;
+  /** @deprecated Prefer primaryBoards */
+  primaryBoard?: ServiceId | '';
+  /** @deprecated Prefer biggestPains */
+  biggestPain?: string;
+}
+
+export interface EnterpriseMoveAnswers {
+  /** Outcomes the org is buying for (multi-select). */
+  goals?: string[];
+  /** Who is leading the evaluation / rollout. */
+  buyerRole?: BuyerRole | '';
+  currentAiUsage?: string;
+  complianceNeeds?: string[];
+  orgSize?: TeamSizeBand | '';
+  primaryDeliveryModel?: string;
+  successCriteria?: string[];
+  blockers?: string[];
+  timeline?: DeliveryUrgency | '';
+}
+
+export interface ExpectationsAnswers {
+  /** Speed-up target multiplier, 3–100. */
+  speedMultiplier?: number;
+  improveAreas?: string[];
+  aiCompletionTargetPercent?: number;
+  humanInTheLoop?: HumanInTheLoopPref;
+}
+
+export interface RuntimeAnswers {
+  hosting?: HostingPreference;
+  runtimeMode?: RuntimeModePref;
+  customModel?: CustomModelPref;
+  codeOverrideStance?: PlatformPolicy['codeOverrideMode'];
+  tokenBudgetAppetite?: TokenBudgetAppetite;
+  regions?: string[];
+  mcpAllowlistAggressiveness?: McpAllowlistAggressiveness;
+}
+
+export interface OnboardingProfile {
+  plan: OnboardingPlan;
+  /** ISO timestamp when wizard was finished; null while in progress. */
+  completedAt: string | null;
+  selectedServices: ServiceId[];
+  otherByCategory: Partial<Record<ServiceCategory, string>>;
+  lite?: LiteOnboardingAnswers;
+  enterprise?: {
+    move?: EnterpriseMoveAnswers;
+    expectations?: ExpectationsAnswers;
+    runtime?: RuntimeAnswers;
+  };
+  updatedAt: string;
+}
+
+export interface OnboardingUpsertRequest {
+  profile: OnboardingProfile;
 }

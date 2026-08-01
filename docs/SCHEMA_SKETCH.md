@@ -25,7 +25,8 @@ id: string
 tenantId: string
 scope: org | project | ticket
 securityLevel: standard | elevated | enterprise | custom
-pii: { category: mode }   # redact | block | hash | allow
+pii: { category: PiiCategoryRule }  # mode: redact|block|hash|allow; style: placeholder|fixed|mask_keep_last|mask_keep_domain; fixedReplacement?; keepLastDigits?
+customerNames: [string]             # end-customer names matched as PII
 cloud: CloudPolicy          # see CLOUD_CUSTOMIZATION.md
 model: { provider, modelId, endpoint? }
 platform: { runtime, codeOverrideMode }

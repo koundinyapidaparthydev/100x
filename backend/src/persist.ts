@@ -8,6 +8,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Pool } from 'pg';
+import { normalizeCustomerNames, normalizePiiMap } from '../../shared/piiPolicy';
+import type { Policy } from '../../shared/types';
 import type { Store } from './store';
 import { createSeedStore } from './store';
 
@@ -44,6 +46,21 @@ function hydrateStore(value: unknown): Store {
   if (!Array.isArray(parsed.notifications)) parsed.notifications = [];
   if (!Array.isArray(parsed.boards)) parsed.boards = [];
   if (typeof parsed.attachmentCounter !== 'number') parsed.attachmentCounter = 0;
+  if (!parsed.onboardingByTenant || typeof parsed.onboardingByTenant !== 'object') {
+    parsed.onboardingByTenant = {};
+  }
+  if (!parsed.mcpConnectionsByTenant || typeof parsed.mcpConnectionsByTenant !== 'object') {
+    parsed.mcpConnectionsByTenant = {};
+  }
+  // Migrate legacy string PII modes → full clearing rules.
+  parsed.policies = parsed.policies.map((policy) => {
+    const legacy = policy as Policy & { pii?: unknown; customerNames?: unknown };
+    return {
+      ...policy,
+      pii: normalizePiiMap(legacy.pii as Policy['pii']),
+      customerNames: normalizeCustomerNames(legacy.customerNames),
+    };
+  });
   return parsed;
 }
 

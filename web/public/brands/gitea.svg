@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="gitea">
+  <rect width="64" height="64" rx="14" fill="#609926"/>
+  <path fill="#fff" d="M12 36c4-12 14-20 28-22 2 10-2 22-12 30-8 2-14-2-16-8z"/>
+     <circle cx="40" cy="22" r="5" fill="#DBD0A6"/>
+</svg>

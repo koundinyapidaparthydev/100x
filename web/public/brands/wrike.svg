@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="wrike">
+  <rect width="64" height="64" rx="14" fill="#07CF9D"/>
+  <path fill="#fff" d="M10 40L22 16h8l6 14 6-14h8L62 40h-9l-7-16-6 14h-8l-6-14-7 16z"/>
+</svg>

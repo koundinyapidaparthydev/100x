@@ -20,7 +20,9 @@ import type {
   AuditActor,
   AuditEvent,
   NotificationItem,
+  OnboardingProfile,
   Policy,
+  ServiceMcpConnection,
   WorkItem,
 } from '../../shared/types';
 
@@ -44,6 +46,10 @@ export interface Store {
   boards: ConnectedBoard[];
   /** Attachment id counter for board write-back (att-<n>). */
   attachmentCounter: number;
+  /** Demo-tenant onboarding answers keyed by tenant id. */
+  onboardingByTenant: Record<string, OnboardingProfile>;
+  /** Per-tenant MCP connections (service → permission + granted tools). */
+  mcpConnectionsByTenant: Record<string, ServiceMcpConnection[]>;
 }
 
 let idCounter = 0;
@@ -86,14 +92,15 @@ export function createSeedStore(): Store {
     tenantId: TENANT_ID,
     scope: 'org',
     securityLevel: 'elevated',
-    // Default category modes per docs/security/PII_RESTRICTIONS.md (v1 table).
+    // Default clearing styles per docs/security/PII_RESTRICTIONS.md + compliance UX.
     pii: {
-      email: 'redact',
-      phone: 'redact',
-      ssn: 'block',
-      credit_card: 'block',
-      customer_name: 'hash',
+      email: { mode: 'redact', style: 'fixed', fixedReplacement: 'user@cleared.invalid' },
+      phone: { mode: 'redact', style: 'mask_keep_last', keepLastDigits: 4 },
+      ssn: { mode: 'block' },
+      credit_card: { mode: 'block', style: 'mask_keep_last', keepLastDigits: 4 },
+      customer_name: { mode: 'hash' },
     },
+    customerNames: ['Jane Doe', 'John Smith'],
     cloud: { provider: 'azure', mode: 'private_vpc', region: 'eastus' },
     model: { provider: 'openai', modelId: 'gpt-4o' },
     platform: { runtime: 'node22-sandbox', codeOverrideMode: 'allowed_with_audit' },
@@ -102,8 +109,6 @@ export function createSeedStore(): Store {
     aiFirstDefault: false,
     targetCompletionPercentDefault: 20,
     locks: { models: true, securityMin: true, cloud: false },
-    // Demo extension: end-customer names policy-mapped as PII (hash mode).
-    ...({ customerNames: ['Jane Doe', 'John Smith'] } as object),
   };
 
   const workItems: WorkItem[] = [
@@ -373,6 +378,8 @@ export function createSeedStore(): Store {
       { projectId: 'FE', name: 'Frontend', connectedAt: hoursAgo(24), lastSyncAt: hoursAgo(4) },
     ],
     attachmentCounter: 0,
+    onboardingByTenant: {},
+    mcpConnectionsByTenant: {},
   };
 
   // Seed audit trail for the pre-seeded jobs so the log isn't empty on first load.

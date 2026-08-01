@@ -1,154 +1,91 @@
-import { Compass, Key, ScrollText, Shield, ShieldCheck, Users } from 'lucide-react';
+import { CheckSquare, ExternalLink, FolderKanban, Key, ScrollText, Shield, ShieldCheck, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '@shared/api';
 import { useAsync } from '../lib/useAsync';
-import { ErrorState, LoadingState } from '../components/AsyncStates';
-import Chip from '../components/Chip';
-import { formatNumber, humanize } from '../lib/format';
+import { AsyncBoundary, Card, PageContainer, PageHeader, StatusBadge } from '../components/ui';
+import { humanize } from '../lib/format';
 
 export default function Admin() {
-  const { data, loading, error, reload } = useAsync(async () => {
-    const [policies, boards, approvals, auditEvents] = await Promise.all([
-      api.listPolicies(),
-      api.listBoards(),
-      api.listApprovals(),
-      api.listAuditEvents(),
-    ]);
-    return {
-      tenantId: policies[0]?.tenantId ?? 'acme',
-      policyCount: policies.length,
-      boards,
-      pendingApprovals: approvals.filter((a) => a.status === 'pending').length,
-      auditCount: auditEvents.length,
-    };
-  }, []);
+  const { data, loading, error, reload } = useAsync(() => api.me(), []);
+  const destinations = [
+    { title: 'Projects', detail: 'Connected projects and operational work', to: '/projects', icon: FolderKanban },
+    { title: 'Governance', detail: 'Policy, PII, model, and cloud defaults', to: '/governance/defaults', icon: ShieldCheck },
+    { title: 'Approvals', detail: 'Organization exception decisions', to: '/approvals', icon: CheckSquare },
+    { title: 'Audit', detail: 'Organization-wide recorded events', to: '/audit', icon: ScrollText },
+  ];
 
   return (
-    <div className="max-w-container-max mx-auto p-margin flex flex-col gap-xl" data-testid="admin-page">
-      <div className="flex justify-between items-end">
-        <div>
-          <h2 className="font-headline-lg text-headline-lg font-semibold text-on-surface">System Administration</h2>
-          <p className="font-body-md text-body-md text-on-surface-variant mt-sm max-w-2xl">
-            Manage users, access controls, and platform-wide configurations.
-          </p>
-        </div>
-        <Chip tone="warning">Demo mode — real SSO/vault in H1</Chip>
-      </div>
+    <PageContainer width="form" className="flex flex-col gap-6" data-testid="admin-page">
+      <PageHeader
+        eyebrow="Organization / Admin"
+        title="Administration"
+        description="Review the current organization and account context. Administrative mutations are not implemented in this sandbox."
+        actions={<StatusBadge status="warning" tone="warning" label="Sandbox only" />}
+      />
 
-      {loading && <LoadingState label="Loading admin summary…" />}
-      {!loading && error && <ErrorState message={error} onRetry={reload} />}
+      <AsyncBoundary loading={loading} error={error} loadingLabel="Loading organization information…" onRetry={reload}>
+        {data && (
+          <Card
+            title="Organization information"
+            description="Read-only values from the authenticated session."
+          >
+            <dl className="grid gap-4 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-on-surface-variant">Organization ID</dt>
+                <dd className="mt-1 break-all font-mono font-semibold text-on-surface">{data.user.tenantId}</dd>
+              </div>
+              <div>
+                <dt className="text-on-surface-variant">Signed in as</dt>
+                <dd className="mt-1 font-medium text-on-surface">{data.user.displayName}</dd>
+                <dd className="break-all text-xs text-on-surface-variant">{data.user.email}</dd>
+              </div>
+              <div>
+                <dt className="text-on-surface-variant">Access role</dt>
+                <dd className="mt-1"><StatusBadge status={data.user.role} label={humanize(data.user.role)} /></dd>
+              </div>
+            </dl>
+          </Card>
+        )}
+      </AsyncBoundary>
 
-      {!loading && !error && data && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-lg">
-            <div className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-sm">
-              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Tenant</span>
-              <span className="font-headline-sm text-headline-sm text-on-surface font-mono">{data.tenantId}</span>
-              <span className="font-body-sm text-body-sm text-on-surface-variant">Sandbox org (H0)</span>
-            </div>
+      <Card title="Operational workspaces" description="Summaries and actions live with the resources they describe.">
+        <div className="grid gap-2 sm:grid-cols-2">
+          {destinations.map(({ title, detail, to, icon: Icon }) => (
             <Link
-              to="/policies"
-              className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-sm hover:border-tertiary/50 transition-colors"
+              key={to}
+              to={to}
+              className="group flex min-w-0 items-center gap-3 rounded-lg border border-outline-variant p-3 transition-colors hover:bg-surface-container-low"
             >
-              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-xs">
-                <ShieldCheck size={14} /> Policies
+              <Icon size={18} className="shrink-0 text-on-surface-variant" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-on-surface">{title}</span>
+                <span className="block text-xs text-on-surface-variant">{detail}</span>
               </span>
-              <span className="font-headline-md text-headline-md text-on-surface">{formatNumber(data.policyCount)}</span>
-              <span className="font-body-sm text-body-sm text-on-surface-variant">Org policy count</span>
+              <ExternalLink size={15} className="shrink-0 text-on-surface-variant group-hover:text-primary" />
             </Link>
-            <div
-              className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-sm"
-              data-testid="admin-pending-approvals"
-            >
-              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Pending approvals</span>
-              <span className="font-headline-md text-headline-md text-on-surface">{formatNumber(data.pendingApprovals)}</span>
-              <span className="font-body-sm text-body-sm text-on-surface-variant">Awaiting manager decision</span>
-            </div>
-            <Link
-              to="/audit-log"
-              className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-sm hover:border-tertiary/50 transition-colors"
-            >
-              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-xs">
-                <ScrollText size={14} /> Audit events
-              </span>
-              <span className="font-headline-md text-headline-md text-on-surface">{formatNumber(data.auditCount)}</span>
-              <span className="font-body-sm text-body-sm text-on-surface-variant">Immutable log entries</span>
-            </Link>
-          </div>
-
-          <div className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-md">
-            <div className="flex items-center justify-between">
-              <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface flex items-center gap-sm">
-                <Compass size={18} className="text-tertiary" /> Connected boards
-              </h3>
-              <Link to="/boards" className="font-label-md text-label-md text-tertiary hover:underline">
-                Manage boards
-              </Link>
-            </div>
-            {data.boards.length === 0 ? (
-              <p className="font-body-sm text-body-sm text-on-surface-variant">No boards connected yet.</p>
-            ) : (
-              <ul className="flex flex-col gap-sm">
-                {data.boards.map((board) => (
-                  <li
-                    key={board.projectId}
-                    className="flex items-center justify-between gap-md p-sm rounded bg-surface-variant/40 border border-outline-variant/40"
-                  >
-                    <div>
-                      <span className="font-body-sm text-body-sm text-on-surface block">{board.name}</span>
-                      <span className="font-mono text-label-sm text-on-surface-variant">{board.projectId}</span>
-                    </div>
-                    <Chip tone={board.state === 'healthy' ? 'tertiary' : board.state === 'error' ? 'error' : 'surface'}>
-                      {humanize(board.state)}
-                    </Chip>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
-        <div className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-md opacity-90">
-          <div className="w-12 h-12 rounded bg-surface-variant flex items-center justify-center border border-outline-variant">
-            <Users className="text-on-surface" size={24} />
-          </div>
-          <h3 className="font-headline-sm text-headline-sm text-on-surface">User Management</h3>
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Manage team members, roles, and SSO mappings.
-          </p>
-          <Chip tone="warning" className="self-start">
-            Demo mode — real SSO/vault in H1
-          </Chip>
+          ))}
         </div>
+      </Card>
 
-        <div className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-md opacity-90">
-          <div className="w-12 h-12 rounded bg-surface-variant flex items-center justify-center border border-outline-variant">
-            <Shield className="text-on-surface" size={24} />
-          </div>
-          <h3 className="font-headline-sm text-headline-sm text-on-surface">Access Controls (RBAC)</h3>
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Define granular permissions for projects and policies.
-          </p>
-          <Chip tone="warning" className="self-start">
-            Demo mode — real SSO/vault in H1
-          </Chip>
-        </div>
-
-        <div className="bg-surface-container border border-outline-variant rounded-xl p-lg flex flex-col gap-md opacity-90">
-          <div className="w-12 h-12 rounded bg-surface-variant flex items-center justify-center border border-outline-variant">
-            <Key className="text-on-surface" size={24} />
-          </div>
-          <h3 className="font-headline-sm text-headline-sm text-on-surface">Integration Secrets</h3>
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Manage credentials for Jira, Azure, and external APIs.
-          </p>
-          <Chip tone="warning" className="self-start">
-            Demo mode — real SSO/vault in H1
-          </Chip>
-        </div>
-      </div>
-    </div>
+      <Card
+        hierarchy="secondary"
+        title="Additional administration"
+        description="These capabilities do not have working controls or API support in this version."
+        actions={<StatusBadge status="unavailable" label="Unavailable" />}
+      >
+        <ul className="grid gap-3 text-sm text-on-surface-variant sm:grid-cols-3">
+          {[
+            { label: 'User lifecycle and SSO', icon: Users },
+            { label: 'Custom roles and permissions', icon: Shield },
+            { label: 'Integration secret management', icon: Key },
+          ].map(({ label, icon: Icon }) => (
+            <li key={label} className="flex items-center gap-2">
+              <Icon size={16} className="shrink-0" />
+              <span>{label}</span>
+            </li>
+          ))}
+        </ul>
+      </Card>
+    </PageContainer>
   );
 }

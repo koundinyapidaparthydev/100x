@@ -22,25 +22,46 @@ test.describe('Approvals & audit', () => {
     await expect(page.getByTestId('approvals-decided-list')).toBeVisible();
   });
 
-  test('admin shows pending approvals; notifications bell reaches approvals', async ({ page }) => {
+  test('admin stays concise; notifications bell reaches approvals', async ({ page }) => {
     await page.getByTestId('nav-admin').click();
     await expect(page.getByTestId('admin-page')).toBeVisible();
-    await expect(page.getByTestId('admin-pending-approvals')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Organization information' })).toBeVisible();
+    await expect(page.getByTestId('admin-pending-approvals')).toHaveCount(0);
 
     await page.getByTestId('nav-notifications').click();
+    await expect(page).toHaveURL(/\/approvals$/);
     await expect(page.getByTestId('approvals-page')).toBeVisible();
   });
 
+  test('project approvals and activity retain project context', async ({ page }) => {
+    const projectId = 'INFRA';
+    const encodedProjectId = encodeURIComponent(projectId);
+
+    await page.goto(`/projects/${encodedProjectId}/approvals`);
+    await expect(page.getByTestId('approvals-page')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Project approvals' })).toBeVisible();
+    await expect(page.getByTestId('nav-project-approvals')).toHaveAttribute('href', `/projects/${encodedProjectId}/approvals`);
+    await expect(
+      page.getByTestId('approvals-pending-list').or(page.getByTestId('approvals-decided-list')),
+    ).toBeVisible();
+
+    await page.getByTestId('nav-project-activity').click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${encodedProjectId}/activity$`));
+    await expect(page.getByTestId('audit-log-page')).toHaveAttribute('data-project-id', projectId);
+    await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
+  });
+
   test('audit log shows seeded and new events', async ({ page }) => {
-    await page.getByTestId('nav-audit-log').click();
+    await page.getByTestId('nav-audit').click();
+    await expect(page).toHaveURL(/\/audit$/);
     await expect(page.getByTestId('audit-log-page')).toBeVisible();
     await expect(page.getByTestId('audit-table')).toBeVisible();
-    await expect(page.locator('[data-testid^="audit-row-"]').first()).toBeVisible();
+    await expect(page.getByTestId('audit-table').locator('tbody tr').first()).toBeVisible();
 
     // Trigger a login-visible audit trail by syncing a board, then reload log.
-    await page.getByTestId('nav-boards').click();
+    await page.getByTestId('nav-projects').click();
     await page.getByTestId('board-sync-APLIFYAI').click();
-    await page.getByTestId('nav-audit-log').click();
+    await page.getByTestId('nav-audit').click();
     await expect(page.getByTestId('audit-table')).toBeVisible();
     await expect(page.locator('td').filter({ hasText: /board\.|sync|auth\.|job\./i }).first()).toBeVisible();
   });

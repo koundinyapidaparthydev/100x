@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="aws">
+  <rect width="64" height="64" rx="14" fill="#fff"/>
+  <path fill="#232F3E" d="M14 22h8v4h-3v14h-5V26h-3v-4zm12 0h8c4 0 6 2 6 5 0 2-1 4-3 5l4 8h-6l-3-6h-1v6h-5V22zm5 4v4h2c1 0 2-.5 2-2s-1-2-2-2h-2zM40 22h5l5 18h-5l-1-4h-5l-1 4h-5l5-18zm4 10l-1.5-6L41 32h3z"/>
+     <path fill="#FF9900" d="M18 48c8 6 20 6 28 0" stroke="#FF9900" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearBrowserSession, findUntreatedWorkItemId, loginAs } from './helpers';
+import { clearBrowserSession, findUntreatedWorkItem, loginAs } from './helpers';
 
 test.describe('Triage paths', () => {
   test.beforeEach(async ({ page }) => {
@@ -8,8 +8,10 @@ test.describe('Triage paths', () => {
   });
 
   test('AI-first triage from ticket detail', async ({ page, request }) => {
-    const workItemId = await findUntreatedWorkItemId(request);
-    await page.goto(`/boards/task/${encodeURIComponent(workItemId)}`);
+    const workItem = await findUntreatedWorkItem(request);
+    await page.goto(
+      `/projects/${encodeURIComponent(workItem.board.projectId)}/work/${encodeURIComponent(workItem.id)}`,
+    );
     await expect(page.getByTestId('task-detail-page')).toBeVisible();
 
     await page.getByTestId('task-ai-first').click();
@@ -20,8 +22,10 @@ test.describe('Triage paths', () => {
   });
 
   test('human-first triage from ticket detail', async ({ page, request }) => {
-    const workItemId = await findUntreatedWorkItemId(request);
-    await page.goto(`/boards/task/${encodeURIComponent(workItemId)}`);
+    const workItem = await findUntreatedWorkItem(request);
+    await page.goto(
+      `/projects/${encodeURIComponent(workItem.board.projectId)}/work/${encodeURIComponent(workItem.id)}`,
+    );
     await expect(page.getByTestId('task-detail-page')).toBeVisible();
 
     await page.getByTestId('task-human-first').click();

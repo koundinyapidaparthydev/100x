@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="bitbucket">
+  <rect width="64" height="64" rx="14" fill="#0052CC"/>
+  <path fill="#fff" d="M12 16l4 32a4 4 0 004 3.5h24a4 4 0 004-3.5l4-32H12zm22 22c-3.3 0-6-2.5-6-5.5S30.7 27 34 27s6 2.5 6 5.5-2.7 5.5-6 5.5z"/>
+</svg>

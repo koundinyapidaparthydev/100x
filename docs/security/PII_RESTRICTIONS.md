@@ -27,10 +27,23 @@ At minimum, detect and handle:
 
 Per category (org / project override):
 
-1. **`redact`** — replace with tokens like `[EMAIL_1]`, keep structure for engineers  
+1. **`redact`** — clear the value using a configured style (see below) before the model call  
 2. **`block`** — refuse to start AI job; notify manager  
 3. **`hash`** — irreversible token for correlation without revealing value  
 4. **`allow`** — only if founder enables (rare; audited)  
+
+### Redaction styles (when mode is `redact`)
+
+Configurable in **Governance → PII & PCI clearing**:
+
+| Style | Example | Typical use |
+|-------|---------|-------------|
+| `placeholder` | `[EMAIL_1]`, `[PHONE_1]` | Structure-preserving tokens |
+| `fixed` | `user@cleared.invalid` | Replace every email (or other value) with one cleared stand-in |
+| `mask_keep_last` | `***-***-0132`, `**** **** **** 1111` | Phone / card / SSN — keep last N digits |
+| `mask_keep_domain` | `***@acme.com` | Emails — drop local-part, keep domain |
+
+Default org seed: email → fixed `user@cleared.invalid`; phone → last 4; SSN / full PAN → block; customer names → hash.
 
 ## Pipeline position
 
@@ -56,11 +69,12 @@ No parallel path may skip this pipeline.
 
 ## Configuration UX
 
-Founder / employer settings:
+Founder / employer settings (**Governance → PII & PCI clearing**):
 
-- Toggle categories  
-- Map Jira fields → PII / forbidden  
-- Choose redact vs block  
+- Per category: mode (redact / block / hash / allow)  
+- When redact: choose clearing style + fixed value or digits to keep  
+- Edit the customer-name list used by the name detector  
+- Map Jira fields → PII / forbidden (planned)  
 - Require manager approval when block triggers  
 
 Employee cannot weaken org minimums.

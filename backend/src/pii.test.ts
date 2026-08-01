@@ -4,38 +4,61 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Policy } from '../../shared/types';
-import { luhnValid, sanitize } from './pii';
+import {
+  clearValue,
+  luhnValid,
+  maskKeepEmailDomain,
+  maskKeepLastDigits,
+  sanitize,
+} from './pii';
 import { createSeedStore } from './store';
 
 function seedPolicy(): Policy {
   return createSeedStore().policies[0]!;
 }
 
-/** Same as the seeded org policy but with chosen mode overrides. */
-function policyWith(pii: Partial<Policy['pii']>): Policy {
+/** Same as the seeded org policy but with chosen rule overrides. */
+function policyWith(
+  pii: Partial<Policy['pii']>,
+  extra: Partial<Pick<Policy, 'customerNames'>> = {},
+): Policy {
   const base = seedPolicy();
-  return { ...base, pii: { ...base.pii, ...pii } };
+  return {
+    ...base,
+    pii: { ...base.pii, ...pii },
+    ...extra,
+  };
 }
 
-describe('email detection', () => {
-  it('redacts a standard email with a placeholder', () => {
+describe('email clearing', () => {
+  it('replaces with the configured fixed email by default', () => {
     const { sanitized, report } = sanitize('Reach me at jane.doe@acme-corp.com for details.', seedPolicy());
-    expect(sanitized).toBe('Reach me at [EMAIL_1] for details.');
+    expect(sanitized).toBe('Reach me at user@cleared.invalid for details.');
     expect(report).toEqual({ redactions: 1, blocks: [] });
     expect(sanitized).not.toContain('jane.doe@acme-corp.com');
+  });
+
+  it('supports placeholder style', () => {
+    const { sanitized } = sanitize(
+      'a@x.com and b@y.org',
+      policyWith({ email: { mode: 'redact', style: 'placeholder' } }),
+    );
+    expect(sanitized).toBe('[EMAIL_1] and [EMAIL_2]');
+  });
+
+  it('supports mask_keep_domain', () => {
+    const { sanitized } = sanitize(
+      'mail jane.doe@acme-corp.com please',
+      policyWith({ email: { mode: 'redact', style: 'mask_keep_domain' } }),
+    );
+    expect(sanitized).toBe('mail ***@acme-corp.com please');
   });
 
   it('redacts obfuscated "jane [at] acme [dot] com"', () => {
     const { sanitized, report } = sanitize('Contact jane [at] acme [dot] com please.', seedPolicy());
     expect(report.redactions).toBe(1);
-    expect(sanitized).toContain('[EMAIL_1]');
+    expect(sanitized).toContain('user@cleared.invalid');
     expect(sanitized.toLowerCase()).not.toContain('[at]');
-  });
-
-  it('redacts multiple emails with incrementing placeholders', () => {
-    const { sanitized, report } = sanitize('a@x.com and b@y.org', seedPolicy());
-    expect(report.redactions).toBe(2);
-    expect(sanitized).toBe('[EMAIL_1] and [EMAIL_2]');
   });
 
   it('tolerates zero-width spaces inside an email', () => {
@@ -45,15 +68,49 @@ describe('email detection', () => {
   });
 });
 
-describe('phone detection', () => {
-  const formats = ['+1-415-555-0132', '(415) 555-0132', '415.555.0132', '415-555-0132', '+1 415 555 0132'];
+describe('phone clearing (mask last digits)', () => {
+  it('keeps last 4 digits by default', () => {
+    const { sanitized, report } = sanitize('Call +1-415-555-0132 now.', seedPolicy());
+    expect(report.redactions).toBe(1);
+    expect(sanitized).toBe('Call +*-***-***-0132 now.');
+    expect(sanitized).not.toContain('415');
+  });
+
+  const formats = ['(415) 555-0132', '415.555.0132', '415-555-0132'];
   for (const fmt of formats) {
-    it(`redacts phone format "${fmt}"`, () => {
+    it(`masks phone format "${fmt}"`, () => {
       const { sanitized, report } = sanitize(`Call ${fmt} now.`, seedPolicy());
       expect(report.redactions).toBe(1);
-      expect(sanitized).toBe('Call [PHONE_1] now.');
+      expect(sanitized).toMatch(/\*+.*0132/);
+      expect(sanitized).not.toContain('555');
     });
   }
+
+  it('supports placeholder style', () => {
+    const { sanitized } = sanitize(
+      'Call 415-555-0132 now.',
+      policyWith({ phone: { mode: 'redact', style: 'placeholder' } }),
+    );
+    expect(sanitized).toBe('Call [PHONE_1] now.');
+  });
+});
+
+describe('mask helpers', () => {
+  it('maskKeepLastDigits preserves separators', () => {
+    expect(maskKeepLastDigits('4111 1111 1111 1111', 4)).toBe('**** **** **** 1111');
+    expect(maskKeepLastDigits('123-45-6789', 4)).toBe('***-**-6789');
+  });
+
+  it('maskKeepEmailDomain keeps host', () => {
+    expect(maskKeepEmailDomain('jane.doe@acme.com')).toBe('***@acme.com');
+    expect(maskKeepEmailDomain('jane [at] acme [dot] com')).toBe('***@acme.com');
+  });
+
+  it('clearValue respects fixed replacement', () => {
+    expect(
+      clearValue('email', 'a@b.com', { mode: 'redact', style: 'fixed', fixedReplacement: 'x@y.z' }, 1),
+    ).toBe('x@y.z');
+  });
 });
 
 describe('ssn detection (default mode: block)', () => {
@@ -61,9 +118,7 @@ describe('ssn detection (default mode: block)', () => {
     const raw = '123-45-6789';
     const { sanitized, report } = sanitize(`Engineer SSN ${raw} from HR export.`, seedPolicy());
     expect(report.blocks).toEqual(['ssn']);
-    // Report must never carry raw PII.
     expect(JSON.stringify(report)).not.toContain(raw);
-    // Blocked categories are left untouched in the text — the caller must NOT use it.
     expect(report.redactions).toBe(0);
     void sanitized;
   });
@@ -80,9 +135,18 @@ describe('ssn detection (default mode: block)', () => {
 
   it('allow mode lets an SSN-like value pass through', () => {
     const raw = '123-45-6789';
-    const { sanitized, report } = sanitize(`SSN ${raw}`, policyWith({ ssn: 'allow' }));
+    const { sanitized, report } = sanitize(`SSN ${raw}`, policyWith({ ssn: { mode: 'allow' } }));
     expect(sanitized).toBe(`SSN ${raw}`);
     expect(report).toEqual({ redactions: 0, blocks: [] });
+  });
+
+  it('redact + mask_keep_last keeps last 4 when not blocked', () => {
+    const { sanitized, report } = sanitize(
+      'SSN 123-45-6789',
+      policyWith({ ssn: { mode: 'redact', style: 'mask_keep_last', keepLastDigits: 4 } }),
+    );
+    expect(report.blocks).toEqual([]);
+    expect(sanitized).toBe('SSN ***-**-6789');
   });
 });
 
@@ -110,6 +174,15 @@ describe('credit card detection (default mode: block, Luhn-validated)', () => {
     const { report } = sanitize('ref 4111 1111 11 done', seedPolicy());
     expect(report.blocks).toEqual([]);
   });
+
+  it('redact + mask_keep_last keeps last 4 when policy allows', () => {
+    const { sanitized, report } = sanitize(
+      'Card 4111 1111 1111 1111',
+      policyWith({ credit_card: { mode: 'redact', style: 'mask_keep_last', keepLastDigits: 4 } }),
+    );
+    expect(report.blocks).toEqual([]);
+    expect(sanitized).toBe('Card **** **** **** 1111');
+  });
 });
 
 describe('customer name hashing', () => {
@@ -120,7 +193,7 @@ describe('customer name hashing', () => {
     const tokenA = a.sanitized.match(/[0-9a-f]{12}/)?.[0];
     const tokenB = b.sanitized.match(/[0-9a-f]{12}/)?.[0];
     expect(tokenA).toMatch(/^[0-9a-f]{12}$/);
-    expect(tokenA).toBe(tokenB); // deterministic correlation token
+    expect(tokenA).toBe(tokenB);
     expect(a.sanitized).not.toContain('Jane Doe');
     expect(JSON.stringify(a.report)).not.toContain('Jane Doe');
   });
@@ -138,7 +211,7 @@ describe('report safety', () => {
     }
     expect(report.blocks).toContain('ssn');
     expect(report.blocks).toContain('credit_card');
-    expect(report.redactions).toBeGreaterThanOrEqual(3); // emails + phone + name
+    expect(report.redactions).toBeGreaterThanOrEqual(3);
     void sanitized;
   });
 
