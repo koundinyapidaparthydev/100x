@@ -59,7 +59,7 @@ const TICKET_STEPS: TrackStep[] = [
   {
     id: 'ticket-mr',
     label: 'MR',
-    title: 'Ship the ticket MR',
+    title: 'Open the ticket MR after review',
     body: 'After human approval, open the merge request on GitHub or GitLab — agents propose, you ship.',
     icon: <GitPullRequest size={16} strokeWidth={1.75} aria-hidden="true" />,
   },
@@ -90,7 +90,7 @@ const MODEL_STEPS: TrackStep[] = [
   {
     id: 'model-mr',
     label: 'Model MR',
-    title: 'Model change as an MR',
+    title: 'Model change lands as an MR after review',
     body: 'The custom model (or model-related change) lands as a reviewable MR — same human gate as ticket work.',
     icon: <GitPullRequest size={16} strokeWidth={1.75} aria-hidden="true" />,
   },
@@ -105,7 +105,7 @@ const MODEL_STEPS: TrackStep[] = [
     id: 'skills',
     label: 'Skills',
     title: 'Ship skills from answer groups',
-    body: 'Curated answer categories become skill packs for Codex, Claude Code, Cursor, and ChatGPT — the platform keeps control.',
+    body: 'After human review, curated answer categories become skill packs for Codex, Claude Code, Cursor, and ChatGPT — the platform keeps control.',
     icon: <Wand2 size={16} strokeWidth={1.75} aria-hidden="true" />,
   },
 ];
@@ -113,8 +113,8 @@ const MODEL_STEPS: TrackStep[] = [
 const GATE = {
   id: 'human-gate',
   label: 'Human gate',
-  title: 'Human reviews and approves',
-  body: 'Ticket drafts and model MRs share one gate: a person reviews evidence, approves or rejects, and the audit trail records the decision before ship or try.',
+  title: 'Human reviews the draft',
+  body: 'Ticket drafts and model MRs share one gate: a person reviews the draft and evidence, approves or rejects, and the audit trail records the decision before ship or skills.',
 };
 
 export type DualTrackFlowProps = {
@@ -318,7 +318,7 @@ export function DualTrackFlow({ variant = 'full', autoAdvance = false }: DualTra
           />
           <TrackColumn
             eyebrow="Model path"
-            title="Preference → governed data → train → model MR → try → skills"
+            title="Preference → governed data → train → review → model MR → skills"
             steps={MODEL_STEPS}
             activeId={activeId}
             onSelect={setActiveId}

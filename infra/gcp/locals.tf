@@ -19,6 +19,8 @@ locals {
     "session-secret",
     "openai-api-key",
     "jira-api-token",
+    "google-client-id",
+    "google-client-secret",
   ]
 
   cloud_run_service_name = "${local.name}-api"

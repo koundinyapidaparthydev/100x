@@ -283,8 +283,9 @@ function loadProviderConfig(provider: FederatedAuthProvider): ProviderRuntimeCon
       const redirectUri =
         trimEnv('GOOGLE_WORKSPACE_REDIRECT_URI') ??
         'http://localhost:4000/api/v1/auth/google_workspace/callback';
+      // Require hosted-domain config so social Google alone does not enable Workspace SSO.
       const hd = trimEnv('GOOGLE_WORKSPACE_HD');
-      if (!clientId || !clientSecret) return null;
+      if (!clientId || !clientSecret || !hd) return null;
       return {
         provider,
         label: 'Google Workspace',

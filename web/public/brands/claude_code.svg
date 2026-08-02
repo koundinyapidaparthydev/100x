@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="claude code">
-  <rect width="64" height="64" rx="14" fill="#D97757"/>
-  <path fill="#fff" d="M18 42l8.2-20h5.6L40 42h-5.2l-1.6-4.2H24.8L23.2 42H18zm8.4-8.2h7.2l-3.5-9.1h-.2l-3.5 9.1zM42 22h4.8v20H42V22z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Claude Code">
+  <rect width="64" height="64" rx="12" fill="#FFFFFF"/>
+  <svg x="10" y="10" width="44" height="44" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet">
+<path fill="#D97757" d="M21 10.5h3v3h-3v3h-1.5v3H18v-3h-1.5v3H15v-3H9v3H7.5v-3H6v3H4.5v-3H3v-3H0v-3h3v-6h18Zm-15 0h1.5v-3H6Zm10.5 0H18v-3h-1.5z"/>
+  </svg>
 </svg>

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   Cloud,
   CloudCog,
@@ -6,7 +7,6 @@ import {
   Server,
   Shield,
   Wallet,
-  Workflow,
 } from 'lucide-react';
 import {
   PRIVATE_CLOUD_PROVIDERS,
@@ -20,8 +20,17 @@ import {
   type TokenBudgetAppetite,
 } from '@shared/types';
 import { OptionCards } from './OptionCards';
+import { QuestionLabel } from './QuestionInfo';
 import { providerDisplay } from '../../lib/format';
+import { getService } from '../../lib/serviceCatalog';
 import { cn } from '../../lib/utils';
+
+const PROVIDER_LOGO: Partial<Record<CloudProvider, string>> = {
+  aws: getService('aws')?.logo ?? '/brands/aws.svg',
+  azure: getService('azure')?.logo ?? '/brands/azure.svg',
+  gcp: getService('gcp')?.logo ?? '/brands/gcp.svg',
+  nvidia: getService('nvidia')?.logo ?? '/brands/nvidia.svg',
+};
 
 /** Catalog cloud services that map 1:1 onto CloudProvider. */
 const CLOUD_SERVICE_PROVIDERS: { serviceId: ServiceId; provider: CloudProvider }[] = [
@@ -38,32 +47,26 @@ export type RuntimeSlideProps = {
   selectedServices?: ServiceId[];
 };
 
-/**
- * Three product choices for where AI runs:
- * 1. connected accounts already selected (AWS/Azure/GCP/NVIDIA) — we use their account
- * 2. AplifyAI private cloud — our managed private plane
- * 3. customer BYOC — they pick a platform and connect that account next
- */
 const HOSTING = [
   {
     id: 'customer_cloud' as const,
     title: 'Connected cloud accounts',
     description:
-      'Use AWS, Azure, GCP, or NVIDIA accounts from your stack — we run in your account, not one we create.',
+      'Run in AWS, Azure, GCP, or NVIDIA accounts from your stack. Billing and IAM stay on your side.',
     icon: Link2,
   },
   {
     id: 'public_managed' as const,
     title: 'AplifyAI private cloud',
     description:
-      'Run on our managed private cloud. No customer AWS, Azure, GCP, or NVIDIA account required.',
+      'Fastest start. Jobs run on our managed private cloud — no customer cloud account required yet.',
     icon: Cloud,
   },
   {
     id: 'private_vpc' as const,
     title: 'Your cloud (BYOC)',
     description:
-      'Bring your own cloud. Choose the platform now; connect that account on the next step.',
+      'Bring your own cloud. Pick the platform now; connect that account on the next step.',
     icon: CloudCog,
   },
 ] as const;
@@ -72,13 +75,13 @@ const RUNTIME_MODE = [
   {
     id: 'request_based',
     title: 'On demand',
-    description: 'Spin up when work arrives.',
+    description: 'Start workers when work arrives. Lower idle cost.',
     icon: Radar,
   },
   {
     id: 'always_on',
     title: 'Always on',
-    description: 'Warm workers for low latency.',
+    description: 'Keep warm workers ready for lower latency.',
     icon: Server,
   },
 ] as const;
@@ -87,17 +90,17 @@ const MODELS = [
   {
     id: 'none',
     title: 'Managed models',
-    description: 'Use platform defaults only.',
+    description: 'Use AplifyAI defaults. Simplest path.',
   },
   {
     id: 'side_by_side',
     title: 'Side-by-side',
-    description: 'Compare custom models as you learn.',
+    description: 'Compare your models next to managed ones.',
   },
   {
     id: 'trained',
     title: 'Train custom',
-    description: 'Fine-tune for your domain later.',
+    description: 'Plan to fine-tune for your domain later.',
   },
 ] as const;
 
@@ -105,30 +108,30 @@ const CODE = [
   {
     id: 'forbidden',
     title: 'No code changes',
-    description: 'AI can suggest, never write.',
+    description: 'AI can suggest only — never write to repos.',
   },
   {
     id: 'allowed_with_audit',
     title: 'With audit',
-    description: 'Allowed when every change is logged.',
+    description: 'AI may change code when every edit is logged.',
   },
   {
     id: 'allowed',
     title: 'Allowed',
-    description: 'Trusted repos can accept AI edits.',
+    description: 'Trusted repos can accept AI edits more freely.',
   },
 ] as const;
 
 const BUDGET = [
-  { id: 'conservative', title: 'Conservative', description: 'Cap spend tightly.' },
-  { id: 'balanced', title: 'Balanced', description: 'Room to experiment.' },
-  { id: 'aggressive', title: 'Aggressive', description: 'Prioritize speed.' },
+  { id: 'conservative', title: 'Conservative', description: 'Tight caps. Predictable spend.' },
+  { id: 'balanced', title: 'Balanced', description: 'Room to try richer prompts.' },
+  { id: 'aggressive', title: 'Aggressive', description: 'Prioritize speed over cost.' },
 ] as const;
 
 const MCP = [
-  { id: 'strict', title: 'Strict', description: 'Allowlist only, least privilege.' },
-  { id: 'balanced', title: 'Balanced', description: 'Common tools enabled.' },
-  { id: 'open', title: 'Open', description: 'Broad access while learning.' },
+  { id: 'strict', title: 'Strict', description: 'Allowlist only. Least privilege.' },
+  { id: 'balanced', title: 'Balanced', description: 'Common tools on by default.' },
+  { id: 'open', title: 'Open', description: 'Broad access while you learn.' },
 ] as const;
 
 const REGION_PRESETS = [
@@ -144,6 +147,28 @@ function connectedProviders(selected: ServiceId[] | undefined): CloudProvider[] 
   return CLOUD_SERVICE_PROVIDERS.filter((c) => set.has(c.serviceId)).map((c) => c.provider);
 }
 
+function Group({
+  step,
+  title,
+  children,
+}: {
+  step: number;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-xl border border-outline-variant/60 bg-surface/60 p-4 sm:p-5">
+      <p className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant">
+        <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-on-primary">
+          {step}
+        </span>
+        {title}
+      </p>
+      <div className="space-y-5">{children}</div>
+    </section>
+  );
+}
+
 export function RuntimeSlide({ value, onChange, selectedServices = [] }: RuntimeSlideProps) {
   const patch = (partial: Partial<RuntimeAnswers>) => onChange({ ...value, ...partial });
   const regions = value.regions ?? [];
@@ -152,6 +177,7 @@ export function RuntimeSlide({ value, onChange, selectedServices = [] }: Runtime
   const showConnectedPicker = hosting === 'customer_cloud';
   const showByocPicker = hosting === 'private_vpc';
   const showPlatformPicker = showConnectedPicker || showByocPicker;
+  const hostingChosen = Boolean(hosting);
   const platformOptions: CloudProvider[] = showConnectedPicker
     ? linked.length > 0
       ? linked
@@ -184,7 +210,6 @@ export function RuntimeSlide({ value, onChange, selectedServices = [] }: Runtime
       });
       return;
     }
-    // BYOC
     patch({
       hosting: next,
       cloudProvider: value.cloudProvider && value.cloudProvider !== 'private' ? value.cloudProvider : 'aws',
@@ -193,178 +218,222 @@ export function RuntimeSlide({ value, onChange, selectedServices = [] }: Runtime
   };
 
   return (
-    <div className="space-y-3" data-testid="runtime-slide">
-      <OptionCards
-        testId="runtime-hosting"
-        label="Where should AI run?"
-        hint="Choose whether we use accounts you already linked, our private cloud, or a cloud you bring yourself."
-        columns={3}
-        selected={value.hosting}
-        onSelect={(id) => selectHosting(id as HostingPreference)}
-        options={[...HOSTING]}
-      />
+    <div className="mx-auto flex max-w-3xl flex-col gap-4" data-testid="runtime-slide">
+      <p className="text-xs leading-5 text-on-surface-variant">
+        Work top to bottom. Every group is required. Tap the{' '}
+        <span className="font-semibold text-primary">?</span> next to a question if you are unsure
+        what to pick — nothing is pre-selected.
+      </p>
 
-      {showConnectedPicker && (
-        <p className="text-xs leading-5 text-on-surface-variant" data-testid="runtime-connected-hint">
-          {linked.length > 0
-            ? `Using cloud accounts from your stack: ${linked.map((p) => providerDisplay(p)).join(', ')}. We will not create a separate AplifyAI account in those clouds.`
-            : 'No AWS, Azure, GCP, or NVIDIA service was selected in your stack yet. Pick one below — you can connect the account on the next step — or switch to AplifyAI private cloud / Your cloud (BYOC).'}
-        </p>
-      )}
+      <Group step={1} title="Where AI runs">
+        <OptionCards
+          testId="runtime-hosting"
+          label="Choose a hosting home"
+          info="This is the main decision. Connected accounts = your cloud bill and IAM. AplifyAI private cloud = we host. BYOC = you bring a platform and connect it next. Pick one to unlock the rest of this step."
+          hint="Required · pick exactly one"
+          columns={1}
+          density="comfortable"
+          selected={value.hosting}
+          onSelect={(id) => selectHosting(id as HostingPreference)}
+          options={[...HOSTING]}
+        />
 
-      {hosting === 'public_managed' && (
-        <p className="text-xs leading-5 text-on-surface-variant" data-testid="runtime-managed-hint">
-          Jobs run on AplifyAI’s managed private cloud. You can switch to connected accounts or BYOC
-          later under Governance → Cloud runtime.
-        </p>
-      )}
-
-      {showByocPicker && (
-        <p className="text-xs leading-5 text-on-surface-variant" data-testid="runtime-byoc-hint">
-          Pick the platform you own. On Connections you will link that account so AI runs under your
-          billing and IAM — not an account we create for you.
-        </p>
-      )}
-
-      {showPlatformPicker && (
-        <fieldset data-testid="runtime-cloud-provider">
-          <legend className="text-sm font-semibold text-on-surface">
-            {showConnectedPicker ? 'Which connected cloud?' : 'Which cloud platform?'}
-          </legend>
-          <p className="mt-0.5 text-[11px] text-on-surface-variant">
-            {showConnectedPicker
-              ? 'Select the account we should execute against.'
-              : 'AWS, Azure, NVIDIA, GCP, a generic private cloud, or another platform you name.'}
+        {showConnectedPicker && (
+          <p className="text-xs leading-5 text-on-surface-variant" data-testid="runtime-connected-hint">
+            {linked.length > 0
+              ? `From your stack we can use: ${linked.map((p) => providerDisplay(p)).join(', ')}. We will not create a separate AplifyAI account there.`
+              : 'No AWS, Azure, GCP, or NVIDIA was selected in your stack yet. Pick a platform below (you can connect it next), or switch hosting to AplifyAI private cloud / BYOC.'}
           </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {platformOptions.map((provider) => {
-              const isOn = (value.cloudProvider ?? platformOptions[0]) === provider;
-              return (
-                <button
-                  key={provider}
-                  type="button"
-                  aria-pressed={isOn}
-                  onClick={() =>
-                    patch({
-                      cloudProvider: provider,
-                      customCloudLabel: provider === 'custom' ? value.customCloudLabel : undefined,
-                    })
-                  }
-                  className={cn(
-                    'inline-flex min-h-9 items-center rounded-lg border px-3 text-xs font-semibold transition',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                    isOn
-                      ? 'border-primary bg-primary text-on-primary'
-                      : 'border-outline-variant/70 bg-surface text-on-surface hover:border-primary/40',
-                  )}
-                >
-                  {providerDisplay(provider)}
-                </button>
-              );
-            })}
-          </div>
-          {(value.cloudProvider ?? 'aws') === 'custom' && showByocPicker && (
-            <label className="mt-2 block text-xs font-medium text-on-surface">
-              Platform name
-              <input
-                data-testid="runtime-custom-cloud-label"
-                type="text"
-                value={value.customCloudLabel ?? ''}
-                onChange={(e) => patch({ customCloudLabel: e.target.value })}
-                placeholder="e.g. Oracle Cloud, CoreWeave, on-prem K8s"
-                className="mt-1.5 min-h-10 w-full rounded-lg border border-outline-variant bg-surface px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+        )}
+
+        {hosting === 'public_managed' && (
+          <p className="text-xs leading-5 text-on-surface-variant" data-testid="runtime-managed-hint">
+            Jobs run on AplifyAI’s managed private cloud. You can move to connected accounts or BYOC
+            later under Governance → Cloud runtime.
+          </p>
+        )}
+
+        {showByocPicker && (
+          <p className="text-xs leading-5 text-on-surface-variant" data-testid="runtime-byoc-hint">
+            Next you will connect the platform you pick so AI runs under your billing and IAM.
+          </p>
+        )}
+
+        {showPlatformPicker && (
+          <fieldset data-testid="runtime-cloud-provider">
+            <legend className="text-sm font-semibold text-on-surface">
+              <QuestionLabel
+                label={showConnectedPicker ? 'Which cloud account?' : 'Which cloud platform?'}
+                info={
+                  showConnectedPicker
+                    ? 'Pick the cloud brand AI should execute against. We use that account’s IAM and billing.'
+                    : 'Pick the platform you own for BYOC. You will link the account on Connections.'
+                }
               />
-            </label>
-          )}
-        </fieldset>
+            </legend>
+            <p className="mt-0.5 text-[11px] text-on-surface-variant">Required · pick one</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {platformOptions.map((provider) => {
+                const isOn = value.cloudProvider === provider;
+                return (
+                  <button
+                    key={provider}
+                    type="button"
+                    aria-pressed={isOn}
+                    onClick={() =>
+                      patch({
+                        cloudProvider: provider,
+                        customCloudLabel: provider === 'custom' ? value.customCloudLabel : undefined,
+                      })
+                    }
+                    className={cn(
+                      'inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                      isOn
+                        ? 'border-primary bg-primary text-on-primary'
+                        : 'border-outline-variant/70 bg-surface text-on-surface hover:border-primary/40',
+                    )}
+                  >
+                    {PROVIDER_LOGO[provider] ? (
+                      <img
+                        src={PROVIDER_LOGO[provider]}
+                        alt=""
+                        className="size-5 rounded-sm bg-white object-contain p-0.5"
+                      />
+                    ) : null}
+                    {providerDisplay(provider)}
+                  </button>
+                );
+              })}
+            </div>
+            {value.cloudProvider === 'custom' && showByocPicker && (
+              <label className="mt-3 block text-xs font-medium text-on-surface">
+                Platform name
+                <input
+                  data-testid="runtime-custom-cloud-label"
+                  type="text"
+                  value={value.customCloudLabel ?? ''}
+                  onChange={(e) => patch({ customCloudLabel: e.target.value })}
+                  placeholder="e.g. Oracle Cloud, CoreWeave, on-prem K8s"
+                  className="mt-1.5 min-h-10 w-full rounded-lg border border-outline-variant bg-surface px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                />
+              </label>
+            )}
+          </fieldset>
+        )}
+      </Group>
+
+      {!hostingChosen ? (
+        <p
+          className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low/50 px-4 py-6 text-center text-sm text-on-surface-variant"
+          data-testid="runtime-unlock-hint"
+        >
+          Select a hosting home above to unlock runtime mode, models, and guardrails.
+        </p>
+      ) : (
+        <>
+          <Group step={2} title="How AI should run">
+            <OptionCards
+              testId="runtime-mode"
+              label="Runtime mode"
+              info="On demand spins up when work arrives (cheaper idle). Always on keeps workers warm for faster response. Most teams start with On demand."
+              hint="Required · pick one"
+              columns={2}
+              selected={value.runtimeMode}
+              onSelect={(id) => patch({ runtimeMode: id as RuntimeModePref })}
+              options={[...RUNTIME_MODE]}
+            />
+            <OptionCards
+              testId="runtime-custom-model"
+              label="Model stance"
+              info="Managed models = we pick defaults. Side-by-side = try your endpoints too. Train custom = you plan fine-tuning later. Start with Managed unless you already have a model program."
+              hint="Required · pick one"
+              columns={1}
+              selected={value.customModel}
+              onSelect={(id) => patch({ customModel: id as CustomModelPref })}
+              options={[...MODELS]}
+            />
+          </Group>
+
+          <Group step={3} title="Guardrails">
+            <OptionCards
+              testId="runtime-code-override"
+              label="Can AI change code?"
+              info="No code changes = suggestions only. With audit = edits allowed when logged. Allowed = freer writes on trusted repos. If you are unsure, pick With audit."
+              hint="Required · pick one"
+              columns={1}
+              selected={value.codeOverrideStance}
+              onSelect={(id) =>
+                patch({
+                  codeOverrideStance: id as NonNullable<RuntimeAnswers['codeOverrideStance']>,
+                })
+              }
+              options={[...CODE]}
+            />
+            <OptionCards
+              testId="runtime-token-budget"
+              label="Spend posture"
+              info="How hard AI may push token spend early on. Conservative is safest for pilots; Balanced is the usual default; Aggressive favors speed."
+              hint="Required · pick one"
+              columns={3}
+              selected={value.tokenBudgetAppetite}
+              onSelect={(id) => patch({ tokenBudgetAppetite: id as TokenBudgetAppetite })}
+              options={[...BUDGET]}
+            />
+            <OptionCards
+              testId="runtime-mcp-allowlist"
+              label="Tool / MCP access"
+              info="How open connectors are at first. Strict = allowlist only. Balanced = common tools. Open = broad access while exploring. Prefer Strict or Balanced for production-minded pilots."
+              hint="Required · pick one"
+              columns={3}
+              selected={value.mcpAllowlistAggressiveness}
+              onSelect={(id) =>
+                patch({ mcpAllowlistAggressiveness: id as McpAllowlistAggressiveness })
+              }
+              options={[...MCP]}
+            />
+
+            <fieldset data-testid="runtime-regions">
+              <legend className="text-sm font-semibold text-on-surface">
+                <QuestionLabel
+                  label="Preferred regions"
+                  info="Where inference should land first for latency and data residency. Select every region you may use in phase one — you can refine later in Cloud settings."
+                />
+              </legend>
+              <p className="mt-0.5 text-[11px] text-on-surface-variant">
+                Required · select at least one
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {REGION_PRESETS.map((region) => {
+                  const isOn = regions.includes(region.id);
+                  return (
+                    <button
+                      key={region.id}
+                      type="button"
+                      aria-pressed={isOn}
+                      onClick={() => toggleRegion(region.id)}
+                      className={cn(
+                        'inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                        isOn
+                          ? 'border-primary bg-primary text-on-primary'
+                          : 'border-outline-variant/70 bg-surface text-on-surface hover:border-primary/40',
+                      )}
+                    >
+                      <Shield size={12} aria-hidden="true" />
+                      {region.label}
+                    </button>
+                  );
+                })}
+                <span className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed border-outline-variant px-3 text-[11px] text-on-surface-variant">
+                  <Wallet size={12} aria-hidden="true" />
+                  More regions in Cloud settings
+                </span>
+              </div>
+            </fieldset>
+          </Group>
+        </>
       )}
-
-      <div className="grid gap-3 lg:grid-cols-2">
-        <OptionCards
-          testId="runtime-mode"
-          label="Runtime mode"
-          columns={2}
-          selected={value.runtimeMode}
-          onSelect={(id) => patch({ runtimeMode: id as RuntimeModePref })}
-          options={[...RUNTIME_MODE]}
-        />
-        <OptionCards
-          testId="runtime-custom-model"
-          label="Model stance"
-          columns={3}
-          selected={value.customModel}
-          onSelect={(id) => patch({ customModel: id as CustomModelPref })}
-          options={[...MODELS]}
-        />
-        <OptionCards
-          testId="runtime-code-override"
-          label="Can AI change code?"
-          columns={3}
-          selected={value.codeOverrideStance}
-          onSelect={(id) =>
-            patch({
-              codeOverrideStance: id as NonNullable<RuntimeAnswers['codeOverrideStance']>,
-            })
-          }
-          options={[...CODE]}
-        />
-        <OptionCards
-          testId="runtime-token-budget"
-          label="Spend posture"
-          columns={3}
-          selected={value.tokenBudgetAppetite}
-          onSelect={(id) => patch({ tokenBudgetAppetite: id as TokenBudgetAppetite })}
-          options={[...BUDGET]}
-        />
-        <OptionCards
-          testId="runtime-mcp-allowlist"
-          label="Tool / MCP access"
-          hint="How open should connectors be at first?"
-          columns={3}
-          selected={value.mcpAllowlistAggressiveness}
-          onSelect={(id) =>
-            patch({ mcpAllowlistAggressiveness: id as McpAllowlistAggressiveness })
-          }
-          options={[...MCP]}
-        />
-
-        <fieldset data-testid="runtime-regions">
-          <legend className="flex items-center gap-2 text-sm font-semibold text-on-surface">
-            <Workflow size={14} className="text-primary" aria-hidden="true" />
-            Preferred regions
-          </legend>
-          <p className="mt-0.5 text-[11px] text-on-surface-variant">
-            Multi-select where inference should land first.
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {REGION_PRESETS.map((region) => {
-              const isOn = regions.includes(region.id);
-              return (
-                <button
-                  key={region.id}
-                  type="button"
-                  aria-pressed={isOn}
-                  onClick={() => toggleRegion(region.id)}
-                  className={cn(
-                    'inline-flex min-h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                    isOn
-                      ? 'border-primary bg-primary text-on-primary'
-                      : 'border-outline-variant/70 bg-surface text-on-surface hover:border-primary/40',
-                  )}
-                >
-                  <Shield size={12} aria-hidden="true" />
-                  {region.label}
-                </button>
-              );
-            })}
-            <span className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-dashed border-outline-variant px-3 text-[11px] text-on-surface-variant">
-              <Wallet size={12} aria-hidden="true" />
-              More regions in Cloud settings
-            </span>
-          </div>
-        </fieldset>
-      </div>
     </div>
   );
 }

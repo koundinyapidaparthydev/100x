@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { QuestionLabel } from './QuestionInfo';
 
 export type OptionCardItem = {
   id: string;
@@ -10,10 +11,12 @@ export type OptionCardItem = {
 
 type BaseProps = {
   label: string;
+  /** Hover “i” tooltip — what the question means and how to answer. */
+  info?: string;
   hint?: string;
   options: OptionCardItem[];
   testId: string;
-  columns?: 2 | 3 | 4;
+  columns?: 1 | 2 | 3 | 4;
   /** Compact rows for laptop viewports — title (+ optional short icon), no tall cards. */
   density?: 'comfortable' | 'compact';
 };
@@ -33,17 +36,20 @@ export type MultiOptionCardsProps = BaseProps & {
 export type OptionCardsProps = SingleOptionCardsProps | MultiOptionCardsProps;
 
 export function OptionCards(props: OptionCardsProps) {
-  const { label, hint, options, testId, columns = 2, density = 'compact' } = props;
+  const { label, info, hint, options, testId, columns = 2, density = 'compact' } = props;
   const multi = props.mode === 'multi';
   const compact = density === 'compact';
 
   return (
     <fieldset data-testid={testId} className="min-w-0">
-      <legend className="text-sm font-semibold text-on-surface">{label}</legend>
+      <legend className="text-sm font-semibold text-on-surface">
+        <QuestionLabel label={label} info={info} />
+      </legend>
       {hint ? <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">{hint}</p> : null}
       <div
         className={cn(
           'mt-2 grid gap-1.5',
+          columns === 1 && 'grid-cols-1',
           columns === 4 && 'grid-cols-2 lg:grid-cols-4',
           columns === 3 && 'grid-cols-2 sm:grid-cols-3',
           columns === 2 && 'grid-cols-2',
@@ -89,8 +95,15 @@ export function OptionCards(props: OptionCardsProps) {
                 <span className={cn('block font-semibold text-on-surface', compact ? 'text-xs' : 'text-sm')}>
                   {opt.title}
                 </span>
-                {!compact && opt.description ? (
-                  <span className="mt-1 block text-xs leading-5 text-on-surface-variant">
+                {opt.description ? (
+                  <span
+                    className={cn(
+                      'block text-on-surface-variant',
+                      compact
+                        ? 'mt-0.5 line-clamp-2 text-[10px] leading-snug'
+                        : 'mt-1 text-xs leading-5',
+                    )}
+                  >
                     {opt.description}
                   </span>
                 ) : null}

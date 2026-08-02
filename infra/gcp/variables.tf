@@ -105,6 +105,24 @@ variable "auth_allow_demo_login" {
   default     = false
 }
 
+variable "web_app_origin" {
+  description = "Public web app origin used for post-login redirects (no trailing slash)."
+  type        = string
+  default     = "http://localhost:3000"
+}
+
+variable "google_redirect_uri" {
+  description = "OAuth redirect URI for Continue with Google (must match Google Cloud Console)."
+  type        = string
+  default     = "http://localhost:4000/api/v1/auth/google/callback"
+}
+
+variable "google_default_role" {
+  description = "Default UserRole for Google social login when no invite applies."
+  type        = string
+  default     = "engineer"
+}
+
 variable "jira_base_url" {
   description = "Optional Jira Cloud base URL. The API token remains in Secret Manager."
   type        = string

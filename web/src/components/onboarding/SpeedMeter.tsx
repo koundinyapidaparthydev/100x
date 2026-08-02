@@ -3,7 +3,7 @@ import { cn } from '../../lib/utils';
 export const SPEED_OPTIONS = [3, 20, 40, 70, 100] as const;
 
 export type SpeedMeterProps = {
-  value: number;
+  value?: number;
   onChange: (value: number) => void;
 };
 
@@ -22,9 +22,11 @@ function toneLabel(value: number): string {
 }
 
 export function SpeedMeter({ value, onChange }: SpeedMeterProps) {
-  const selected = nearestOption(value);
-  const selectedIndex = SPEED_OPTIONS.indexOf(selected as (typeof SPEED_OPTIONS)[number]);
-  const pct = (selectedIndex / (SPEED_OPTIONS.length - 1)) * 100;
+  const hasValue = typeof value === 'number';
+  const selected = hasValue ? nearestOption(value) : null;
+  const selectedIndex =
+    selected == null ? -1 : SPEED_OPTIONS.indexOf(selected as (typeof SPEED_OPTIONS)[number]);
+  const pct = selectedIndex < 0 ? 0 : (selectedIndex / (SPEED_OPTIONS.length - 1)) * 100;
 
   return (
     <div
@@ -37,11 +39,19 @@ export function SpeedMeter({ value, onChange }: SpeedMeterProps) {
             Expected speed-up
           </p>
           <p className="mt-1 text-3xl font-semibold tracking-tight text-primary">
-            {selected}
-            <span className="text-lg text-primary/80">x</span>
+            {selected == null ? (
+              <span className="text-on-surface-variant">—</span>
+            ) : (
+              <>
+                {selected}
+                <span className="text-lg text-primary/80">x</span>
+              </>
+            )}
           </p>
         </div>
-        <p className="text-sm text-on-surface-variant">{toneLabel(selected)}</p>
+        <p className="text-sm text-on-surface-variant">
+          {selected == null ? 'Choose a target' : toneLabel(selected)}
+        </p>
       </div>
 
       <div
@@ -60,7 +70,7 @@ export function SpeedMeter({ value, onChange }: SpeedMeterProps) {
           <div className="relative flex h-full items-center justify-between">
             {SPEED_OPTIONS.map((opt) => {
               const isOn = selected === opt;
-              const isReached = opt <= selected;
+              const isReached = selected != null && opt <= selected;
               return (
                 <button
                   key={opt}

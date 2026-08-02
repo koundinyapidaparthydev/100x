@@ -68,11 +68,11 @@ export default function Signup() {
       testId="signup-page"
       eyebrow="Create workspace"
       title="Start as the workspace owner — then connect your stack."
-      body="You create the workspace, run Free or Enterprise onboarding, and invite delivery leads and contributors afterward."
+      body="You create the workspace, run Free or Enterprise onboarding, connect your stack, and invite people who triage and review drafts."
       bullets={[
         'Start free for full editable access',
         'Owner controls policy, PII, models, and connections',
-        'Switch seats anytime from the top bar',
+        'Invite leads and contributors to triage and review',
       ]}
     >
       <div>

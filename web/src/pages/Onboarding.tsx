@@ -30,6 +30,7 @@ import {
   ExpectationsSlide,
   OptionCards,
   PlanPicker,
+  QuestionLabel,
   RuntimeSlide,
   ServicePicker,
   SlideShell,
@@ -38,8 +39,12 @@ import { Chip, Field } from '../components/ui';
 import { FREE_CATALOG_CATEGORIES, getService } from '../lib/serviceCatalog';
 import {
   emptyOnboardingProfile,
+  hasSelectedServices,
   hydrateOnboardingFromServer,
-  isOnboardingComplete,
+  isEnterpriseMoveComplete,
+  isExpectationsComplete,
+  isLiteAnswersComplete,
+  isRuntimeComplete,
   markOnboardingComplete,
   readOnboardingProfile,
   writeOnboardingProfile,
@@ -191,6 +196,7 @@ function toggleInList(list: string[] | undefined, value: string): string[] {
 
 function MultiChoiceRow({
   label,
+  info,
   hint,
   options,
   selected,
@@ -198,6 +204,7 @@ function MultiChoiceRow({
   testId,
 }: {
   label: string;
+  info?: string;
   hint?: string;
   options: string[];
   selected?: string[];
@@ -206,8 +213,10 @@ function MultiChoiceRow({
 }) {
   return (
     <fieldset data-testid={testId}>
-      <legend className="text-sm font-semibold text-on-surface">{label}</legend>
-      {hint ? <p className="mt-1 text-xs text-on-surface-variant">{hint}</p> : null}
+      <legend className="text-sm font-semibold text-on-surface">
+        <QuestionLabel label={label} info={info} />
+      </legend>
+      {hint ? <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">{hint}</p> : null}
       <div className="mt-3 flex flex-wrap gap-2">
         {options.map((opt) => (
           <Chip
@@ -374,6 +383,21 @@ export default function Onboarding() {
     setStep((s) => s - 1);
   };
 
+  const continueDisabled =
+    plan === 'free'
+      ? step === 1
+        ? !isLiteAnswersComplete(profile.lite)
+        : !hasSelectedServices(profile)
+      : plan === 'enterprise'
+        ? step === 1
+          ? !isEnterpriseMoveComplete(profile.enterprise?.move)
+          : step === 2
+            ? !hasSelectedServices(profile)
+            : step === 3
+              ? !isExpectationsComplete(profile.enterprise?.expectations)
+              : !isRuntimeComplete(profile.enterprise?.runtime)
+        : true;
+
   return (
     <div
       className={cn(
@@ -396,47 +420,63 @@ export default function Onboarding() {
             step={1}
             totalSteps={2}
             title="Tailor your workspace"
-            description="Quick answers so we open the right queue and defaults — then pick your stack."
+            description="Answer each required question so we open the right queue and defaults — then pick your stack."
             onBack={onBack}
             onContinue={onContinue}
+            continueDisabled={continueDisabled}
           >
-            <div className="grid gap-3 lg:grid-cols-2">
-              <OptionCards
-                testId="lite-intent"
-                label="What do you want to get done first?"
-                columns={2}
-                selected={profile.lite?.intent}
-                onSelect={(id) => patchLite({ intent: id as WorkspaceIntent })}
-                options={[...FREE_INTENTS]}
-              />
-              <OptionCards
-                testId="lite-team-size"
-                label="Delivery team size"
-                columns={2}
-                selected={profile.lite?.teamSize}
-                onSelect={(id) => patchLite({ teamSize: id as TeamSizeBand })}
-                options={[...TEAM_SIZE_OPTIONS]}
-              />
-              <OptionCards
-                mode="multi"
-                testId="lite-pains"
-                label="What’s getting in the way?"
-                hint="Select all that apply"
-                columns={2}
-                selected={profile.lite?.biggestPains}
-                onToggle={(id) =>
-                  patchLite({ biggestPains: toggleInList(profile.lite?.biggestPains, id) })
-                }
-                options={[...PAIN_OPTIONS]}
-              />
-              <OptionCards
-                testId="lite-urgency"
-                label="When do you need this working?"
-                columns={2}
-                selected={profile.lite?.urgency}
-                onSelect={(id) => patchLite({ urgency: id as DeliveryUrgency })}
-                options={[...URGENCY_OPTIONS]}
-              />
+            <div className="mx-auto flex max-w-3xl flex-col gap-6">
+              <section>
+                <OptionCards
+                  testId="lite-intent"
+                  label="What do you want to get done first?"
+                  info="Pick the job you want the workspace to emphasize on day one. This sets default queues, suggestions, and which integrations we surface first."
+                  hint="Required · pick one"
+                  columns={2}
+                  selected={profile.lite?.intent}
+                  onSelect={(id) => patchLite({ intent: id as WorkspaceIntent })}
+                  options={[...FREE_INTENTS]}
+                />
+              </section>
+              <section>
+                <OptionCards
+                  testId="lite-team-size"
+                  label="Delivery team size"
+                  info="Choose the size of the group that will use AplifyAI day to day. We use this for default collaboration and approval patterns—not billing."
+                  hint="Required · pick one"
+                  columns={2}
+                  selected={profile.lite?.teamSize}
+                  onSelect={(id) => patchLite({ teamSize: id as TeamSizeBand })}
+                  options={[...TEAM_SIZE_OPTIONS]}
+                />
+              </section>
+              <section>
+                <OptionCards
+                  mode="multi"
+                  testId="lite-pains"
+                  label="What’s getting in the way?"
+                  info="Select every friction that is real today. Multiple answers help us prioritize redaction, audit, triage, and integration defaults together."
+                  hint="Required · select all that apply"
+                  columns={2}
+                  selected={profile.lite?.biggestPains}
+                  onToggle={(id) =>
+                    patchLite({ biggestPains: toggleInList(profile.lite?.biggestPains, id) })
+                  }
+                  options={[...PAIN_OPTIONS]}
+                />
+              </section>
+              <section>
+                <OptionCards
+                  testId="lite-urgency"
+                  label="When do you need this working?"
+                  info="Pick the soonest realistic go-live for a useful path—not a perfect rollout. Exploring is fine if you are still evaluating fit."
+                  hint="Required · pick one"
+                  columns={2}
+                  selected={profile.lite?.urgency}
+                  onSelect={(id) => patchLite({ urgency: id as DeliveryUrgency })}
+                  options={[...URGENCY_OPTIONS]}
+                />
+              </section>
             </div>
           </SlideShell>
         )}
@@ -450,6 +490,7 @@ export default function Onboarding() {
             onBack={onBack}
             onContinue={onContinue}
             continueLabel="Save & continue"
+            continueDisabled={continueDisabled}
             busy={busy}
           >
             <ServicePicker
@@ -468,68 +509,93 @@ export default function Onboarding() {
             step={1}
             totalSteps={4}
             title="Why you’re moving here"
-            description="Shapes governance defaults and integration priority."
+            description="Required answers shape governance defaults and integration priority. Context is optional."
             onBack={onBack}
             onContinue={onContinue}
+            continueDisabled={continueDisabled}
           >
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className="lg:col-span-2">
+            <div className="mx-auto flex max-w-3xl flex-col gap-6">
+              <section>
                 <OptionCards
                   mode="multi"
                   testId="ent-goals"
                   label="Which outcomes must this unlock?"
-                  hint="Select all that apply"
-                  columns={3}
+                  info="Select every outcome leadership will judge success by. These drive governance defaults, audit emphasis, and which integrations we prioritize first."
+                  hint="Required · select all that apply"
+                  columns={2}
                   selected={profile.enterprise?.move?.goals}
                   onToggle={(id) =>
                     patchMove({ goals: toggleInList(profile.enterprise?.move?.goals, id) })
                   }
                   options={[...ENT_OUTCOMES]}
                 />
-              </div>
-              <OptionCards
-                testId="ent-buyer-role"
-                label="Who’s leading this evaluation?"
-                columns={2}
-                selected={profile.enterprise?.move?.buyerRole || undefined}
-                onSelect={(id) => patchMove({ buyerRole: id as BuyerRole })}
-                options={[...BUYER_ROLES]}
-              />
-              <OptionCards
-                testId="ent-org-size"
-                label="Org size this will cover"
-                columns={2}
-                selected={profile.enterprise?.move?.orgSize || undefined}
-                onSelect={(id) => patchMove({ orgSize: id as TeamSizeBand })}
-                options={[...TEAM_SIZE_OPTIONS]}
-              />
-              <MultiChoiceRow
-                testId="ent-compliance"
-                label="Compliance posture"
-                options={COMPLIANCE}
-                selected={profile.enterprise?.move?.complianceNeeds}
-                onToggle={(v) =>
-                  patchMove({
-                    complianceNeeds: toggleInList(profile.enterprise?.move?.complianceNeeds, v),
-                  })
-                }
-              />
-              <div className="space-y-3">
+              </section>
+
+              <section className="grid gap-6 sm:grid-cols-2">
+                <OptionCards
+                  testId="ent-buyer-role"
+                  label="Who’s leading this evaluation?"
+                  info="Pick the role that owns the decision and day-to-day setup. We tailor language, approval defaults, and security prompts for that buyer—not your entire org chart."
+                  hint="Required · pick one"
+                  columns={1}
+                  selected={profile.enterprise?.move?.buyerRole || undefined}
+                  onSelect={(id) => patchMove({ buyerRole: id as BuyerRole })}
+                  options={[...BUYER_ROLES]}
+                />
+                <OptionCards
+                  testId="ent-org-size"
+                  label="Org size this will cover"
+                  info="Choose how many people this rollout is meant to serve. Larger bands unlock stricter multi-team defaults; pick the scope you will cover in the first phase."
+                  hint="Required · pick one"
+                  columns={1}
+                  selected={profile.enterprise?.move?.orgSize || undefined}
+                  onSelect={(id) => patchMove({ orgSize: id as TeamSizeBand })}
+                  options={[...TEAM_SIZE_OPTIONS]}
+                />
+              </section>
+
+              <section>
+                <MultiChoiceRow
+                  testId="ent-compliance"
+                  label="Compliance posture"
+                  info="Select frameworks you must respect in production. Multiple tags are fine—each one tightens redaction, logging, and residency defaults. Use Internal only if you have no external attestation yet."
+                  hint="Required · select all that apply"
+                  options={COMPLIANCE}
+                  selected={profile.enterprise?.move?.complianceNeeds}
+                  onToggle={(v) =>
+                    patchMove({
+                      complianceNeeds: toggleInList(profile.enterprise?.move?.complianceNeeds, v),
+                    })
+                  }
+                />
+              </section>
+
+              <section>
                 <OptionCards
                   testId="ent-timeline"
                   label="Production-ready by when?"
+                  info="Pick when a governed production path needs to be usable. This sets rollout pace and how aggressive we are with defaults—not a contractual SLA."
+                  hint="Required · pick one"
                   columns={2}
                   selected={profile.enterprise?.move?.timeline || undefined}
                   onSelect={(id) => patchMove({ timeline: id as DeliveryUrgency })}
                   options={[...URGENCY_OPTIONS]}
                 />
+              </section>
+
+              <section>
                 <Field
-                  label="Context (optional)"
+                  label={
+                    <QuestionLabel
+                      label="Context (optional)"
+                      info="Add anything that changes how we should configure you—existing copilots, VPC constraints, must-keep tools, or known blockers. Free text; skip if nothing unique."
+                    />
+                  }
                   placeholder="Copilot in use, private VPC, Jira + ServiceNow…"
                   value={profile.enterprise?.move?.currentAiUsage ?? ''}
                   onChange={(e) => patchMove({ currentAiUsage: e.target.value })}
                 />
-              </div>
+              </section>
             </div>
           </SlideShell>
         )}
@@ -539,9 +605,10 @@ export default function Onboarding() {
             step={2}
             totalSteps={4}
             title="Current services"
-            description="Search each category and add the systems you already run."
+            description="Search each category and add at least one system you already run."
             onBack={onBack}
             onContinue={onContinue}
+            continueDisabled={continueDisabled}
           >
             <ServicePicker
               selected={profile.selectedServices}
@@ -561,6 +628,7 @@ export default function Onboarding() {
             description="Speed, quality, and how much human review you want before AI actions stick."
             onBack={onBack}
             onContinue={onContinue}
+            continueDisabled={continueDisabled}
           >
             <ExpectationsSlide
               value={profile.enterprise?.expectations ?? {}}
@@ -574,10 +642,11 @@ export default function Onboarding() {
             step={4}
             totalSteps={4}
             title="Where AI runs"
-            description="Use connected cloud accounts, AplifyAI private cloud, or bring your own — then models, code access, and tool posture."
+            description="Pick hosting first, then runtime and guardrails. Use ? on each question if a choice is unclear — nothing is pre-filled."
             onBack={onBack}
             onContinue={onContinue}
             continueLabel="Save & continue"
+            continueDisabled={continueDisabled}
             busy={busy}
           >
             <RuntimeSlide

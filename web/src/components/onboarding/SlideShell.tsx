@@ -77,15 +77,22 @@ export function SlideShell({
         ) : (
           <span />
         )}
-        <Button
-          type="button"
-          onClick={onContinue}
-          disabled={continueDisabled}
-          loading={busy}
-          data-testid="onboarding-continue"
-        >
-          {continueLabel}
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          {continueDisabled ? (
+            <p className="text-[11px] text-on-surface-variant" data-testid="onboarding-continue-hint">
+              Answer every required question to continue
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            onClick={onContinue}
+            disabled={continueDisabled || busy}
+            loading={busy}
+            data-testid="onboarding-continue"
+          >
+            {continueLabel}
+          </Button>
+        </div>
       </div>
     </div>
   );

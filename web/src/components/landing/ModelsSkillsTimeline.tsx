@@ -46,13 +46,13 @@ const DATA_FLOW_STEPS: Step[] = [
   {
     id: 'mr',
     label: 'MR',
-    title: 'Open an MR for human verification',
+    title: 'Open an MR after draft review',
     body: 'Nothing merges on autopilot. The change lands as a merge request with an audit trail.',
   },
   {
     id: 'human',
     label: 'Human',
-    title: 'A person verifies the MR',
+    title: 'A person verifies before ship',
     body: 'Approve or reject. Only after human verification does model-creation context unlock.',
   },
 ];
@@ -103,13 +103,13 @@ const SKILL_STEPS: Step[] = [
     id: 'integrate',
     label: 'Integrate',
     title: 'Wire skills into Cursor, Claude Code, and more',
-    body: 'Developers install those skills in the kits they already use — Cursor, Claude Code, Codex, ChatGPT.',
+    body: 'After human review, developers install those skills in the kits they already use — Cursor, Claude Code, Codex, ChatGPT.',
   },
   {
     id: 'ship',
     label: 'Ship',
     title: 'Skills run where the team works',
-    body: 'The platform keeps ownership of the category; the agent client gets a governed skill, not a shadow prompt.',
+    body: 'The platform keeps ownership of the category; the agent client gets a governed skill after review — not a shadow prompt.',
   },
 ];
 
@@ -246,7 +246,7 @@ export type ModelsSkillsTimelineProps = {
 };
 
 /**
- * Two stories: (1) data flow to human-verified MR, then (2) custom models vs skills.
+ * Two stories: (1) data flow to reviewed draft then human-verified MR, then (2) custom models vs skills.
  */
 export function ModelsSkillsTimeline({ showIntro = true }: ModelsSkillsTimelineProps) {
   return (
@@ -280,7 +280,7 @@ export function ModelsSkillsTimeline({ showIntro = true }: ModelsSkillsTimelineP
         <SectionHead
           eyebrow="01 · Data flow"
           titleId="data-flow-heading"
-          title="From collected work to a verified MR"
+          title="From collected work to a reviewed draft"
           support="Jira or Slack in, PII cleared, run in your cloud, draft back, reviewer path when it fits, MR for a human. Model creation starts only after that verify."
         />
         <div className="mt-10">
@@ -294,10 +294,10 @@ export function ModelsSkillsTimeline({ showIntro = true }: ModelsSkillsTimelineP
         aria-labelledby="model-skills-split-heading"
       >
         <SectionHead
-          eyebrow="02 · After human verify"
+          eyebrow="02 · After draft review"
           titleId="model-skills-split-heading"
           title="Custom models serve requests. Skills plug into your kits."
-          support="Same approved history, two products: a model you can call, and categorized skills developers install in Cursor, Claude Code, and the rest."
+          support="Same reviewed history, two products: a model you can call, and categorized skills developers install in Cursor, Claude Code, and the rest — only after human review."
         />
 
         <div className="mt-12 grid gap-14 lg:grid-cols-2 lg:gap-10">
@@ -309,8 +309,8 @@ export function ModelsSkillsTimeline({ showIntro = true }: ModelsSkillsTimelineP
               Train on data + solution
             </h3>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              Request the model, get a response — and skip a fresh human gate when the new task
-              matches about 90% of what was already approved.
+              Request the model, get a response shaped by previously reviewed drafts — reuse that
+              gate when the new task matches about 90% of what humans already approved.
             </p>
             <div className="mt-8">
               <AutoLoopTimeline steps={MODEL_STEPS} ariaLabel="Custom model stages" />
@@ -325,8 +325,8 @@ export function ModelsSkillsTimeline({ showIntro = true }: ModelsSkillsTimelineP
               Categorize patterns for kits
             </h3>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              Text-change and other repeatable jobs become skills. Integrate them into Claude Code,
-              Cursor, Codex, or ChatGPT — under your control.
+              Text-change and other repeatable jobs become skills after human review. Integrate them
+              into Claude Code, Cursor, Codex, or ChatGPT — under your control.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {AGENT_LOGOS.map((s) =>

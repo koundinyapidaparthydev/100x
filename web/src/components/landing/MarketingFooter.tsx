@@ -39,8 +39,8 @@ export function MarketingFooter() {
             AplifyAI
           </Link>
           <p className="mt-3 text-sm leading-6 text-on-surface-variant">
-            Connect your board, decide AI vs human, train custom models from governed data, and keep
-            drafts behind a PII firewall before anything ships.
+            Connect your board, decide AI vs human, review drafts behind a PII firewall, then train
+            custom models from governed data before anything ships.
           </p>
         </div>
 

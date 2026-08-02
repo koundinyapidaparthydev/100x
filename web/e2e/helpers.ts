@@ -19,9 +19,24 @@ export type TestWorkItem = {
   board: { projectId: string; issueKey: string };
 };
 
+/** Completed profile for app-shell e2e — includes a typical stack so Connections is usable. */
+function completedTestOnboarding() {
+  return markOnboardingComplete({
+    ...emptyOnboardingProfile('free'),
+    selectedServices: ['jira', 'slack', 'github'],
+    lite: {
+      intent: 'triage',
+      teamSize: '6-20',
+      biggestPains: ['Triage backlog'],
+      urgency: 'this_month',
+      primaryBoards: ['jira'],
+    },
+  });
+}
+
 /** Mark workspace onboarding complete so RequireOnboarding allows the app shell. */
 export async function injectCompletedOnboarding(page: Page): Promise<void> {
-  const profile = markOnboardingComplete(emptyOnboardingProfile('free'));
+  const profile = completedTestOnboarding();
   await page.addInitScript(
     ({ key, value }) => {
       localStorage.setItem(key, value);
@@ -59,7 +74,7 @@ export async function injectSession(
   });
   expect(res.ok()).toBeTruthy();
   const body = (await res.json()) as LoginResponse;
-  const profile = markOnboardingComplete(emptyOnboardingProfile('free'));
+  const profile = completedTestOnboarding();
   await page.addInitScript(
     ({ sessionKey, session, onboardingKey, onboarding }) => {
       localStorage.setItem(sessionKey, JSON.stringify(session));

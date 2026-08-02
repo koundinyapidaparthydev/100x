@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="google chat">
-  <rect width="64" height="64" rx="14" fill="#00AC47"/>
-  <path d="M12 14h32a6 6 0 016 6v16a6 6 0 01-6 6H28l-10 10v-10H12a6 6 0 01-6-6V20a6 6 0 016-6z" fill="#fff"/>
-     <circle cx="24" cy="30" r="3.5" fill="#34A853"/>
-     <circle cx="32" cy="30" r="3.5" fill="#FBBC04"/>
-     <circle cx="40" cy="30" r="3.5" fill="#EA4335"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Google Chat">
+  <rect width="64" height="64" rx="12" fill="#FFFFFF"/>
+  <svg x="10" y="10" width="44" height="44" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet">
+<path fill="#00AC47" d="M1.637 0C.733 0 0 .733 0 1.637v16.5c0 .904.733 1.636 1.637 1.636h3.955v3.323c0 .804.97 1.207 1.539.638l3.963-3.96h11.27c.903 0 1.636-.733 1.636-1.637V5.592L18.408 0Zm3.955 5.592h12.816v8.59H8.455l-2.863 2.863Z"/>
+  </svg>
 </svg>

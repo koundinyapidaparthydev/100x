@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="azure repos">
-  <rect width="64" height="64" rx="14" fill="#0078D4"/>
-  <path fill="#fff" d="M18 14h20l8 8v28H18V14zm18 4v6h6l-6-6z"/>
-     <path fill="#50E6FF" d="M26 34l6-6 6 6-2.5 2.5L32 33l-3.5 3.5z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Azure Repos">
+  <rect width="64" height="64" rx="12" fill="#FFFFFF"/>
+  <svg x="10" y="10" width="44" height="44" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet">
+<path fill="#0078D7" d="M0 8.877L2.247 5.91l8.405-3.416V.022l7.37 5.393L2.966 8.338v8.225L0 15.707zm24-4.45v14.651l-5.753 4.9-9.303-3.057v3.056l-5.978-7.416 15.057 1.798V5.415z"/>
+  </svg>
 </svg>

@@ -8,7 +8,7 @@ const VOLUME_BARS = [
   { label: 'Surfaces', value: 28, hint: 'Web · mobile · chat · agents' },
   { label: 'Same queue', value: 62, hint: 'One triage lane' },
   { label: 'Governed runs', value: 88, hint: 'PII · policy · audit' },
-  { label: 'Human review', value: 100, hint: 'Merge stays yours' },
+  { label: 'Human review', value: 100, hint: 'Draft review stays yours' },
 ];
 
 export default function Platforms() {

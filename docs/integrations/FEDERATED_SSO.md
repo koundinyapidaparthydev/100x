@@ -65,10 +65,13 @@ Create an **App registration** → Web redirect URI matching `ENTRA_REDIRECT_URI
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=http://localhost:4000/api/v1/auth/google/callback
-# GOOGLE_DEFAULT_ROLE=manager
+# Production / live site:
+# WEB_APP_ORIGIN=https://aplifyai.com
+# GOOGLE_REDIRECT_URI=https://aplifyai.com/api/v1/auth/google/callback
+# GOOGLE_DEFAULT_ROLE=engineer
 ```
 
-Create an OAuth 2.0 **Web** client in Google Cloud Console. Add the redirect URI above.
+Create an OAuth 2.0 **Web** client in Google Cloud Console. Add **Authorized JavaScript origins** and **Authorized redirect URIs** that match each environment (local + `https://aplifyai.com`). A `redirect_uri_mismatch` error means the Console client is missing the live callback URL.
 
 ### Google Workspace (company domain SSO)
 

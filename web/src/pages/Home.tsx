@@ -127,7 +127,7 @@ export default function Home() {
                 id="impact-heading"
                 className="mt-3 font-serif text-4xl tracking-tight text-on-surface sm:text-5xl lg:text-6xl"
               >
-                Hours back. PII held. Merge yours.
+                Hours back. PII held. Review yours.
               </h2>
               <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-on-surface-variant sm:text-lg sm:leading-8">
                 Directional planning numbers — not a promise. Tap into the blog explorer to model your

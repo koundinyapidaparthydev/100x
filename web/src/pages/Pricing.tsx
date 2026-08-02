@@ -33,7 +33,7 @@ const PLANS = [
       'Connect boards and open Connections',
       'Triage AI vs human on web and mobile',
       'PII firewall and policy surfaces',
-      'Reviewed drafts with an audit trail',
+      'Reviewed drafts; models and skills after human review',
     ],
   },
   {

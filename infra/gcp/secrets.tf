@@ -37,8 +37,16 @@ resource "google_secret_manager_secret_version" "placeholders" {
     "session-secret",
     "openai-api-key",
     "jira-api-token",
+    "google-client-id",
+    "google-client-secret",
   ])
 
   secret      = google_secret_manager_secret.app[each.key].id
   secret_data = "REPLACE_ME_${upper(replace(each.key, "-", "_"))}"
+
+  # Real Google OAuth values are set out-of-band; ignore so terraform apply
+  # does not overwrite Secret Manager versions created by operators / CI.
+  lifecycle {
+    ignore_changes = [secret_data]
+  }
 }

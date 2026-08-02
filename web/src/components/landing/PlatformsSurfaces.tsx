@@ -213,7 +213,7 @@ export function PlatformsSurfaces({ teaser = false, showIntro = true }: Platform
               Skill packs · from answer categories
             </p>
             <h3 className="mt-1 text-lg font-semibold tracking-tight text-on-surface sm:text-xl">
-              Each agent gets curated skills — platform keeps control
+              After human review, agents get curated skills — platform keeps control
             </h3>
           </div>
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-on-surface-variant">

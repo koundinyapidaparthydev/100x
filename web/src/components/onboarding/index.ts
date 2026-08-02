@@ -2,6 +2,7 @@ export { BrandMultiSelect } from './BrandMultiSelect';
 export { ExpectationsSlide } from './ExpectationsSlide';
 export { OptionCards } from './OptionCards';
 export { PlanPicker } from './PlanPicker';
+export { QuestionInfo, QuestionLabel } from './QuestionInfo';
 export { SlideShell } from './SlideShell';
 export { ServiceCombobox } from './ServiceCombobox';
 export { ServicePicker } from './ServicePicker';

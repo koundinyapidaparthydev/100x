@@ -1,9 +1,21 @@
 import { api, getSessionToken } from '@shared/api';
-import type { OnboardingPlan, OnboardingProfile, ServiceCategory, ServiceId } from '@shared/types';
+import type {
+  EnterpriseMoveAnswers,
+  ExpectationsAnswers,
+  LiteOnboardingAnswers,
+  OnboardingPlan,
+  OnboardingProfile,
+  RuntimeAnswers,
+  ServiceCategory,
+  ServiceId,
+} from '@shared/types';
 
 export const ONBOARDING_STORAGE_KEY = 'aplifyai-onboarding';
 
-/** Sensible starter defaults so users can continue with light edits. */
+/**
+ * Fresh wizard draft — no questionnaire answers pre-selected.
+ * Stack suggestions are soft defaults the user can change on the services step.
+ */
 export function emptyOnboardingProfile(plan: OnboardingPlan = 'free'): OnboardingProfile {
   const now = new Date().toISOString();
 
@@ -11,34 +23,13 @@ export function emptyOnboardingProfile(plan: OnboardingPlan = 'free'): Onboardin
     return {
       plan,
       completedAt: null,
-      selectedServices: ['jira', 'slack', 'github', 'confluence'],
+      selectedServices: [],
       otherByCategory: {},
       lite: {},
       enterprise: {
-        move: {
-          goals: ['Centralize triage', 'Ship AI-assisted delivery'],
-          buyerRole: 'delivery_lead',
-          orgSize: '21-100',
-          complianceNeeds: ['SOC2', 'Internal only'],
-          timeline: 'this_quarter',
-        },
-        expectations: {
-          speedMultiplier: 20,
-          improveAreas: ['Cycle time', 'Quality'],
-          aiCompletionTargetPercent: 20,
-          humanInTheLoop: 'high_risk',
-        },
-        runtime: {
-          // Default: AplifyAI private cloud; user can switch to connected accounts or BYOC.
-          hosting: 'public_managed',
-          cloudProvider: 'private',
-          runtimeMode: 'request_based',
-          customModel: 'none',
-          codeOverrideStance: 'allowed_with_audit',
-          tokenBudgetAppetite: 'balanced',
-          mcpAllowlistAggressiveness: 'balanced',
-          regions: ['eastus'],
-        },
+        move: {},
+        expectations: {},
+        runtime: {},
       },
       updatedAt: now,
     };
@@ -47,18 +38,59 @@ export function emptyOnboardingProfile(plan: OnboardingPlan = 'free'): Onboardin
   return {
     plan: 'free',
     completedAt: null,
-    selectedServices: ['jira', 'slack', 'github'],
+    selectedServices: [],
     otherByCategory: {},
-    lite: {
-      intent: 'triage',
-      teamSize: '6-20',
-      biggestPains: ['Triage backlog', 'Tool sprawl'],
-      urgency: 'this_month',
-      primaryBoards: ['jira'],
-    },
-    enterprise: { move: {}, expectations: { speedMultiplier: 20 }, runtime: {} },
+    lite: {},
+    enterprise: { move: {}, expectations: {}, runtime: {} },
     updatedAt: now,
   };
+}
+
+export function isLiteAnswersComplete(lite?: LiteOnboardingAnswers): boolean {
+  return Boolean(
+    lite?.intent &&
+      lite?.teamSize &&
+      lite?.urgency &&
+      (lite.biggestPains?.length ?? 0) > 0,
+  );
+}
+
+export function isEnterpriseMoveComplete(move?: EnterpriseMoveAnswers): boolean {
+  return Boolean(
+    (move?.goals?.length ?? 0) > 0 &&
+      move?.buyerRole &&
+      move?.orgSize &&
+      (move.complianceNeeds?.length ?? 0) > 0 &&
+      move?.timeline,
+  );
+}
+
+export function isExpectationsComplete(expectations?: ExpectationsAnswers): boolean {
+  return Boolean(
+    typeof expectations?.speedMultiplier === 'number' &&
+      (expectations.improveAreas?.length ?? 0) > 0 &&
+      expectations.humanInTheLoop,
+  );
+}
+
+export function isRuntimeComplete(runtime?: RuntimeAnswers): boolean {
+  if (!runtime?.hosting) return false;
+  if (runtime.hosting === 'customer_cloud' || runtime.hosting === 'private_vpc') {
+    if (!runtime.cloudProvider) return false;
+    if (runtime.cloudProvider === 'custom' && !runtime.customCloudLabel?.trim()) return false;
+  }
+  return Boolean(
+    runtime.runtimeMode &&
+      runtime.customModel &&
+      runtime.codeOverrideStance &&
+      runtime.tokenBudgetAppetite &&
+      runtime.mcpAllowlistAggressiveness &&
+      (runtime.regions?.length ?? 0) > 0,
+  );
+}
+
+export function hasSelectedServices(profile: OnboardingProfile): boolean {
+  return profile.selectedServices.length > 0;
 }
 
 export function readOnboardingProfile(): OnboardingProfile | null {

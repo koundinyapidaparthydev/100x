@@ -90,6 +90,41 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
+        name  = "WEB_APP_ORIGIN"
+        value = var.web_app_origin
+      }
+
+      env {
+        name  = "GOOGLE_REDIRECT_URI"
+        value = var.google_redirect_uri
+      }
+
+      env {
+        name  = "GOOGLE_DEFAULT_ROLE"
+        value = var.google_default_role
+      }
+
+      env {
+        name = "GOOGLE_CLIENT_ID"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.app["google-client-id"].secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GOOGLE_CLIENT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.app["google-client-secret"].secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name  = "JIRA_BASE_URL"
         value = var.jira_base_url
       }

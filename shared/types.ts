@@ -628,6 +628,10 @@ export interface ExpectationsAnswers {
   /** Speed-up target multiplier, 3–100. */
   speedMultiplier?: number;
   improveAreas?: string[];
+  /**
+   * @deprecated No longer collected in onboarding — AI aims for full solution completion.
+   * Kept optional for older profiles.
+   */
   aiCompletionTargetPercent?: number;
   humanInTheLoop?: HumanInTheLoopPref;
 }

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="trello">
-  <rect width="64" height="64" rx="14" fill="#0079BF"/>
-  <rect x="14" y="14" width="16" height="28" rx="3" fill="#fff"/>
-     <rect x="34" y="14" width="16" height="18" rx="3" fill="#fff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Trello">
+  <rect width="64" height="64" rx="12" fill="#FFFFFF"/>
+  <svg x="10" y="10" width="44" height="44" viewBox="0 0 256 256" preserveAspectRatio="xMidYMid meet">
+<defs><linearGradient id="SVG2lcyn7oz" x1="50%" x2="50%" y1="0%" y2="100%"><stop offset="0%" stop-color="#0091e6"/><stop offset="100%" stop-color="#0079bf"/></linearGradient></defs><rect width="256" height="256" fill="url(#SVG2lcyn7oz)" rx="25"/><rect width="78.08" height="112" x="144.64" y="33.28" fill="#fff" rx="12"/><rect width="78.08" height="176" x="33.28" y="33.28" fill="#fff" rx="12"/>
+  </svg>
 </svg>
