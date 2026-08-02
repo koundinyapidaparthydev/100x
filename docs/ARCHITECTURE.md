@@ -84,7 +84,7 @@ Runs agents in the customer-selected environment:
 
 - Public managed (if allowed)
 - Private VPC / dedicated
-- Customer AWS / Azure / GCP / private cloud
+- Customer AWS / Azure / GCP / NVIDIA / private cloud / other named platform
 
 ### 8. Artifact & audit store
 

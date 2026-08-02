@@ -11,9 +11,9 @@ export interface PageContainerProps<T extends ElementType = 'div'> {
 }
 
 const WIDTH_CLASSES: Record<PageContainerWidth, string> = {
-  operational: 'max-w-[1280px]',
+  operational: 'max-w-[1400px]',
   form: 'max-w-[1040px]',
-  detail: 'max-w-[1280px]',
+  detail: 'max-w-[1400px]',
 };
 
 export function PageContainer<T extends ElementType = 'div'>({

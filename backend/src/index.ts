@@ -5,6 +5,7 @@
  * Set OPENAI_API_KEY for live model runs; JIRA_* for live Jira connector.
  */
 
+import './loadEnv';
 import { createApp } from './app';
 import { createBoardConnector } from './connectors/board';
 import { initializePersistence } from './persist';

@@ -6,6 +6,9 @@ import type {
   AuditEvent,
   AuthSession,
   DashboardStats,
+  FederatedAuthProvider,
+  FederatedExchangeResponse,
+  FederatedProvidersStatusResponse,
   NotificationItem,
   Policy,
   TriageRequest,
@@ -68,6 +71,17 @@ export const api = {
     const result = await request<{ session: AuthSession }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ identity, surface: 'mobile' }),
+    });
+    setSessionToken(result.session.token);
+    return result;
+  },
+  authProvidersStatus: () => request<FederatedProvidersStatusResponse>('/auth/providers'),
+  authStartUrl: (provider: FederatedAuthProvider, intent: 'login' | 'signup' = 'login') =>
+    `${API_BASE_URL}/auth/${provider}/start?intent=${encodeURIComponent(intent)}&surface=mobile`,
+  federatedExchange: async (exchange: string) => {
+    const result = await request<FederatedExchangeResponse>('/auth/federated/exchange', {
+      method: 'POST',
+      body: JSON.stringify({ exchange }),
     });
     setSessionToken(result.session.token);
     return result;

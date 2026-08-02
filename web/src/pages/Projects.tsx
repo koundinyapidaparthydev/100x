@@ -9,7 +9,7 @@ import { ConnectProjectModal, ProjectRow } from '../components/projects';
 import { readDemoSession } from '../lib/session';
 import { countAttention } from '../lib/workQueue';
 import { projectRoutes } from '../lib/projectRoutes';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 async function loadProjectsIndex(): Promise<{
   boards: BoardHealth[];
@@ -26,6 +26,8 @@ async function loadProjectsIndex(): Promise<{
 
 export default function Projects() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const searchQuery = (searchParams.get('q') ?? '').trim().toLowerCase();
   const canManage = ['founder', 'manager'].includes(readDemoSession()?.role ?? '');
   const { data, loading, error, reload } = useAsync(() => loadProjectsIndex(), []);
   const [connectOpen, setConnectOpen] = useState(false);
@@ -34,6 +36,16 @@ export default function Projects() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+
+  const visibleBoards = useMemo(() => {
+    if (!data) return [];
+    if (!searchQuery) return data.boards;
+    return data.boards.filter(
+      (b) =>
+        b.name.toLowerCase().includes(searchQuery) ||
+        b.projectId.toLowerCase().includes(searchQuery),
+    );
+  }, [data, searchQuery]);
 
   const countsByProject = useMemo(() => {
     const map = new Map<string, ReturnType<typeof countAttention>>();
@@ -99,10 +111,16 @@ export default function Projects() {
     <PageContainer className="flex flex-col gap-xl" data-testid="boards-page">
       <PageHeader
         title="Projects"
-        description="Connected Jira projects with counts for triage, review, blocked work, and pending approvals."
+        description="Connect Jira projects to triage work, review AI drafts, and manage approvals."
         actions={
           <CapabilityGate allowed={canManage}>
-            <Button variant="secondary" loading={busy} disabled={!data?.boards.length} onClick={syncAll} data-testid="boards-sync-all">
+            <Button
+              variant="secondary"
+              loading={busy}
+              disabled={!data?.boards.length}
+              onClick={syncAll}
+              data-testid="boards-sync-all"
+            >
               <RefreshCw size={16} /> Sync all
             </Button>
             <Button onClick={() => setConnectOpen(true)} data-testid="boards-connect-open">
@@ -113,7 +131,7 @@ export default function Projects() {
       />
       {!canManage && (
         <p className="rounded-card border border-butter/20 bg-butter-container px-3 py-2 text-sm text-on-butter-container">
-          Your engineer demo role can review work, but cannot connect or sync projects.
+          Your role can review work, but cannot connect or sync projects.
         </p>
       )}
 
@@ -129,13 +147,20 @@ export default function Projects() {
         <EmptyState
           icon={<Compass size={22} />}
           title="No projects connected"
-          body="Connect a Jira project to start syncing work items into AplifyAI."
+          body="Finish connecting your tools, then connect a Jira project to sync work into AplifyAI."
+        />
+      )}
+      {!loading && !error && data && data.boards.length > 0 && visibleBoards.length === 0 && (
+        <EmptyState
+          icon={<Compass size={22} />}
+          title="No matching projects"
+          body={`Nothing matched “${searchParams.get('q') ?? ''}”. Try another name or project key.`}
         />
       )}
 
-      {!loading && !error && data && data.boards.length > 0 && (
+      {!loading && !error && visibleBoards.length > 0 && (
         <div className="flex flex-col gap-3" data-testid="projects-list">
-          {data.boards.map((board) => (
+          {visibleBoards.map((board) => (
             <ProjectRow
               key={board.projectId}
               board={board}

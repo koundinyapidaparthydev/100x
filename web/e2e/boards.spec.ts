@@ -7,16 +7,23 @@ test.describe('Project workspace', () => {
     await loginAs(page, 'manager');
   });
 
-  test('lists seeded boards and can sync sandbox board', async ({ page }) => {
+  test('can connect a project and sync it', async ({ page }) => {
     await page.getByTestId('nav-projects').click();
     await expect(page).toHaveURL(/\/projects$/);
     await expect(page.getByTestId('boards-page')).toBeVisible();
-    await expect(page.getByTestId('board-card-APLIFYAI')).toBeVisible();
-    await expect(page.getByTestId('board-card-INFRA')).toBeVisible();
 
-    await page.getByTestId('board-sync-APLIFYAI').click();
+    await page.getByTestId('boards-connect-open').click();
+    await expect(page.getByTestId('boards-connect-modal')).toBeVisible();
+    const projectId = `SYNC${Date.now().toString().slice(-5)}`;
+    await page.getByTestId('boards-connect-project-id').fill(projectId);
+    await page.getByTestId('boards-connect-name').fill('Sync Probe');
+    await page.getByTestId('boards-connect-submit').click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`), { timeout: 20_000 });
+
+    await page.getByTestId('nav-projects').click();
+    await expect(page.getByTestId(`board-card-${projectId}`)).toBeVisible();
+    await page.getByTestId(`board-sync-${projectId}`).click();
     await expect(page.getByTestId('boards-action-error')).toHaveCount(0);
-    await expect(page.getByTestId('board-card-APLIFYAI')).toBeVisible();
   });
 
   test('connect board modal creates a sandbox project', async ({ page }) => {
@@ -38,6 +45,13 @@ test.describe('Project workspace', () => {
     const workItem = await findUntreatedWorkItem(request);
     const projectId = encodeURIComponent(workItem.board.projectId);
 
+    // Ensure the seeded project key is connected so overview/work routes resolve.
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('boards-connect-open').click();
+    await page.getByTestId('boards-connect-project-id').fill(workItem.board.projectId);
+    await page.getByTestId('boards-connect-name').fill(`Seed ${workItem.board.projectId}`);
+    await page.getByTestId('boards-connect-submit').click();
+    // May already exist from a prior connect in this worker — either land on project or stay with error.
     await page.goto(`/projects/${projectId}`);
     await expect(page.getByTestId('dashboard-heading')).toBeVisible();
     await expect(page.getByTestId('attention-queue')).toBeVisible();

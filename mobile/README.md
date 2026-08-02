@@ -12,6 +12,13 @@ fallbacks provide the same decisions and stable `testID` hooks for future Detox 
 - Xcode/iOS Simulator and/or Android Studio/Android Emulator
 - The AplifyAI backend running on port `4000`
 
+## Authentication
+
+- **Demo:** Continue as manager (seeded identity).
+- **Social / SSO:** Continue with Google, Apple, Okta, Microsoft Entra ID, or Google Workspace when the
+  matching backend env vars are set. Mobile uses `expo-web-browser` and the `aplifyai://auth/callback`
+  deep link. See [docs/integrations/FEDERATED_SSO.md](../docs/integrations/FEDERATED_SSO.md).
+
 ## Configure the API
 
 Copy `.env.example` to `.env`. The default is `http://localhost:4000/api/v1`, which works from the
@@ -103,7 +110,8 @@ plugin is unavailable; the prebuild-based iOS lane is the supported local and CI
 
 Covered stable IDs include:
 
-- `login-primary-button`
+- `login-primary-button` (Continue as demo)
+- `login-google`, `login-apple`, `login-okta`, `login-entra`, `login-google_workspace`
 - `triage-ai-button`, `triage-human-button`
 - `triage-open-ticket-button`, `triage-swipe-card`
 - `tab-triage`, `tab-jobs`, `tab-approvals`, `tab-pii`

@@ -28,7 +28,9 @@ export function emptyOnboardingProfile(plan: OnboardingPlan = 'free'): Onboardin
           humanInTheLoop: 'high_risk',
         },
         runtime: {
-          hosting: 'private_vpc',
+          // Default: AplifyAI private cloud; user can switch to connected accounts or BYOC.
+          hosting: 'public_managed',
+          cloudProvider: 'private',
           runtimeMode: 'request_based',
           customModel: 'none',
           codeOverrideStance: 'allowed_with_audit',
@@ -90,4 +92,14 @@ export function clearOnboardingProfile(): void {
 export function markOnboardingComplete(profile: OnboardingProfile): OnboardingProfile {
   const now = new Date().toISOString();
   return { ...profile, completedAt: now, updatedAt: now };
+}
+
+export function isOnboardingComplete(profile?: OnboardingProfile | null): boolean {
+  const p = profile === undefined ? readOnboardingProfile() : profile;
+  return typeof p?.completedAt === 'string' && p.completedAt.length > 0;
+}
+
+/** Where to send the user after a successful sign-in. */
+export function postAuthPath(): '/onboarding' | '/projects' {
+  return isOnboardingComplete() ? '/projects' : '/onboarding';
 }

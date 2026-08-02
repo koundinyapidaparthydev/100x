@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Building2,
   ClipboardList,
@@ -38,7 +38,9 @@ import { Chip, Field } from '../components/ui';
 import { FREE_CATALOG_CATEGORIES, getService } from '../lib/serviceCatalog';
 import {
   emptyOnboardingProfile,
+  isOnboardingComplete,
   markOnboardingComplete,
+  readOnboardingProfile,
   writeOnboardingProfile,
 } from '../lib/onboardingStorage';
 import { readDemoSession } from '../lib/session';
@@ -223,14 +225,26 @@ function MultiChoiceRow({
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editing = searchParams.get('edit') === '1';
   const session = readDemoSession();
   const [plan, setPlan] = useState<OnboardingPlan | null>(null);
   const [step, setStep] = useState(0);
-  const [profile, setProfile] = useState<OnboardingProfile>(() => emptyOnboardingProfile('free'));
+  const [profile, setProfile] = useState<OnboardingProfile>(() => {
+    const existing = readOnboardingProfile();
+    return existing ?? emptyOnboardingProfile('free');
+  });
   const [busy, setBusy] = useState(false);
+  // Capture once so finishing the wizard (which writes completedAt) doesn't bounce to /projects
+  // before the intentional navigate('/connections').
+  const [alreadyComplete] = useState(() => isOnboardingComplete());
 
   if (!session) {
     return <Navigate to="/signup" replace />;
+  }
+
+  if (alreadyComplete && !editing) {
+    return <Navigate to="/projects" replace />;
   }
 
   const totalSteps = plan === 'enterprise' ? 4 : 2;
@@ -533,7 +547,7 @@ export default function Onboarding() {
             step={4}
             totalSteps={4}
             title="Where AI runs"
-            description="Hosting, models, code access, and tool posture — secure options finish in Connections."
+            description="Use connected cloud accounts, AplifyAI private cloud, or bring your own — then models, code access, and tool posture."
             onBack={onBack}
             onContinue={onContinue}
             continueLabel="Save & continue"
@@ -542,6 +556,7 @@ export default function Onboarding() {
             <RuntimeSlide
               value={profile.enterprise?.runtime ?? {}}
               onChange={patchRuntime}
+              selectedServices={profile.selectedServices}
             />
           </SlideShell>
         )}

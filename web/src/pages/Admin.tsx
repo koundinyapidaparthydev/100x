@@ -17,9 +17,9 @@ export default function Admin() {
   return (
     <PageContainer width="form" className="flex flex-col gap-6" data-testid="admin-page">
       <PageHeader
-        eyebrow="Organization / Admin"
-        title="Administration"
-        description="Review the current organization and account context. Administrative mutations are not implemented in this sandbox."
+        eyebrow="Workspace"
+        title="Settings"
+        description="Organization identity, access role, and shortcuts to governance and audit."
         actions={<StatusBadge status="warning" tone="warning" label="Sandbox only" />}
       />
 

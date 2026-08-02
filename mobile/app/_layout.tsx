@@ -13,9 +13,12 @@ function Navigation() {
 
   useEffect(() => {
     if (loading) return;
-    const publicRoute = segments[0] === undefined || segments[0] === 'login';
+    const root = String(segments[0] ?? '');
+    const publicRoute = root === '' || root === 'login' || root === 'auth';
     if (!session && !publicRoute) router.replace('/login');
-    if (session && segments[0] === 'login') router.replace('/(tabs)/triage');
+    if (session && (root === 'login' || root === 'auth')) {
+      router.replace('/(tabs)/triage');
+    }
   }, [loading, router, segments, session]);
 
   if (loading) {
@@ -37,6 +40,7 @@ function Navigation() {
         }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/callback" options={{ headerShown: false, title: 'Signing in' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="ticket/[id]" options={{ title: 'Ticket' }} />
         <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />

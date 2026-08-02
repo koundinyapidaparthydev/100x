@@ -22,6 +22,13 @@
     },
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5c652381-e6ae-40a4-8be5-da0f779bd1c7"
+      }
+    },
+    "owner": "krishnakoundinya"
   }
 }

@@ -7,6 +7,7 @@
  *
  * Seed coverage required by the build spec:
  *  - 8 WorkItems across 3 Jira projects (APLIFYAI, INFRA, FE)
+ *  - Connected boards start empty — connect via UI / API
  *  - one ticket with an email in its description (→ redact path, succeeds)
  *  - one ticket with an SSN in its description (→ blocked_pii path)
  *  - 1 org policy (azure eastus private_vpc, gpt-4o, 50k token budget)
@@ -372,11 +373,7 @@ export function createSeedStore(): Store {
         read: true,
       },
     ],
-    boards: [
-      { projectId: 'APLIFYAI', name: 'AplifyAI Core', connectedAt: hoursAgo(24), lastSyncAt: hoursAgo(1) },
-      { projectId: 'INFRA', name: 'Infrastructure', connectedAt: hoursAgo(24), lastSyncAt: hoursAgo(2) },
-      { projectId: 'FE', name: 'Frontend', connectedAt: hoursAgo(24), lastSyncAt: hoursAgo(4) },
-    ],
+    boards: [],
     attachmentCounter: 0,
     onboardingByTenant: {},
     mcpConnectionsByTenant: {},

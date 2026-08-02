@@ -22,7 +22,7 @@ test.describe('Onboarding wizard', () => {
   test('Free lite path: signup → answers + stack → connections → projects', async ({ page }) => {
     await page.goto('/signup');
     await expect(page.getByTestId('signup-page')).toBeVisible();
-    await page.getByTestId('signup-founder').click();
+    await page.getByTestId('signup-continue-demo').click();
     await expect(page).toHaveURL(/\/onboarding$/, { timeout: 20_000 });
     await expect(page.getByTestId('onboarding-plan-picker')).toBeVisible();
 
@@ -50,7 +50,7 @@ test.describe('Onboarding wizard', () => {
 
   test('Enterprise full path reaches runtime slide and connections', async ({ page }) => {
     await page.goto('/signup');
-    await page.getByTestId('signup-founder').click();
+    await page.getByTestId('signup-continue-demo').click();
     await expect(page).toHaveURL(/\/onboarding$/, { timeout: 20_000 });
     await page.getByTestId('onboarding-plan-enterprise').click();
 
@@ -63,7 +63,12 @@ test.describe('Onboarding wizard', () => {
     await page.getByTestId('speed-meter-40').click();
     await page.getByTestId('onboarding-continue').click();
     await expect(page.getByTestId('runtime-slide')).toBeVisible();
-    await page.getByTestId('runtime-hosting').getByRole('button', { name: 'Private VPC' }).click();
+    // AWS was selected in the catalog → prefer connected customer cloud accounts.
+    await page
+      .getByTestId('runtime-hosting')
+      .getByRole('button', { name: /Connected cloud accounts/i })
+      .click();
+    await expect(page.getByTestId('runtime-cloud-provider')).toBeVisible();
     await page.getByTestId('onboarding-continue').click();
 
     await expect(page).toHaveURL(/\/connections$/, { timeout: 20_000 });
@@ -73,7 +78,7 @@ test.describe('Onboarding wizard', () => {
     await page.getByTestId('connect-jira').click();
     await expect(page.getByTestId('mcp-connect-panel')).toBeVisible();
     await page.getByTestId('mcp-connect-confirm').click();
-    await expect(page.getByTestId('connection-jira').getByText(/Connected/)).toBeVisible({
+    await expect(page.getByTestId('connection-jira').getByText('Connected', { exact: true })).toBeVisible({
       timeout: 10_000,
     });
 
@@ -81,13 +86,15 @@ test.describe('Onboarding wizard', () => {
     await expect(page.getByTestId('secure-setup-panel')).toBeVisible();
   });
 
-  test('Team member sign-in lands on projects', async ({ page }) => {
+  test('Team member sign-in requires onboarding before projects', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByTestId('login-page')).toBeVisible();
+    await page.getByTestId('login-toggle-seats').click();
     await page.getByTestId('login-mode-member').click();
     await page.getByTestId('login-member-manager').click();
     await page.getByTestId('login-manager').click();
-    await expect(page).toHaveURL(/\/projects$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/onboarding$/, { timeout: 20_000 });
+    await expect(page.getByTestId('onboarding-plan-picker')).toBeVisible();
     const session = await page.evaluate((key) => localStorage.getItem(key), DEMO_SESSION_KEY);
     expect(session).toBeTruthy();
   });

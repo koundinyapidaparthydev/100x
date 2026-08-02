@@ -15,6 +15,10 @@ import type {
   BoardConnectRequest,
   BoardHealth,
   DashboardStats,
+  FederatedAuthProvider,
+  FederatedExchangeResponse,
+  FederatedProvidersStatusResponse,
+  FederatedProviderStatus,
   LoginRequest,
   NotificationItem,
   OktaExchangeResponse,
@@ -137,17 +141,43 @@ export const api = {
   },
   me: () => request<{ user: AuthUser }>('/auth/me'),
 
-  /** Whether Okta OIDC env is configured on the backend. */
-  oktaStatus: () => request<OktaStatus>('/auth/okta/status'),
+  /** Status for every federated IdP (Okta, Entra, Google Workspace, Google, Apple). */
+  authProvidersStatus: () => request<FederatedProvidersStatusResponse>('/auth/providers'),
+
+  /** Whether a single IdP is configured on the backend. */
+  authProviderStatus: (provider: FederatedAuthProvider) =>
+    request<FederatedProviderStatus>(`/auth/${provider}/status`),
 
   /**
-   * Full-page navigate to start Okta (backend 302 → Okta).
-   * Prefer window.location.assign(oktaStartUrl(...)) from the web app.
+   * Full-page navigate to start federated OIDC (backend 302 → IdP).
+   * Prefer window.location.assign(authStartUrl(...)) from the web app.
    */
+  authStartUrl: (
+    provider: FederatedAuthProvider,
+    intent: 'login' | 'signup' = 'login',
+    surface: 'web' | 'mobile' = 'web',
+  ) =>
+    `${API_BASE}/auth/${provider}/start?intent=${encodeURIComponent(intent)}&surface=${encodeURIComponent(surface)}`,
+
+  /** One-time exchange after IdP callback redirect to /auth/callback. */
+  federatedExchange: async (exchange: string) => {
+    const res = await request<FederatedExchangeResponse>('/auth/federated/exchange', {
+      method: 'POST',
+      body: JSON.stringify({ exchange }),
+    });
+    setSessionToken(res.session.token);
+    setApiActor(res.session.user.id, res.session.user.surface);
+    return res;
+  },
+
+  /** @deprecated Prefer authProviderStatus('okta') */
+  oktaStatus: () => request<OktaStatus>('/auth/okta/status'),
+
+  /** @deprecated Prefer authStartUrl('okta', …) */
   oktaStartUrl: (intent: 'login' | 'signup' = 'login') =>
     `${API_BASE}/auth/okta/start?intent=${encodeURIComponent(intent)}&surface=web`,
 
-  /** One-time exchange after Okta callback redirect to /auth/callback. */
+  /** @deprecated Prefer federatedExchange */
   oktaExchange: async (exchange: string) => {
     const res = await request<OktaExchangeResponse>('/auth/okta/exchange', {
       method: 'POST',

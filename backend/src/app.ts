@@ -60,7 +60,13 @@ export function createApp(options: AppOptions | Store = {}): Express {
       res.status(400).json({ error: 'invalid JSON body' });
       return;
     }
-    res.status(500).json({ error: 'internal server error' });
+    console.error('[aplifyai-backend] request error:', err.message);
+    res.status(500).json({
+      error:
+        process.env.NODE_ENV !== 'production' && err.message
+          ? err.message
+          : 'internal server error',
+    });
   });
 
   return app;

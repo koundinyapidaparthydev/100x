@@ -127,6 +127,7 @@
   --spacing-3xl: 64px;
   --spacing-margin: clamp(16px, 4vw, 32px);
   --spacing-gutter: 24px;
+  /* Aligns with marketing shell (MarketingWidth): min(92vw, 90rem) ≈ 1440px. */
   --spacing-container-max: 1440px;
 
   /*
@@ -134,6 +135,9 @@
    * Tailwind v4 prefers --spacing-* over --container-* for max-w when names
    * collide, so custom --spacing-2xl (48px) made max-w-2xl 48px and crushed
    * page copy into a one-word column. --max-width-* wins that lookup.
+   *
+   * --max-width-6xl matches the marketing shell so leftover max-w-6xl
+   * usages do not re-narrow content below MarketingWidth.
    */
   --max-width-xs: 20rem;
   --max-width-sm: 24rem;
@@ -144,7 +148,7 @@
   --max-width-3xl: 48rem;
   --max-width-4xl: 56rem;
   --max-width-5xl: 64rem;
-  --max-width-6xl: 72rem;
+  --max-width-6xl: min(92vw, 90rem);
   --max-width-7xl: 80rem;
 }
 

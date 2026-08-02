@@ -37,6 +37,11 @@ test.describe('Approvals & audit', () => {
     const projectId = 'INFRA';
     const encodedProjectId = encodeURIComponent(projectId);
 
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('boards-connect-open').click();
+    await page.getByTestId('boards-connect-project-id').fill(projectId);
+    await page.getByTestId('boards-connect-name').fill('Infrastructure');
+    await page.getByTestId('boards-connect-submit').click();
     await page.goto(`/projects/${encodedProjectId}/approvals`);
     await expect(page.getByTestId('approvals-page')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Project approvals' })).toBeVisible();
@@ -58,7 +63,12 @@ test.describe('Approvals & audit', () => {
     await expect(page.getByTestId('audit-table')).toBeVisible();
     await expect(page.getByTestId('audit-table').locator('tbody tr').first()).toBeVisible();
 
-    // Trigger a login-visible audit trail by syncing a board, then reload log.
+    // Connect + sync a board to append a visible audit trail, then reload log.
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('boards-connect-open').click();
+    await page.getByTestId('boards-connect-project-id').fill('APLIFYAI');
+    await page.getByTestId('boards-connect-name').fill('AplifyAI Core');
+    await page.getByTestId('boards-connect-submit').click();
     await page.getByTestId('nav-projects').click();
     await page.getByTestId('board-sync-APLIFYAI').click();
     await page.getByTestId('nav-audit').click();

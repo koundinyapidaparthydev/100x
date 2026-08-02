@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import RequireAuth from './components/RequireAuth';
+import RequireOnboarding from './components/RequireOnboarding';
 import Login from './pages/Login';
 import Projects from './pages/Projects';
 import ProjectOverview from './pages/ProjectOverview';
@@ -19,6 +20,7 @@ import HowItWorksPage from './pages/HowItWorksPage';
 import Platforms from './pages/Platforms';
 import Pricing from './pages/Pricing';
 import Blog from './pages/Blog';
+import BlogPost from './pages/BlogPost';
 import Signup from './pages/Signup';
 import Onboarding from './pages/Onboarding';
 import Connections from './pages/Connections';
@@ -38,7 +40,8 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/home" element={<Home />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/home" element={<Navigate to="/" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
@@ -46,6 +49,7 @@ export default function App() {
         <Route path="/platforms" element={<Platforms />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/blog" element={<Blog />} />
+        <Route path="/blog/:slug" element={<BlogPost />} />
         <Route
           path="/onboarding"
           element={
@@ -55,14 +59,14 @@ export default function App() {
           }
         />
         <Route
-          path="/"
           element={
             <RequireAuth>
-              <Layout />
+              <RequireOnboarding>
+                <Layout />
+              </RequireOnboarding>
             </RequireAuth>
           }
         >
-          <Route index element={<Navigate to="/projects" replace />} />
           <Route path="projects" element={<Projects />} />
           <Route path="connections" element={<Connections />} />
           <Route path="projects/:projectId" element={<ProjectOverview />} />

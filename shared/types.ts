@@ -61,7 +61,18 @@ export type ArtifactKind = 'summary' | 'patch' | 'test_stub' | 'note' | 'other';
 
 export type ActorType = 'user' | 'system' | 'manager_mobile';
 
-export type CloudProvider = 'aws' | 'azure' | 'gcp' | 'private';
+/** Where AI / agent compute is intended to run (policy + job records). */
+export type CloudProvider = 'aws' | 'azure' | 'gcp' | 'nvidia' | 'private' | 'custom';
+
+/** First-class private / customer cloud platforms offered in settings & onboarding. */
+export const PRIVATE_CLOUD_PROVIDERS: CloudProvider[] = [
+  'aws',
+  'azure',
+  'gcp',
+  'nvidia',
+  'private',
+  'custom',
+];
 
 export type PolicyScope = 'org' | 'project' | 'ticket';
 
@@ -113,10 +124,21 @@ export interface ModelRef {
   endpoint?: string;
 }
 
+/**
+ * Where AI compute runs (account source):
+ * - `customer_cloud` — connected customer AWS/Azure/GCP/NVIDIA accounts (use their account)
+ * - `public_managed` — AplifyAI private / managed cloud (our plane)
+ * - `private_vpc` — bring-your-own-cloud; customer picks platform and connects it
+ */
 export interface CloudPolicy {
   provider: CloudProvider;
   mode: 'public_managed' | 'private_vpc' | 'customer_cloud';
   region: string;
+  /**
+   * Free-text platform name when `provider` is `custom`
+   * (e.g. "Oracle Cloud", "on-prem Kubernetes", "CoreWeave").
+   */
+  customLabel?: string;
 }
 
 export interface PlatformPolicy {
@@ -192,6 +214,7 @@ export interface CloudExecution {
   provider: CloudProvider;
   mode: string;
   region: string;
+  customLabel?: string;
 }
 
 export interface AiJob {
@@ -366,6 +389,29 @@ export interface LoginResponse {
   session: AuthSession;
 }
 
+/** Federated identity providers (enterprise SSO + social). */
+export type FederatedAuthProvider =
+  | 'okta'
+  | 'entra'
+  | 'google_workspace'
+  | 'google'
+  | 'apple';
+
+export interface FederatedProviderStatus {
+  enabled: boolean;
+  provider: FederatedAuthProvider;
+  label: string;
+  category: 'enterprise_sso' | 'social';
+  issuer?: string;
+  clientId?: string;
+  redirectUri?: string;
+}
+
+export interface FederatedProvidersStatusResponse {
+  providers: FederatedProviderStatus[];
+}
+
+/** @deprecated Prefer FederatedProviderStatus — kept for Okta-specific clients. */
 export interface OktaStatus {
   enabled: boolean;
   issuer?: string;
@@ -373,13 +419,24 @@ export interface OktaStatus {
   redirectUri?: string;
 }
 
-export interface OktaExchangeRequest {
+export interface FederatedExchangeRequest {
   exchange: string;
 }
 
+export interface FederatedExchangeResponse {
+  session: AuthSession;
+  intent: 'login' | 'signup';
+  provider: FederatedAuthProvider;
+}
+
+/** @deprecated Prefer FederatedExchangeRequest */
+export type OktaExchangeRequest = FederatedExchangeRequest;
+
+/** @deprecated Prefer FederatedExchangeResponse */
 export interface OktaExchangeResponse {
   session: AuthSession;
   intent: 'login' | 'signup';
+  provider?: FederatedAuthProvider;
 }
 
 // ---------------------------------------------------------------------------
@@ -408,6 +465,8 @@ export type ServiceId =
   | 'mattermost'
   | 'rocket_chat'
   | 'ringcentral'
+  | 'whatsapp'
+  | 'telegram'
   | 'jira'
   | 'linear'
   | 'azure_devops'
@@ -440,10 +499,16 @@ export type ServiceId =
   | 'aws'
   | 'gcp'
   | 'azure'
+  | 'nvidia'
   | 'cursor'
+  | 'chatgpt'
+  | 'codex'
+  | 'claude_code'
   | 'okta'
   | 'azure_ad'
-  | 'google_workspace';
+  | 'google_workspace'
+  | 'google'
+  | 'apple';
 
 /** MCP / secure-connect readiness for a catalogued service. */
 export type McpConnectionStatus = 'available' | 'planned' | 'needs_secure_setup';
@@ -478,6 +543,10 @@ export type DeliveryUrgency = 'this_week' | 'this_month' | 'this_quarter' | 'exp
 export type WorkspaceIntent = 'triage' | 'connect_tools' | 'govern_ai' | 'explore';
 export type BuyerRole = 'executive' | 'delivery_lead' | 'platform' | 'security' | 'ops';
 export type HumanInTheLoopPref = 'always' | 'high_risk' | 'exceptions' | 'minimal';
+/**
+ * Onboarding “Where AI runs” — same three modes as CloudPolicy.mode:
+ * connected accounts | AplifyAI private cloud | customer BYOC.
+ */
 export type HostingPreference = 'private_vpc' | 'customer_cloud' | 'public_managed';
 export type RuntimeModePref = 'request_based' | 'always_on';
 export type CustomModelPref = 'none' | 'side_by_side' | 'trained';
@@ -522,7 +591,15 @@ export interface ExpectationsAnswers {
 }
 
 export interface RuntimeAnswers {
+  /**
+   * Account source: `customer_cloud` (connected accounts), `public_managed`
+   * (AplifyAI private cloud), or `private_vpc` (BYOC).
+   */
   hosting?: HostingPreference;
+  /** Platform when using connected accounts or BYOC (ignored for AplifyAI private cloud). */
+  cloudProvider?: CloudProvider;
+  /** Required when cloudProvider is `custom`. */
+  customCloudLabel?: string;
   runtimeMode?: RuntimeModePref;
   customModel?: CustomModelPref;
   codeOverrideStance?: PlatformPolicy['codeOverrideMode'];

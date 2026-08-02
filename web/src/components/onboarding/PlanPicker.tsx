@@ -70,7 +70,7 @@ export function PlanPicker({ onSelect }: PlanPickerProps) {
         })}
       </div>
       <p className="mt-3 text-[11px] text-on-surface-variant">
-        Paid contact tiers live on Pricing. This demo opens a free session until billing exists.
+        Paid contact tiers live on Pricing. Free opens a live workspace until billing exists.
       </p>
     </div>
   );

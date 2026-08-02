@@ -5,10 +5,18 @@
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
-import type { AuthSession, AuthUser, LoginRequest, UserRole } from '../../shared/types';
+import type {
+  AuthSession,
+  AuthUser,
+  FederatedAuthProvider,
+  LoginRequest,
+  UserRole,
+} from '../../shared/types';
 import { TENANT_ID } from './store';
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h short-lived demo sessions
+
+export type SessionAuthProvider = 'demo' | FederatedAuthProvider;
 
 export interface SessionRecord {
   token: string;
@@ -28,7 +36,7 @@ interface SessionClaims {
   displayName?: string;
   role?: UserRole;
   tenantId?: string;
-  authProvider?: 'demo' | 'okta';
+  authProvider?: SessionAuthProvider;
 }
 
 const SEEDED_USERS: AuthUser[] = [
@@ -82,11 +90,24 @@ export function demoAuthEnabled(): boolean {
   return process.env.NODE_ENV !== 'production' || process.env.AUTH_ALLOW_DEMO_LOGIN === '1';
 }
 
+const LOCAL_DEV_SESSION_SECRET = 'aplifyai-local-dev-session-secret-do-not-use-in-prod';
+let warnedMissingSessionSecret = false;
+
 function sessionSecret(): string {
   const configured = process.env.AUTH_SESSION_SECRET;
   if (configured && configured.length >= 32) return configured;
   // Vitest gets a deterministic, process-independent key. It is never accepted in production.
   if (process.env.NODE_ENV === 'test') return 'aplifyai-test-session-secret-32-bytes';
+  // Local/demo: allow Continue as demo without a .env. Production still requires a real secret.
+  if (process.env.NODE_ENV !== 'production') {
+    if (!warnedMissingSessionSecret) {
+      warnedMissingSessionSecret = true;
+      console.warn(
+        '[aplifyai-backend] AUTH_SESSION_SECRET missing or too short; using local-dev fallback. Set backend/.env for stable sessions across machines.',
+      );
+    }
+    return LOCAL_DEV_SESSION_SECRET;
+  }
   throw new Error('AUTH_SESSION_SECRET must be configured with at least 32 characters');
 }
 
@@ -100,11 +121,12 @@ function sign(unsigned: string): string {
 
 function resolveIdentity(identity: string, surface: 'web' | 'mobile'): AuthUser | null {
   const key = identity.trim().toLowerCase();
-  const byRole = SEEDED_USERS.find((u) => u.role === key && (surface === 'mobile' ? u.role === 'manager' : true));
+  // Prefer the mobile-seeded manager profile for the default demo path.
   if (key === 'manager' && surface === 'mobile') {
     const mobile = SEEDED_USERS.find((u) => u.id === 'usr-manager-mobile')!;
     return { ...mobile, surface: 'mobile' };
   }
+  const byRole = SEEDED_USERS.find((u) => u.role === key);
   if (byRole) return { ...byRole, surface };
   const byEmail = SEEDED_USERS.find((u) => u.email.toLowerCase() === key);
   if (byEmail) return { ...byEmail, surface };
@@ -113,7 +135,10 @@ function resolveIdentity(identity: string, surface: 'web' | 'mobile'): AuthUser 
   return null;
 }
 
-function mintSession(user: AuthUser, opts?: { authProvider?: 'demo' | 'okta'; federated?: boolean }): AuthSession {
+function mintSession(
+  user: AuthUser,
+  opts?: { authProvider?: SessionAuthProvider; federated?: boolean },
+): AuthSession {
   const now = Date.now();
   const expiresAt = now + SESSION_TTL_MS;
   const federated = opts?.federated === true;
@@ -157,8 +182,11 @@ export function issueSession(body: LoginRequest): AuthSession | null {
   return mintSession(user, { authProvider: 'demo', federated: false });
 }
 
-/** Issue a session for an Okta (or other IdP) authenticated user. */
-export function issueFederatedSession(user: AuthUser, authProvider: 'okta' = 'okta'): AuthSession {
+/** Issue a session for an IdP-authenticated user (Okta, Entra, Google, Apple, …). */
+export function issueFederatedSession(
+  user: AuthUser,
+  authProvider: FederatedAuthProvider = 'okta',
+): AuthSession {
   return mintSession(user, { authProvider, federated: true });
 }
 

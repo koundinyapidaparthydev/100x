@@ -1,5 +1,7 @@
 # Okta sign-in (OIDC)
 
+> Prefer the full multi-provider guide: [FEDERATED_SSO.md](./FEDERATED_SSO.md) (Okta, Entra, Google Workspace, Google, Apple).
+
 AplifyAI supports **Okta Authorization Code + PKCE** for workspace owner / team member sign-in.
 
 ## Flow

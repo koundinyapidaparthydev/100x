@@ -47,6 +47,7 @@ Use these docs as the source of truth when splitting work across agents:
 | [docs/security/PII_RESTRICTIONS.md](docs/security/PII_RESTRICTIONS.md) | PII redaction & AI firewall |
 | [docs/ai/AI_DELEGATION.md](docs/ai/AI_DELEGATION.md) | AI-first pipeline & token budgets |
 | [docs/ai/MODEL_PLATFORM_CONFIG.md](docs/ai/MODEL_PLATFORM_CONFIG.md) | Models, platforms, private vs public |
+| [docs/integrations/FEDERATED_SSO.md](docs/integrations/FEDERATED_SSO.md) | Okta, Entra, Google Workspace, Google, Apple sign-in |
 | [docs/integrations/JIRA_INTEGRATION.md](docs/integrations/JIRA_INTEGRATION.md) | Jira / board sync |
 | [docs/integrations/MCP_INTEGRATIONS.md](docs/integrations/MCP_INTEGRATIONS.md) | MCP tools, attachments, context |
 | [docs/integrations/CLOUD_CUSTOMIZATION.md](docs/integrations/CLOUD_CUSTOMIZATION.md) | AWS, Azure, GCP, private cloud |

@@ -8,6 +8,11 @@ export type ServiceCatalogEntry = {
   logo: string;
   mcpServerHint?: string;
   status: McpConnectionStatus;
+  /**
+   * Catalog intent before MCP connectability overrides — used for marketing
+   * Available vs Coming labels so planned surfaces stay honest.
+   */
+  catalogStatus: McpConnectionStatus;
   /** Short note shown on Connections for secure / planned setup. */
   secureHint?: string;
   /** Identity providers are shown but not selectable for connect yet. */
@@ -45,7 +50,7 @@ export const WORK_PLATFORM_IDS: ServiceId[] = [
   'rally',
 ];
 
-const SERVICE_CATALOG_BASE: ServiceCatalogEntry[] = [
+const SERVICE_CATALOG_BASE: Array<Omit<ServiceCatalogEntry, 'catalogStatus'>> = [
   // Conversation
   {
     id: 'slack',
@@ -127,6 +132,22 @@ const SERVICE_CATALOG_BASE: ServiceCatalogEntry[] = [
     category: 'conversation',
     logo: '/brands/ringcentral.svg',
     status: 'planned',
+  },
+  {
+    id: 'whatsapp',
+    name: 'WhatsApp',
+    category: 'conversation',
+    logo: '/brands/whatsapp.svg',
+    status: 'planned',
+    secureHint: 'Business API + allowlisted numbers. Coming soon.',
+  },
+  {
+    id: 'telegram',
+    name: 'Telegram',
+    category: 'conversation',
+    logo: '/brands/telegram.svg',
+    status: 'planned',
+    secureHint: 'Bot token + chat allowlist. Coming soon.',
   },
 
   // Boards / work platforms
@@ -376,12 +397,44 @@ const SERVICE_CATALOG_BASE: ServiceCatalogEntry[] = [
     secureHint: 'Managed identity in customer subscription / private VPC.',
   },
   {
+    id: 'nvidia',
+    name: 'NVIDIA',
+    category: 'cloud',
+    logo: '/brands/nvidia.svg',
+    status: 'needs_secure_setup',
+    secureHint: 'DGX Cloud / NGC private endpoints + customer GPU runners.',
+  },
+  {
     id: 'cursor',
     name: 'Cursor / agent kits',
     category: 'cloud',
     logo: '/brands/cursor.svg',
     status: 'planned',
     secureHint: 'Agent kit allowlist + repo sandbox policy.',
+  },
+  {
+    id: 'chatgpt',
+    name: 'ChatGPT',
+    category: 'cloud',
+    logo: '/brands/chatgpt.svg',
+    status: 'planned',
+    secureHint: 'Agent client connect for ticket stats and cleared context. Coming soon.',
+  },
+  {
+    id: 'codex',
+    name: 'Codex',
+    category: 'cloud',
+    logo: '/brands/codex.svg',
+    status: 'planned',
+    secureHint: 'Agent client for cleared ticket context after connect. Coming soon.',
+  },
+  {
+    id: 'claude_code',
+    name: 'Claude Code',
+    category: 'cloud',
+    logo: '/brands/claude_code.svg',
+    status: 'planned',
+    secureHint: 'Agent client for cleared ticket context after connect. Coming soon.',
   },
 
   // Identity
@@ -390,7 +443,7 @@ const SERVICE_CATALOG_BASE: ServiceCatalogEntry[] = [
     name: 'Okta',
     category: 'identity',
     logo: '/brands/okta.svg',
-    status: 'planned',
+    status: 'available',
     displayOnly: true,
     secureHint: 'Configure OKTA_* on the backend to enable Continue with Okta (OIDC).',
   },
@@ -399,27 +452,49 @@ const SERVICE_CATALOG_BASE: ServiceCatalogEntry[] = [
     name: 'Microsoft Entra ID',
     category: 'identity',
     logo: '/brands/azure_ad.svg',
-    status: 'planned',
+    status: 'available',
     displayOnly: true,
-    secureHint: 'SSO coming — Entra ID not wired yet.',
+    secureHint: 'Configure ENTRA_* on the backend to enable Continue with Microsoft (OIDC).',
   },
   {
     id: 'google_workspace',
     name: 'Google Workspace',
     category: 'identity',
     logo: '/brands/google_workspace.svg',
-    status: 'planned',
+    status: 'available',
     displayOnly: true,
-    secureHint: 'SSO coming — Workspace SAML not wired yet.',
+    secureHint:
+      'Configure GOOGLE_WORKSPACE_* (or shared GOOGLE_*) and optional GOOGLE_WORKSPACE_HD for domain SSO.',
+  },
+  {
+    id: 'google',
+    name: 'Google',
+    category: 'identity',
+    logo: '/brands/google_workspace.svg',
+    status: 'available',
+    displayOnly: true,
+    secureHint: 'Configure GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET for Continue with Google.',
+  },
+  {
+    id: 'apple',
+    name: 'Apple',
+    category: 'identity',
+    logo: '/brands/apple.svg',
+    status: 'available',
+    displayOnly: true,
+    secureHint:
+      'Configure APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY for Continue with Apple.',
   },
 ];
 
 /** Sync mcpServerHint + connect readiness from the shared MCP provider registry. */
 export const SERVICE_CATALOG: ServiceCatalogEntry[] = SERVICE_CATALOG_BASE.map((entry) => {
+  const catalogStatus = entry.status;
   const provider = getMcpProvider(entry.id);
-  if (!provider) return entry;
+  if (!provider) return { ...entry, catalogStatus };
   return {
     ...entry,
+    catalogStatus,
     mcpServerHint: provider.serverId,
     status: provider.connectable
       ? entry.status === 'needs_secure_setup'
@@ -466,4 +541,21 @@ export function mcpStatusLabel(status: McpConnectionStatus): string {
     case 'needs_secure_setup':
       return 'Needs secure setup';
   }
+}
+
+/** Marketing-facing Available vs Coming — uses catalog intent, not MCP connect stubs. */
+export function marketingAvailability(entry: ServiceCatalogEntry): 'Available' | 'Coming' {
+  return entry.catalogStatus === 'planned' ? 'Coming' : 'Available';
+}
+
+/** Spotlight IDs used on marketing connection surfaces. */
+export const MARKETING_SURFACE_IDS = {
+  boards: ['jira', 'linear', 'azure_devops', 'asana', 'monday', 'github_projects'] as ServiceId[],
+  conversation: ['slack', 'teams', 'discord', 'whatsapp', 'telegram'] as ServiceId[],
+  agents: ['cursor', 'chatgpt', 'codex', 'claude_code'] as ServiceId[],
+  cloud: ['aws', 'gcp', 'azure', 'nvidia'] as ServiceId[],
+} as const;
+
+export function marketingServices(ids: readonly ServiceId[]): ServiceCatalogEntry[] {
+  return ids.map((id) => BY_ID.get(id)).filter((entry): entry is ServiceCatalogEntry => Boolean(entry));
 }

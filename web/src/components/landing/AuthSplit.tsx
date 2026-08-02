@@ -26,7 +26,7 @@ export function AuthSplit({
         className="relative flex flex-col px-6 py-8 sm:px-10 lg:min-h-screen lg:px-12 lg:py-10"
         style={{ backgroundImage: WASH }}
       >
-        <Link to="/home" className="font-serif text-lg tracking-tight text-on-surface">
+        <Link to="/" className="font-serif text-lg tracking-tight text-on-surface">
           AplifyAI
         </Link>
         <div className="mt-12 flex flex-1 flex-col justify-center lg:mt-0 lg:max-w-lg">
@@ -47,7 +47,7 @@ export function AuthSplit({
           </ul>
         </div>
         <p className="mt-10 hidden text-sm text-on-surface-variant lg:block">
-          <Link to="/home" className="font-semibold text-primary hover:underline">
+          <Link to="/" className="font-semibold text-primary hover:underline">
             ← Back to home
           </Link>
         </p>

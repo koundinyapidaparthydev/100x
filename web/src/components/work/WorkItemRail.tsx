@@ -101,8 +101,8 @@ export function WorkItemJobRail({
           <span className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Where this ran</span>
           <p className="mt-1 font-mono text-sm text-on-surface">{job.model.modelId}</p>
           <p className="mt-1 text-sm text-on-surface-variant">
-            {providerDisplay(job.cloudExecution.provider)} · {job.cloudExecution.region} ·{' '}
-            {cloudModeDisplay(job.cloudExecution.mode)}
+            {providerDisplay(job.cloudExecution.provider, job.cloudExecution.customLabel)} ·{' '}
+            {job.cloudExecution.region} · {cloudModeDisplay(job.cloudExecution.mode)}
           </p>
         </div>
       </Card>

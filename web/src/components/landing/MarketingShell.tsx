@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { Button } from '../ui';
+import { MarketingFooter } from './MarketingFooter';
+import { MarketingWidth } from './MarketingWidth';
 
 const NAV = [
   { to: '/how-it-works', label: 'How it works' },
@@ -29,12 +31,15 @@ export function MarketingShell({
 }) {
   return (
     <div
-      className="min-h-screen bg-background pb-10 text-on-surface"
+      className="flex min-h-screen flex-col bg-background text-on-surface"
       data-testid={testId}
       style={{ backgroundImage: WASH }}
     >
-      <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <Link to="/home" className="font-serif text-lg tracking-tight text-on-surface">
+      <MarketingWidth
+        as="nav"
+        className="flex items-center justify-between gap-4 py-4"
+      >
+        <Link to="/" className="font-serif text-lg tracking-tight text-on-surface">
           AplifyAI
         </Link>
         <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-2">
@@ -52,9 +57,9 @@ export function MarketingShell({
             <Button variant="primary">Sign up</Button>
           </Link>
         </div>
-      </nav>
+      </MarketingWidth>
 
-      <div className="mx-auto flex w-full max-w-6xl gap-1 overflow-x-auto px-4 pb-2 lg:hidden sm:px-6">
+      <MarketingWidth className="flex gap-1 overflow-x-auto pb-2 lg:hidden">
         {NAV.map((item) => (
           <NavLink
             key={item.to}
@@ -67,9 +72,10 @@ export function MarketingShell({
         <Link to="/login" className={`shrink-0 ${navClass(false)} py-1.5 sm:hidden`}>
           Log in
         </Link>
-      </div>
+      </MarketingWidth>
 
-      {children}
+      <div className="flex-1">{children}</div>
+      <MarketingFooter />
     </div>
   );
 }

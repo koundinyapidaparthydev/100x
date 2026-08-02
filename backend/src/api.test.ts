@@ -232,7 +232,26 @@ describe('jobs / policies / boards / audit / notifications', () => {
     await req.get('/api/v1/policies/nope').expect(404);
   });
 
-  it('derives board health from seeded projects', async () => {
+  it('starts with no connected boards (connect via API)', async () => {
+    const empty = await req.get('/api/v1/boards').expect(200);
+    expect(empty.body).toHaveLength(0);
+
+    await req
+      .post('/api/v1/boards/connect')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ projectId: 'APLIFYAI', name: 'AplifyAI Core' })
+      .expect(201);
+    await req
+      .post('/api/v1/boards/connect')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ projectId: 'INFRA', name: 'Infrastructure' })
+      .expect(201);
+    await req
+      .post('/api/v1/boards/connect')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ projectId: 'FE', name: 'Frontend' })
+      .expect(201);
+
     const res = await req.get('/api/v1/boards').expect(200);
     expect(res.body).toHaveLength(3);
     const keys = res.body.map((b: { issuePrefix: string }) => b.issuePrefix).sort();

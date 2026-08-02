@@ -47,19 +47,41 @@ const PROVIDER_NAMES: Record<string, string> = {
   aws: 'Amazon Web Services',
   azure: 'Microsoft Azure',
   gcp: 'Google Cloud',
-  private: 'Private Cloud',
+  nvidia: 'NVIDIA (DGX / NGC)',
+  private: 'Generic private cloud',
+  custom: 'Other platform',
 };
 
-export function providerDisplay(provider: string): string {
+export function providerDisplay(provider: string, customLabel?: string): string {
+  if (provider === 'custom' && customLabel?.trim()) return customLabel.trim();
   return PROVIDER_NAMES[provider] ?? humanize(provider);
 }
 
 const CLOUD_MODES: Record<string, string> = {
-  public_managed: 'Public Managed',
-  private_vpc: 'Private VPC',
-  customer_cloud: 'Customer Cloud',
+  /** AplifyAI-hosted managed private plane — no customer cloud account required. */
+  public_managed: 'AplifyAI private cloud',
+  /** Bring-your-own-cloud — customer picks platform and connects their account. */
+  private_vpc: 'Your cloud (BYOC)',
+  /** Execute in cloud accounts already linked (AWS / Azure / GCP / NVIDIA). */
+  customer_cloud: 'Connected cloud accounts',
 };
 
 export function cloudModeDisplay(mode: string): string {
   return CLOUD_MODES[mode] ?? humanize(mode);
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  founder: 'Workspace owner',
+  manager: 'Delivery lead',
+  engineer: 'Contributor',
+  auditor: 'Auditor',
+};
+
+export function roleDisplay(role: string): string {
+  return ROLE_LABELS[role] ?? humanize(role);
+}
+
+/** Demo seat accounts use usr-* ids; federated ids are namespaced (google:…). */
+export function isDemoSeatSession(userId: string | undefined | null): boolean {
+  return !!userId?.startsWith('usr-');
 }

@@ -42,9 +42,9 @@ export default function Signup() {
       title="Start as the workspace owner — then connect your stack."
       body="You create the workspace, run Free or Enterprise onboarding, and invite delivery leads and contributors afterward."
       bullets={[
+        'Start free for full editable access',
         'Owner controls policy, PII, models, and connections',
-        'Team seats handle triage and review day to day',
-        'Continue with Okta when OIDC is configured on the backend',
+        'Switch seats anytime from the top bar',
       ]}
     >
       <div>
@@ -52,7 +52,7 @@ export default function Signup() {
           Create your AplifyAI workspace
         </h2>
         <p className="mt-2 text-sm leading-6 text-on-surface-variant sm:text-base">
-          Register as the workspace owner, then complete a short onboarding. No card required.
+          Start free for full access, or register as the owner and run onboarding. No card required.
         </p>
         <div className="mt-8">
           <WorkspaceAuthForm

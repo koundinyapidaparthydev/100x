@@ -1,4 +1,5 @@
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
+import { getService, marketingAvailability, MARKETING_SURFACE_IDS } from '../../lib/serviceCatalog';
 
 const QUEUE = [
   { key: 'PROJ-184', title: 'Pagination bug on boards', status: 'Needs triage', tone: 'butter' as const },
@@ -12,48 +13,80 @@ const TONE = {
   primary: 'bg-primary-container text-on-primary-container',
 };
 
+const FLOW_LOGOS = [
+  ...MARKETING_SURFACE_IDS.boards.slice(0, 3),
+  ...MARKETING_SURFACE_IDS.conversation.slice(0, 2),
+].map((id) => getService(id)).filter(Boolean);
+
 /**
- * Dominant hero product visual — Tsenta-style live product mock,
- * adapted to AplifyAI work queue (connect → triage → review), not a card farm.
+ * Full-bleed flow strip: connect logos → live-looking work rows → swipe affordance.
+ * Edge-to-edge within the hero plane — not an inset floppy mock.
  */
 export function HeroVisual() {
   return (
-    <div className="relative mx-auto w-full max-w-2xl" aria-hidden="true">
+    <div className="relative w-full" aria-hidden="true">
       <div
-        className="pointer-events-none absolute -inset-4 -z-10 rounded-[2rem] opacity-90 sm:-inset-6"
+        className="pointer-events-none absolute inset-x-0 -top-8 bottom-0 -z-10 opacity-90"
         style={{
           background:
-            'radial-gradient(ellipse 80% 70% at 50% 40%, color-mix(in srgb, var(--color-primary-container) 70%, transparent), transparent 72%)',
+            'linear-gradient(180deg, color-mix(in srgb, var(--color-primary-container) 55%, transparent) 0%, transparent 70%), radial-gradient(ellipse 70% 50% at 70% 30%, color-mix(in srgb, var(--color-mint-container) 50%, transparent), transparent 65%)',
         }}
       />
 
       <motion.div
-        className="overflow-hidden rounded-2xl border border-outline-variant/80 bg-surface shadow-elevated"
-        initial={{ opacity: 0, y: 28 }}
+        className="overflow-hidden border-y border-outline-variant/70 bg-surface/90 backdrop-blur-[2px]"
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.65, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.65, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="grid sm:grid-cols-[7.5rem_1fr]">
-          {/* Mini sidebar — echoes authenticated shell */}
-          <aside className="hidden border-r border-outline-variant/70 bg-surface-container-low p-3 sm:block">
-            <p className="font-serif text-sm tracking-tight text-on-surface">AplifyAI</p>
-            <ul className="mt-4 space-y-1.5 text-[11px] font-semibold text-on-surface-variant">
-              {['Projects', 'Work', 'Approvals', 'Governance'].map((item, i) => (
-                <li
-                  key={item}
-                  className={`rounded-lg px-2 py-1.5 ${i === 1 ? 'bg-primary-container text-on-primary-container' : ''}`}
+        {/* Connect strip */}
+        <div className="flex items-center gap-3 overflow-x-auto border-b border-outline-variant/60 px-4 py-3 sm:px-6">
+          <p className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+            Connect
+          </p>
+          <div className="flex items-center gap-2">
+            {FLOW_LOGOS.map((svc, i) =>
+              svc ? (
+                <motion.div
+                  key={svc.id}
+                  className="flex shrink-0 items-center gap-2 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-2.5 py-1.5"
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.25 + i * 0.08, duration: 0.4 }}
                 >
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </aside>
+                  <img src={svc.logo} alt="" className="h-5 w-5 rounded" />
+                  <span className="text-xs font-semibold text-on-surface">{svc.name}</span>
+                  <span
+                    className={`text-[10px] font-semibold ${
+                      marketingAvailability(svc) === 'Available'
+                        ? 'text-mint'
+                        : 'text-on-surface-variant'
+                    }`}
+                  >
+                    {marketingAvailability(svc)}
+                  </span>
+                </motion.div>
+              ) : null,
+            )}
+          </div>
+          <motion.span
+            className="ml-auto hidden shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-on-surface-variant sm:inline"
+            animate={{ opacity: [0.45, 1, 0.45] }}
+            transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            → queue
+          </motion.span>
+        </div>
 
-          <div className="min-w-0">
-            <div className="flex items-center justify-between border-b border-outline-variant/70 px-4 py-2.5">
+        <div className="grid lg:grid-cols-[1.35fr_0.85fr]">
+          {/* Queue rows */}
+          <div className="min-w-0 border-b border-outline-variant/60 p-4 sm:p-5 lg:border-b-0 lg:border-r">
+            <div className="mb-3 flex items-end justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold text-on-surface-variant">Project · ACME</p>
-                <p className="text-sm font-semibold tracking-tight text-on-surface">Work queue</p>
+                <p className="text-xs font-semibold text-on-surface-variant">Work queue · ACME</p>
+                <p className="text-sm font-semibold tracking-tight text-on-surface">
+                  12 triage · 4 review · 1 blocked
+                </p>
               </div>
               <motion.span
                 className="inline-flex items-center gap-1.5 rounded-chip bg-mint-container px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-on-mint-container"
@@ -61,90 +94,72 @@ export function HeroVisual() {
                 transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-mint" />
-                Syncing
+                Synced
               </motion.span>
             </div>
-
-            <div className="space-y-2 p-3 sm:p-4">
-              <AnimatePresence>
-                {QUEUE.map((row, index) => (
-                  <motion.div
-                    key={row.key}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant/60 bg-surface-container-lowest px-3 py-2.5"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{
-                      delay: 0.4 + index * 0.18,
-                      duration: 0.5,
-                      ease: [0.22, 1, 0.36, 1],
-                    }}
-                  >
-                    <div className="min-w-0">
-                      <p className="font-mono text-[10px] font-semibold text-on-surface-variant">
-                        {row.key}
-                      </p>
-                      <p className="truncate text-sm font-semibold text-on-surface">{row.title}</p>
-                    </div>
-                    <motion.span
-                      className={`shrink-0 rounded-chip px-2 py-0.5 text-[10px] font-semibold ${TONE[row.tone]}`}
-                      animate={{
-                        boxShadow: [
-                          '0 0 0 0 transparent',
-                          '0 0 0 3px color-mix(in srgb, var(--color-primary) 14%, transparent)',
-                          '0 0 0 0 transparent',
-                        ],
-                      }}
-                      transition={{
-                        delay: 1.5 + index * 0.9,
-                        duration: 1.1,
-                        repeat: Infinity,
-                        repeatDelay: 2.2,
-                      }}
-                    >
-                      {row.status}
-                    </motion.span>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-              {/* Flow connector strip */}
-              <div className="mt-3 flex items-center justify-between gap-1 px-1 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-on-surface-variant">
-                {['Jira', 'Triage', 'AI', 'Review'].map((label, i) => (
-                  <div key={label} className="flex flex-1 items-center gap-1">
-                    <motion.span
-                      className="rounded-chip bg-surface-container px-2 py-1 text-on-surface"
-                      animate={{ backgroundColor: ['', ''] }}
-                      initial={{ opacity: 0.5 }}
-                      whileInView={{ opacity: 1 }}
-                      transition={{ delay: 0.9 + i * 0.15 }}
-                    >
-                      {label}
-                    </motion.span>
-                    {i < 3 && (
-                      <motion.span
-                        className="h-px flex-1 bg-outline-variant"
-                        initial={{ scaleX: 0 }}
-                        animate={{ scaleX: 1 }}
-                        transition={{ delay: 1 + i * 0.15, duration: 0.35 }}
-                        style={{ originX: 0 }}
-                      />
-                    )}
+            <div className="space-y-2">
+              {QUEUE.map((row, index) => (
+                <motion.div
+                  key={row.key}
+                  className="flex items-center justify-between gap-3 border border-outline-variant/50 bg-surface-container-lowest px-3 py-2.5"
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{
+                    delay: 0.45 + index * 0.14,
+                    duration: 0.45,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                >
+                  <div className="min-w-0">
+                    <p className="font-mono text-[10px] font-semibold text-on-surface-variant">
+                      {row.key}
+                    </p>
+                    <p className="truncate text-sm font-semibold text-on-surface">{row.title}</p>
                   </div>
-                ))}
+                  <span
+                    className={`shrink-0 rounded-chip px-2 py-0.5 text-[10px] font-semibold ${TONE[row.tone]}`}
+                  >
+                    {row.status}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Swipe affordance */}
+          <div className="flex flex-col justify-center gap-4 p-4 sm:p-5">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+              Decide on swipe
+            </p>
+            <motion.div
+              className="relative mx-auto w-full max-w-[14rem] border border-outline-variant/70 bg-surface-container-lowest p-4"
+              animate={{ x: [0, 10, 0, -10, 0] }}
+              transition={{ duration: 4.8, repeat: Infinity, ease: 'easeInOut', delay: 1.2 }}
+            >
+              <p className="font-mono text-[10px] text-on-surface-variant">PROJ-184</p>
+              <p className="mt-1 text-sm font-semibold text-on-surface">Pagination bug on boards</p>
+              <div className="mt-4 flex justify-between gap-2 text-[10px] font-semibold uppercase tracking-[0.08em]">
+                <span className="text-on-surface-variant">← Human</span>
+                <span className="text-mint">AI →</span>
               </div>
+            </motion.div>
+            <div className="flex justify-center gap-6 text-xs font-semibold text-on-surface-variant">
+              <span>Left · assign person</span>
+              <span>Right · send to AI</span>
             </div>
           </div>
         </div>
-      </motion.div>
 
-      <motion.p
-        className="mt-4 text-center text-xs text-on-surface-variant sm:mt-5"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.1, duration: 0.45 }}
-      >
-        Board stays the system of record — AplifyAI decides the next move.
-      </motion.p>
+        {/* Flow labels */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-outline-variant/60 px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-on-surface-variant sm:px-6">
+          {['Connect', 'Queue', 'Swipe', 'Clean', 'Cloud', 'Review'].map((label, i) => (
+            <span key={label} className="inline-flex items-center gap-2">
+              <span className="text-on-surface">{label}</span>
+              {i < 5 && <span className="text-outline-variant">→</span>}
+            </span>
+          ))}
+        </div>
+      </motion.div>
     </div>
   );
 }

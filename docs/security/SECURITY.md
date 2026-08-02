@@ -23,7 +23,8 @@ Layers are cumulative. Customers pick a **security level** that enables layers 1
 
 ### Layer 2 — Identity & access control
 
-- SSO (SAML / OIDC) for enterprise
+- SSO (OIDC) for enterprise: Okta, Microsoft Entra ID, Google Workspace
+- Social sign-in: Continue with Google, Continue with Apple
 - MFA for privileged roles
 - RBAC: Founder / Employer / Manager / Employee / Auditor / Service
 - Least privilege; short-lived tokens
@@ -89,7 +90,7 @@ Customers choose where AI and storage run:
 - Customer AWS account
 - Customer Azure subscription
 - Customer GCP project
-- Customer private cloud / on-prem style VPC
+- Customer private cloud / on-prem style VPC (AWS, Azure, GCP, NVIDIA, or other named platform)
 
 Policy must record: **store code where?** **run AI where?** These can differ (e.g. artifacts in customer S3, inference on private endpoint).
 

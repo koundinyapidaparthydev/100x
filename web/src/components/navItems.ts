@@ -29,7 +29,7 @@ export const ORGANIZATION_ITEMS: NavItem[] = [
 ];
 
 export const ADMIN_ITEM: NavItem = {
-  name: 'Admin',
+  name: 'Settings',
   path: '/admin',
   icon: Settings,
   testId: 'nav-admin',

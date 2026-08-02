@@ -2,6 +2,18 @@
 
 Customers choose **where data is stored** and **where AI runs**. AplifyAI is cloud-agnostic at the policy layer and adapter-based at the implementation layer.
 
+## Account source (product choice)
+
+When a workspace has (or will) connect AWS, Azure, GCP, or NVIDIA, onboarding and **Governance → Cloud runtime** ask:
+
+| Choice | Policy `mode` | Meaning |
+|--------|---------------|---------|
+| **Connected cloud accounts** | `customer_cloud` | Run AI in accounts already linked from the stack. We use **their** AWS/Azure/GCP/NVIDIA account — we do not create a separate AplifyAI account in that cloud. |
+| **AplifyAI private cloud** | `public_managed` | Run on our managed private plane. No customer cloud account required. |
+| **Your cloud (BYOC)** | `private_vpc` | Bring-your-own-cloud. Customer picks the platform (AWS, Azure, GCP, NVIDIA, generic private, or other) and connects that account under Connections. |
+
+After choosing connected accounts or BYOC, the customer selects the **specific** platform. Connected mode prefers platforms already selected/linked; BYOC offers the full platform list.
+
 ## Supported targets (planned)
 
 | Target | Storage | AI / compute | Notes |
@@ -9,8 +21,12 @@ Customers choose **where data is stored** and **where AI runs**. AplifyAI is clo
 | AWS | S3, RDS, Secrets Manager, KMS | ECS/EKS, Bedrock, private VPC endpoints | First-class |
 | Microsoft Azure | Blob, Azure SQL, Key Vault | AKS, Azure OpenAI, Private Link | First-class |
 | Google Cloud | GCS, Cloud SQL, Secret Manager, CMEK | GKE, Vertex AI, Private Google Access | First-class |
-| Private cloud | Customer object store + DB | Customer GPU/CPU runners | Via standard adapters |
+| NVIDIA | Customer object store + secrets | DGX Cloud / NGC / customer GPU runners | First-class private GPU path |
+| Generic private cloud | Customer object store + DB | Customer GPU/CPU runners | Via standard adapters |
+| Custom / other platform | Customer-defined | Customer-defined runners | Free-text label (e.g. Oracle, CoreWeave, on-prem) |
 | AplifyAI managed | Our regions | Our controlled runners | Default for pilots |
+
+Private / customer modes (`private_vpc`, `customer_cloud`) let the org pick **AWS, Azure, GCP, NVIDIA, generic private, or any other named platform**.
 
 ## What customers customize
 
@@ -25,13 +41,14 @@ Customers choose **where data is stored** and **where AI runs**. AplifyAI is clo
 ```yaml
 cloudPolicy:
   storage:
-    provider: aws | azure | gcp | private | managed
+    provider: aws | azure | gcp | nvidia | private | custom | managed
     region: string
     bucketOrContainer: string
     cmk: optional
   execution:
-    provider: aws | azure | gcp | private | managed
-    mode: public_endpoint | private_endpoint | customer_vpc
+    provider: aws | azure | gcp | nvidia | private | custom | managed
+    customLabel: optional   # required when provider=custom
+    mode: public_managed | private_vpc | customer_cloud
     modelGateway: string
   network:
     allowPublicModelApis: boolean

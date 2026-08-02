@@ -223,11 +223,10 @@ export default function Connections() {
       {!loading && rows.length === 0 && (
         <Card className="mt-8" title="No services selected yet" hierarchy="secondary">
           <p className="text-sm text-on-surface-variant">
-            Finish onboarding to pick boards, chat, and code tools — then connect each MCP provider
-            here.
+            Pick boards, chat, and code tools in onboarding — then connect each MCP provider here.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button type="button" onClick={() => navigate('/onboarding')} variant="secondary">
+            <Button type="button" onClick={() => navigate('/onboarding?edit=1')} variant="secondary">
               Open onboarding
             </Button>
             <Button onClick={() => navigate('/projects')}>Continue to projects</Button>
@@ -236,104 +235,140 @@ export default function Connections() {
       )}
 
       {rows.length > 0 && (
-        <div className="mt-6 space-y-3" data-testid="connections-list">
-          {rows.map((row) => {
-            const provider = getMcpProvider(row.id);
-            const live = connectionFor(row.id);
-            const connected = live?.status === 'connected';
-            const canConnect = Boolean(provider?.connectable);
+        <div className="mt-6 space-y-8" data-testid="connections-list">
+          {(
+            Object.entries(
+              rows.reduce<Record<string, ConnectionRow[]>>((acc, row) => {
+                const key = row.category;
+                (acc[key] ??= []).push(row);
+                return acc;
+              }, {}),
+            ) as [ConnectionRow['category'], ConnectionRow[]][]
+          ).map(([category, categoryRows]) => (
+            <section key={category} aria-labelledby={`connections-${category}`}>
+              <h2
+                id={`connections-${category}`}
+                className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant"
+              >
+                {SERVICE_CATEGORY_LABELS[category]}
+              </h2>
+              <div className="space-y-3">
+                {categoryRows.map((row) => {
+                  const provider = getMcpProvider(row.id);
+                  const live = connectionFor(row.id);
+                  const connected = live?.status === 'connected';
+                  const canConnect = Boolean(provider?.connectable);
 
-            return (
-              <Card key={row.id} hierarchy="primary" className="!p-4" data-testid={`connection-${row.id}`}>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <img src={row.logo} alt="" width={36} height={36} className="size-9 rounded-md" />
-                    <div className="min-w-0">
-                      <p className="text-base font-semibold text-on-surface">{row.name}</p>
-                      <p className="text-sm text-on-surface-variant">
-                        {SERVICE_CATEGORY_LABELS[row.category]}
-                        {provider
-                          ? ` · ${mcpAvailabilityLabel(provider.availability)}`
-                          : ' · No MCP option yet'}
-                      </p>
-                      {connected && live && (
-                        <p className="mt-1 text-xs text-success">
-                          Connected · {live.permissionLevel} · {live.grantedTools.length} tools
-                        </p>
-                      )}
-                      {provider?.notes && (
-                        <p className="mt-1 text-xs text-on-surface-variant">{provider.notes}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge
-                      status={connected ? 'available' : row.status}
-                      label={
-                        connected
-                          ? 'Connected'
-                          : canConnect
-                            ? 'Ready to connect'
-                            : mcpStatusLabel(row.status)
-                      }
-                      tone={connected ? 'success' : canConnect ? 'info' : 'neutral'}
-                    />
-                    {connected ? (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        loading={busyId === row.id}
-                        data-testid={`disconnect-${row.id}`}
-                        onClick={() => void onDisconnect(row.id)}
-                      >
-                        Disconnect
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="primary"
-                        disabled={!canConnect}
-                        data-testid={`connect-${row.id}`}
-                        onClick={() => {
-                          setConnectFor(row.id);
-                          setLevel(provider?.permissionLevels[0] ?? 'read');
-                          setSecureFor(null);
-                        }}
-                      >
-                        Connect MCP
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="quiet"
-                      data-testid={`secure-${row.id}`}
-                      onClick={() => {
-                        setSecureFor(row.id);
-                        setConnectFor(null);
-                      }}
+                  return (
+                    <Card
+                      key={row.id}
+                      hierarchy="primary"
+                      className="!p-4"
+                      data-testid={`connection-${row.id}`}
                     >
-                      Details
-                    </Button>
-                  </div>
-                </div>
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <img
+                            src={row.logo}
+                            alt=""
+                            width={36}
+                            height={36}
+                            className="size-9 rounded-md"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-base font-semibold text-on-surface">{row.name}</p>
+                            <p className="text-sm text-on-surface-variant">
+                              {provider
+                                ? mcpAvailabilityLabel(provider.availability)
+                                : 'No MCP option yet'}
+                            </p>
+                            {connected && live && (
+                              <p className="mt-1 text-xs text-success">
+                                Connected · {live.permissionLevel} · {live.grantedTools.length} tools
+                              </p>
+                            )}
+                            {provider?.notes && (
+                              <p className="mt-1 text-xs text-on-surface-variant">{provider.notes}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                          <StatusBadge
+                            status={connected ? 'available' : row.status}
+                            label={
+                              connected
+                                ? 'Connected'
+                                : canConnect
+                                  ? 'Ready to connect'
+                                  : mcpStatusLabel(row.status)
+                            }
+                            tone={connected ? 'success' : canConnect ? 'info' : 'neutral'}
+                          />
+                          {connected ? (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              loading={busyId === row.id}
+                              data-testid={`disconnect-${row.id}`}
+                              onClick={() => void onDisconnect(row.id)}
+                            >
+                              Disconnect
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="primary"
+                              disabled={!canConnect}
+                              data-testid={`connect-${row.id}`}
+                              onClick={() => {
+                                setConnectFor(row.id);
+                                setLevel(provider?.permissionLevels[0] ?? 'read');
+                                setSecureFor(null);
+                              }}
+                            >
+                              Connect MCP
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="quiet"
+                            data-testid={`secure-${row.id}`}
+                            onClick={() => {
+                              setSecureFor(row.id);
+                              setConnectFor(null);
+                            }}
+                          >
+                            Details
+                          </Button>
+                        </div>
+                      </div>
 
-                {connected && live && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {live.grantedTools.slice(0, 8).map((tool) => (
-                      <Chip key={tool} tone="mint" selected={false} tabIndex={-1} className="pointer-events-none">
-                        {tool}
-                      </Chip>
-                    ))}
-                    {live.grantedTools.length > 8 && (
-                      <span className="text-xs text-on-surface-variant">
-                        +{live.grantedTools.length - 8} more
-                      </span>
-                    )}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
+                      {connected && live && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {live.grantedTools.slice(0, 8).map((tool) => (
+                            <Chip
+                              key={tool}
+                              tone="mint"
+                              selected={false}
+                              tabIndex={-1}
+                              className="pointer-events-none"
+                            >
+                              {tool}
+                            </Chip>
+                          ))}
+                          {live.grantedTools.length > 8 && (
+                            <span className="text-xs text-on-surface-variant">
+                              +{live.grantedTools.length - 8} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       )}
 
@@ -435,7 +470,10 @@ export default function Connections() {
 
       <p className="mt-8 text-sm text-on-surface-variant">
         Need to change selections?{' '}
-        <Link className="font-semibold text-primary underline-offset-2 hover:underline" to="/onboarding">
+        <Link
+          className="font-semibold text-primary underline-offset-2 hover:underline"
+          to="/onboarding?edit=1"
+        >
           Re-run onboarding
         </Link>
         .

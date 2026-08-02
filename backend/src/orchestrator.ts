@@ -350,6 +350,7 @@ export function createJob(store: Store, workItem: WorkItem, policy: Policy): AiJ
       provider: policy.cloud.provider,
       mode: policy.cloud.mode,
       region: policy.cloud.region,
+      ...(policy.cloud.customLabel ? { customLabel: policy.cloud.customLabel } : {}),
     },
     tokenUsage: { input: 0, output: 0, total: 0 },
     artifacts: [],

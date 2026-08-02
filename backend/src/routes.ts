@@ -50,12 +50,17 @@ import {
 } from './mcp/atlassianOAuth';
 import { listConfiguredTransports } from './mcp/transports';
 import {
-  buildOktaAuthorizeUrl,
-  completeOktaCallback,
-  consumeOktaExchange,
-  oktaStatus,
-  type OktaIntent,
-} from './okta';
+  allProvidersStatus,
+  buildAuthorizeUrl,
+  clientCallbackUrl,
+  completeCallback,
+  consumeExchange,
+  FEDERATED_PROVIDERS,
+  isFederatedProvider,
+  loginErrorRedirect,
+  providerStatus,
+  type AuthIntent,
+} from './federatedOidc';
 import type { OrchestratorDeps } from './orchestrator';
 import { createJob, runJobPipeline } from './orchestrator';
 import { scheduleSave } from './persist';
@@ -223,62 +228,115 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     res.json({ ok: true });
   });
 
-  // -- Okta OIDC ---------------------------------------------------------------
-  router.get('/auth/okta/status', (_req, res) => {
-    res.json(oktaStatus());
+  // -- Federated OIDC (Okta, Entra, Google Workspace, Google, Apple) ------------
+  router.get('/auth/providers', (_req, res) => {
+    res.json({ providers: allProvidersStatus() });
   });
 
-  router.get('/auth/okta/start', async (req, res) => {
-    const status = oktaStatus();
-    if (!status.enabled) {
-      res.status(503).json({
-        error: 'Okta is not configured',
-        hint: 'Set OKTA_ISSUER, OKTA_CLIENT_ID, OKTA_CLIENT_SECRET, OKTA_REDIRECT_URI',
-      });
-      return;
-    }
-    const intent: OktaIntent = req.query.intent === 'signup' ? 'signup' : 'login';
-    const surface = req.query.surface === 'mobile' ? 'mobile' : 'web';
-    try {
-      const { url } = await buildOktaAuthorizeUrl({ intent, surface });
-      res.redirect(302, url);
-    } catch (e) {
-      res.status(502).json({ error: e instanceof Error ? e.message : 'Okta start failed' });
-    }
-  });
+  for (const provider of FEDERATED_PROVIDERS) {
+    router.get(`/auth/${provider}/status`, (_req, res) => {
+      res.json(providerStatus(provider));
+    });
 
-  router.get('/auth/okta/callback', async (req, res) => {
-    const status = oktaStatus();
-    const webOrigin = process.env.WEB_APP_ORIGIN?.trim() || 'http://localhost:3000';
-    if (!status.enabled) {
-      res.redirect(302, `${webOrigin}/login?okta_error=${encodeURIComponent('Okta is not configured')}`);
-      return;
-    }
-    const err = typeof req.query.error === 'string' ? req.query.error : null;
-    if (err) {
-      const desc = typeof req.query.error_description === 'string' ? req.query.error_description : err;
-      res.redirect(302, `${webOrigin}/login?okta_error=${encodeURIComponent(desc)}`);
-      return;
-    }
-    const code = typeof req.query.code === 'string' ? req.query.code : '';
-    const state = typeof req.query.state === 'string' ? req.query.state : '';
-    if (!code || !state) {
-      res.redirect(302, `${webOrigin}/login?okta_error=${encodeURIComponent('missing code/state')}`);
-      return;
-    }
-    try {
-      const { exchangeCode, intent, webAppOrigin } = await completeOktaCallback({ code, state });
-      const dest = new URL('/auth/callback', webAppOrigin);
-      dest.searchParams.set('exchange', exchangeCode);
-      dest.searchParams.set('intent', intent);
-      res.redirect(302, dest.toString());
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Okta callback failed';
-      res.redirect(302, `${webOrigin}/login?okta_error=${encodeURIComponent(msg)}`);
-    }
-  });
+    router.get(`/auth/${provider}/start`, async (req, res) => {
+      const status = providerStatus(provider);
+      if (!status.enabled) {
+        res.status(503).json({
+          error: `${status.label} is not configured`,
+          provider,
+          hint: `Set the ${provider.toUpperCase()}_* environment variables on the backend`,
+        });
+        return;
+      }
+      const intent: AuthIntent = req.query.intent === 'signup' ? 'signup' : 'login';
+      const surface = req.query.surface === 'mobile' ? 'mobile' : 'web';
+      try {
+        const { url } = await buildAuthorizeUrl(provider, { intent, surface });
+        res.redirect(302, url);
+      } catch (e) {
+        res.status(502).json({
+          error: e instanceof Error ? e.message : `${status.label} start failed`,
+          provider,
+        });
+      }
+    });
 
-  router.post('/auth/okta/exchange', (req, res) => {
+    router.get(`/auth/${provider}/callback`, async (req, res) => {
+      const status = providerStatus(provider);
+      const surfaceHint = req.query.surface === 'mobile' ? 'mobile' : 'web';
+      if (!status.enabled) {
+        res.redirect(302, loginErrorRedirect(provider, `${status.label} is not configured`, surfaceHint));
+        return;
+      }
+      const err = typeof req.query.error === 'string' ? req.query.error : null;
+      if (err) {
+        const desc =
+          typeof req.query.error_description === 'string' ? req.query.error_description : err;
+        res.redirect(302, loginErrorRedirect(provider, desc, surfaceHint));
+        return;
+      }
+      const code = typeof req.query.code === 'string' ? req.query.code : '';
+      const state = typeof req.query.state === 'string' ? req.query.state : '';
+      if (!code || !state) {
+        res.redirect(302, loginErrorRedirect(provider, 'missing code/state', surfaceHint));
+        return;
+      }
+      try {
+        const completed = await completeCallback(provider, { code, state });
+        res.redirect(
+          302,
+          clientCallbackUrl({
+            surface: completed.surface,
+            webAppOrigin: completed.webAppOrigin,
+            mobileAppOrigin: completed.mobileAppOrigin,
+            exchangeCode: completed.exchangeCode,
+            intent: completed.intent,
+            provider: completed.provider,
+          }),
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : `${status.label} callback failed`;
+        res.redirect(302, loginErrorRedirect(provider, msg, surfaceHint));
+      }
+    });
+
+    router.post(`/auth/${provider}/exchange`, (req, res) => {
+      const exchange =
+        typeof (req.body as { exchange?: unknown })?.exchange === 'string'
+          ? (req.body as { exchange: string }).exchange.trim()
+          : '';
+      if (!exchange) {
+        res.status(400).json({ error: 'body.exchange is required' });
+        return;
+      }
+      const result = consumeExchange(exchange);
+      if (!result || result.provider !== provider) {
+        res.status(401).json({ error: 'invalid or expired exchange code' });
+        return;
+      }
+      emitAudit(
+        store,
+        {
+          type: result.session.user.surface === 'mobile' ? 'manager_mobile' : 'user',
+          id: result.session.user.id,
+        },
+        'auth.login',
+        { type: 'session', id: result.session.user.id },
+        {
+          role: result.session.user.role,
+          surface: result.session.user.surface,
+          provider: result.provider,
+          intent: result.intent,
+        },
+        [1, 2],
+      );
+      touch();
+      res.json({ session: result.session, intent: result.intent, provider: result.provider });
+    });
+  }
+
+  /** Provider-agnostic one-time exchange (web + mobile callback pages). */
+  router.post('/auth/federated/exchange', (req, res) => {
     const exchange =
       typeof (req.body as { exchange?: unknown })?.exchange === 'string'
         ? (req.body as { exchange: string }).exchange.trim()
@@ -287,21 +345,50 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       res.status(400).json({ error: 'body.exchange is required' });
       return;
     }
-    const result = consumeOktaExchange(exchange);
+    const result = consumeExchange(exchange);
     if (!result) {
       res.status(401).json({ error: 'invalid or expired exchange code' });
       return;
     }
     emitAudit(
       store,
-      { type: result.session.user.surface === 'mobile' ? 'manager_mobile' : 'user', id: result.session.user.id },
+      {
+        type: result.session.user.surface === 'mobile' ? 'manager_mobile' : 'user',
+        id: result.session.user.id,
+      },
       'auth.login',
       { type: 'session', id: result.session.user.id },
-      { role: result.session.user.role, surface: result.session.user.surface, provider: 'okta', intent: result.intent },
+      {
+        role: result.session.user.role,
+        surface: result.session.user.surface,
+        provider: result.provider,
+        intent: result.intent,
+      },
       [1, 2],
     );
     touch();
-    res.json({ session: result.session, intent: result.intent });
+    res.json({ session: result.session, intent: result.intent, provider: result.provider });
+  });
+
+  // Validate unknown provider path early for clearer 404s under /auth/:provider/*
+  router.use('/auth/:provider', (req, res, next) => {
+    const provider = req.params.provider;
+    if (
+      provider === 'demo-users' ||
+      provider === 'login' ||
+      provider === 'logout' ||
+      provider === 'me' ||
+      provider === 'providers' ||
+      provider === 'federated'
+    ) {
+      next();
+      return;
+    }
+    if (typeof provider === 'string' && !isFederatedProvider(provider)) {
+      res.status(404).json({ error: `unknown auth provider: ${provider}` });
+      return;
+    }
+    next();
   });
 
   router.get('/auth/me', (req: AuthedRequest, res) => {
@@ -639,7 +726,14 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       changed.push('customerNames');
     }
     if (body.cloud !== undefined) {
-      policy.cloud = { ...policy.cloud, ...body.cloud };
+      const nextCloud = { ...policy.cloud, ...body.cloud };
+      if (nextCloud.provider !== 'custom') {
+        delete nextCloud.customLabel;
+      } else if (typeof body.cloud.customLabel === 'string') {
+        nextCloud.customLabel = body.cloud.customLabel.trim() || undefined;
+        if (!nextCloud.customLabel) delete nextCloud.customLabel;
+      }
+      policy.cloud = nextCloud;
       changed.push('cloud');
     }
     if (body.model !== undefined) {
@@ -828,6 +922,35 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
           if (!existing.has(stub.server)) policy.mcpAllowlist.push(stub);
         }
       }
+
+      // Apply “Where AI runs” answers onto org cloud policy so jobs use the chosen account source.
+      const runtime = profile.enterprise?.runtime;
+      if (runtime?.hosting) {
+        const mode = runtime.hosting;
+        const provider =
+          mode === 'public_managed'
+            ? 'private'
+            : runtime.cloudProvider &&
+                ['aws', 'azure', 'gcp', 'nvidia', 'private', 'custom'].includes(runtime.cloudProvider)
+              ? runtime.cloudProvider
+              : mode === 'customer_cloud'
+                ? 'aws'
+                : policy.cloud.provider;
+        policy.cloud = {
+          ...policy.cloud,
+          mode,
+          provider,
+          region: runtime.regions?.[0] ?? policy.cloud.region,
+          ...(provider === 'custom' && runtime.customCloudLabel?.trim()
+            ? { customLabel: runtime.customCloudLabel.trim() }
+            : provider === 'custom'
+              ? {}
+              : { customLabel: undefined }),
+        };
+        if (provider !== 'custom') {
+          delete policy.cloud.customLabel;
+        }
+      }
     }
 
     emitAudit(
@@ -835,7 +958,12 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       actorFromAuth(req),
       'onboarding.saved',
       { type: 'onboarding', id: req.auth.tenantId },
-      { plan: profile.plan, services: profile.selectedServices.length },
+      {
+        plan: profile.plan,
+        services: profile.selectedServices.length,
+        cloudMode: profile.enterprise?.runtime?.hosting,
+        cloudProvider: profile.enterprise?.runtime?.cloudProvider,
+      },
       [1, 2],
     );
     touch();

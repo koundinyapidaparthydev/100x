@@ -169,7 +169,7 @@ export default function Policies() {
                   </div>
                   <div className="flex items-start gap-3">
                     <Cloud size={18} className="mt-0.5 text-on-surface-variant" />
-                    <div><dt className="font-medium text-on-surface">Execution location</dt><dd className="text-on-surface-variant">{providerDisplay(policy.cloud.provider)} · {policy.cloud.region} · {cloudModeDisplay(policy.cloud.mode)}</dd></div>
+                    <div><dt className="font-medium text-on-surface">Execution location</dt><dd className="text-on-surface-variant">{providerDisplay(policy.cloud.provider, policy.cloud.customLabel)} · {policy.cloud.region} · {cloudModeDisplay(policy.cloud.mode)}</dd></div>
                   </div>
                   <div className="flex items-start gap-3">
                     <ShieldCheck size={18} className="mt-0.5 text-on-surface-variant" />
