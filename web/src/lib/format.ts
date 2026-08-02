@@ -71,7 +71,8 @@ export function cloudModeDisplay(mode: string): string {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  founder: 'Workspace owner',
+  root: 'Root',
+  founder: 'Root', // legacy
   manager: 'Delivery lead',
   engineer: 'Contributor',
   auditor: 'Auditor',

@@ -1,20 +1,34 @@
-import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '@shared/api';
-import { readDemoSession, writeDemoSession } from '../lib/session';
+import { hydrateOnboardingFromServer, postAuthPath } from '../lib/onboardingStorage';
+import { applyDemoSessionToApi, readDemoSession, writeDemoSession } from '../lib/session';
 import { AuthSplit, WorkspaceAuthForm, type DemoRoleId } from '../components/landing';
 
 export default function Signup() {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Snapshot only on mount so writing the session during signup does not bounce to /projects
-  // before navigate('/onboarding') lands.
-  const [hadSessionOnMount] = useState(() => Boolean(readDemoSession()));
+  const [checkingSession, setCheckingSession] = useState(() => Boolean(readDemoSession()));
 
-  if (hadSessionOnMount) {
-    return <Navigate to="/projects" replace />;
-  }
+  useEffect(() => {
+    const existing = readDemoSession();
+    if (!existing) {
+      setCheckingSession(false);
+      return;
+    }
+    applyDemoSessionToApi(existing);
+    let cancelled = false;
+    void (async () => {
+      await hydrateOnboardingFromServer();
+      if (!cancelled) {
+        navigate(postAuthPath(), { replace: true });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   const handleSignup = async (identity: DemoRoleId) => {
     setBusy(true);
@@ -27,6 +41,8 @@ export default function Signup() {
         role: session.user.role,
         surface: 'web',
       });
+      await hydrateOnboardingFromServer();
+      // New workspaces always collect onboarding answers first.
       navigate('/onboarding');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign up failed');
@@ -34,6 +50,18 @@ export default function Signup() {
       setBusy(false);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-on-surface-variant">
+        Checking workspace setup…
+      </div>
+    );
+  }
+
+  if (readDemoSession()) {
+    return null;
+  }
 
   return (
     <AuthSplit

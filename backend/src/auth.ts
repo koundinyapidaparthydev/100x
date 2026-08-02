@@ -41,10 +41,10 @@ interface SessionClaims {
 
 const SEEDED_USERS: AuthUser[] = [
   {
-    id: 'usr-founder-1',
-    displayName: 'Asha Founder',
-    email: 'founder@acme.demo',
-    role: 'founder',
+    id: 'usr-root-1',
+    displayName: 'Asha Root',
+    email: 'root@acme.demo',
+    role: 'root',
     tenantId: TENANT_ID,
     surface: 'web',
   },
@@ -125,6 +125,11 @@ function resolveIdentity(identity: string, surface: 'web' | 'mobile'): AuthUser 
   if (key === 'manager' && surface === 'mobile') {
     const mobile = SEEDED_USERS.find((u) => u.id === 'usr-manager-mobile')!;
     return { ...mobile, surface: 'mobile' };
+  }
+  // Legacy demo aliases: founder → root workspace owner.
+  if (key === 'founder' || key === 'founder@acme.demo' || key === 'usr-founder-1') {
+    const root = SEEDED_USERS.find((u) => u.role === 'root')!;
+    return { ...root, surface };
   }
   const byRole = SEEDED_USERS.find((u) => u.role === key);
   if (byRole) return { ...byRole, surface };
@@ -215,12 +220,13 @@ export function getSession(token: string): SessionRecord | null {
       return null;
     }
     if (claims.v === 2) {
+      const rawRole = typeof claims.role === 'string' ? (claims.role as string) : '';
+      const normalizedRole = rawRole === 'founder' ? 'root' : rawRole;
       if (
         typeof claims.email !== 'string' ||
         typeof claims.displayName !== 'string' ||
-        typeof claims.role !== 'string' ||
         typeof claims.tenantId !== 'string' ||
-        !['founder', 'manager', 'engineer', 'auditor'].includes(claims.role)
+        !['root', 'manager', 'engineer', 'auditor'].includes(normalizedRole)
       ) {
         return null;
       }
@@ -228,13 +234,16 @@ export function getSession(token: string): SessionRecord | null {
         id: claims.sub,
         email: claims.email,
         displayName: claims.displayName,
-        role: claims.role,
+        role: normalizedRole as UserRole,
         tenantId: claims.tenantId,
         surface: claims.surface,
       };
       return { token, user, expiresAt: claims.exp };
     }
-    const seeded = SEEDED_USERS.find((candidate) => candidate.id === claims.sub);
+    // Legacy demo token ids.
+    const seeded =
+      SEEDED_USERS.find((candidate) => candidate.id === claims.sub) ??
+      (claims.sub === 'usr-founder-1' ? SEEDED_USERS.find((u) => u.role === 'root') : undefined);
     if (!seeded) return null;
     const user = { ...seeded, surface: claims.surface };
     return { token, user, expiresAt: claims.exp };

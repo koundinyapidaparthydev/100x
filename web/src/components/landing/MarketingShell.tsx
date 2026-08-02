@@ -6,6 +6,7 @@ import { MarketingWidth } from './MarketingWidth';
 
 const NAV = [
   { to: '/how-it-works', label: 'How it works' },
+  { to: '/features', label: 'Features' },
   { to: '/platforms', label: 'Platforms' },
   { to: '/pricing', label: 'Pricing' },
   { to: '/blog', label: 'Blog' },

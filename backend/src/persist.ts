@@ -46,8 +46,17 @@ function hydrateStore(value: unknown): Store {
   if (!Array.isArray(parsed.notifications)) parsed.notifications = [];
   if (!Array.isArray(parsed.boards)) parsed.boards = [];
   if (typeof parsed.attachmentCounter !== 'number') parsed.attachmentCounter = 0;
-  if (!parsed.onboardingByTenant || typeof parsed.onboardingByTenant !== 'object') {
-    parsed.onboardingByTenant = {};
+  if (!parsed.onboardingByUser || typeof parsed.onboardingByUser !== 'object') {
+    parsed.onboardingByUser = {};
+  }
+  // Drop legacy tenant-scoped completion so SSO users on a shared demo tenant
+  // are not skipped after someone else finished the wizard.
+  delete parsed.onboardingByTenant;
+  if (!parsed.invitesByTenant || typeof parsed.invitesByTenant !== 'object') {
+    parsed.invitesByTenant = {};
+  }
+  if (!Array.isArray(parsed.emailOutbox)) {
+    parsed.emailOutbox = [];
   }
   if (!parsed.mcpConnectionsByTenant || typeof parsed.mcpConnectionsByTenant !== 'object') {
     parsed.mcpConnectionsByTenant = {};

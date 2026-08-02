@@ -5,12 +5,12 @@ import { api } from '@shared/api';
 import type { FederatedAuthProvider, FederatedProviderStatus } from '@shared/types';
 import { Button, Field } from '../ui';
 
-export type DemoRoleId = 'manager' | 'founder' | 'engineer';
+export type DemoRoleId = 'manager' | 'root' | 'engineer';
 
 type AuthMode = 'owner' | 'member';
 
 /** Default demo identity — full manage rights so every screen is editable. */
-export const DEMO_CONTINUE_IDENTITY: DemoRoleId = 'founder';
+export const DEMO_CONTINUE_IDENTITY: DemoRoleId = 'root';
 
 const DEMO_WORKSPACE = 'acme-delivery';
 
@@ -55,7 +55,7 @@ const PROVIDER_BUTTON: Record<
 
 /**
  * AplifyAI sign-in: one-click demo entry + Workspace owner vs Team member seats.
- * Maps to demo identities founder / manager / engineer under the hood.
+ * Maps to demo identities root / manager / engineer under the hood.
  */
 export function WorkspaceAuthForm({
   busy,
@@ -76,7 +76,7 @@ export function WorkspaceAuthForm({
   variant: 'login' | 'signup';
 }) {
   const [mode, setMode] = useState<AuthMode>(variant === 'signup' ? 'owner' : 'member');
-  const [ownerEmail, setOwnerEmail] = useState('founder@acme.demo');
+  const [ownerEmail, setOwnerEmail] = useState('root@acme.demo');
   const [workspace, setWorkspace] = useState(DEMO_WORKSPACE);
   const [memberSeat, setMemberSeat] = useState<DemoRoleId>('manager');
   const [providers, setProviders] = useState<FederatedProviderStatus[]>([]);
@@ -115,7 +115,7 @@ export function WorkspaceAuthForm({
   const social: FederatedAuthProvider[] = ['google', 'apple'];
   const enterprise: FederatedAuthProvider[] = ['okta', 'entra', 'google_workspace'];
 
-  const activeIdentity: DemoRoleId = mode === 'owner' ? 'founder' : memberSeat;
+  const activeIdentity: DemoRoleId = mode === 'owner' ? 'root' : memberSeat;
   const switchHrefLabel = switchTo.includes('signup')
     ? 'Create a workspace'
     : switchTo.includes('login')
@@ -128,7 +128,7 @@ export function WorkspaceAuthForm({
   );
 
   const submit = () => {
-    onSelect(mode === 'owner' ? 'founder' : memberSeat);
+    onSelect(mode === 'owner' ? 'root' : memberSeat);
   };
 
   const startProvider = (provider: FederatedAuthProvider) => {
@@ -215,7 +215,7 @@ export function WorkspaceAuthForm({
                 }`}
                 onClick={() => setMode('owner')}
               >
-                Workspace owner
+                Root
               </button>
               <button
                 type="button"
@@ -349,7 +349,7 @@ export function WorkspaceAuthForm({
 export const AwsConsoleAuth = WorkspaceAuthForm;
 export const DemoRolePicker = WorkspaceAuthForm;
 export const DEMO_ROLES = [
-  { id: 'founder' as const, title: 'Workspace owner' },
+  { id: 'root' as const, title: 'Root' },
   { id: 'manager' as const, title: 'Delivery lead' },
   { id: 'engineer' as const, title: 'Contributor' },
 ];

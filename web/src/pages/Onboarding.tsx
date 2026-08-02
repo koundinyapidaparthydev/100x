@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Building2,
@@ -38,6 +38,7 @@ import { Chip, Field } from '../components/ui';
 import { FREE_CATALOG_CATEGORIES, getService } from '../lib/serviceCatalog';
 import {
   emptyOnboardingProfile,
+  hydrateOnboardingFromServer,
   isOnboardingComplete,
   markOnboardingComplete,
   readOnboardingProfile,
@@ -235,12 +236,38 @@ export default function Onboarding() {
     return existing ?? emptyOnboardingProfile('free');
   });
   const [busy, setBusy] = useState(false);
-  // Capture once so finishing the wizard (which writes completedAt) doesn't bounce to /projects
-  // before the intentional navigate('/connections').
-  const [alreadyComplete] = useState(() => isOnboardingComplete());
+  const [gateReady, setGateReady] = useState(false);
+  // Only bounce away after server hydrate — never trust a stale local completedAt alone.
+  const [alreadyComplete, setAlreadyComplete] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const done = await hydrateOnboardingFromServer();
+      if (cancelled) return;
+      const next = readOnboardingProfile() ?? emptyOnboardingProfile('free');
+      setProfile(next);
+      if (next.plan === 'free' || next.plan === 'enterprise') {
+        setPlan(next.completedAt ? next.plan : null);
+      }
+      setAlreadyComplete(done);
+      setGateReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!session) {
     return <Navigate to="/signup" replace />;
+  }
+
+  if (!gateReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-on-surface-variant">
+        Checking workspace setup…
+      </div>
+    );
   }
 
   if (alreadyComplete && !editing) {

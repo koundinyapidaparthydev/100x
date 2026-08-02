@@ -4,7 +4,7 @@ import { emptyOnboardingProfile, markOnboardingComplete } from '../src/lib/onboa
 export const DEMO_SESSION_KEY = 'aplifyai-demo-session';
 export const ONBOARDING_STORAGE_KEY = 'aplifyai-onboarding';
 
-export type DemoIdentity = 'manager' | 'founder' | 'engineer';
+export type DemoIdentity = 'manager' | 'root' | 'engineer';
 
 type LoginResponse = {
   session: {
@@ -30,13 +30,13 @@ export async function injectCompletedOnboarding(page: Page): Promise<void> {
   );
 }
 
-/** Login via Workspace owner / Team member UI (maps to founder|manager|engineer). */
+/** Login via Workspace owner / Team member UI (maps to root|manager|engineer). */
 export async function loginAs(page: Page, identity: DemoIdentity = 'manager'): Promise<void> {
   await injectCompletedOnboarding(page);
   await page.goto('/login');
   await expect(page.getByTestId('login-page')).toBeVisible();
   // One-click demo path (full founder access) — preferred for building-stage walkthroughs.
-  if (identity === 'founder') {
+  if (identity === 'root') {
     await page.getByTestId('login-continue-demo').click();
   } else {
     await page.getByTestId('login-toggle-seats').click();

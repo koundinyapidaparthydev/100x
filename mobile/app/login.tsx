@@ -24,7 +24,7 @@ const PROVIDER_LABEL: Record<FederatedAuthProvider, string> = {
 };
 
 type DemoSeat = {
-  id: 'manager' | 'founder' | 'engineer';
+  id: 'manager' | 'root' | 'engineer';
   title: string;
   description: string;
   fullAccess: boolean;
@@ -38,9 +38,9 @@ const DEMO_SEATS: DemoSeat[] = [
     fullAccess: true,
   },
   {
-    id: 'founder',
-    title: 'Workspace owner',
-    description: 'Full demo access across triage and approvals.',
+    id: 'root',
+    title: 'Root',
+    description: 'Org owner — policies, invites, and full demo access.',
     fullAccess: true,
   },
   {

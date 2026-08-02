@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@shared/api';
 import type { FederatedExchangeResponse } from '@shared/types';
 import { writeDemoSession } from '../lib/session';
-import { isOnboardingComplete } from '../lib/onboardingStorage';
+import { hydrateOnboardingFromServer } from '../lib/onboardingStorage';
 import { Button } from '../components/ui';
 
 /** Dedupes Strict Mode double-mount so the one-time exchange isn't raced twice. */
@@ -49,10 +49,9 @@ export default function AuthCallback() {
           role: session.user.role,
           surface: session.user.surface,
         });
-        // Always finish workspace setup before the main shell (login or signup).
-        navigate(intent === 'signup' || !isOnboardingComplete() ? '/onboarding' : '/projects', {
-          replace: true,
-        });
+        const done = await hydrateOnboardingFromServer();
+        // Signup always onboards; login only skips when THIS user completed on the server.
+        navigate(intent === 'signup' || !done ? '/onboarding' : '/projects', { replace: true });
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Sign-in failed');

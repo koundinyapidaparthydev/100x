@@ -68,7 +68,7 @@ describe('federated OIDC providers', () => {
     process.env.ENTRA_CLIENT_SECRET = 'entra-secret';
     process.env.ENTRA_REDIRECT_URI = 'http://localhost:4000/api/v1/auth/entra/callback';
     process.env.ENTRA_DEFAULT_ROLE = 'engineer';
-    process.env.ENTRA_GROUP_ROLE_MAP = JSON.stringify({ 'AplifyAI-Owners': 'founder' });
+    process.env.ENTRA_GROUP_ROLE_MAP = JSON.stringify({ 'AplifyAI-Owners': 'root' });
     const cfg = getProviderConfig('entra')!;
     const user = mapClaimsToUser(
       {
@@ -81,7 +81,7 @@ describe('federated OIDC providers', () => {
       'web',
     );
     expect(user.id).toBe('entra:entra-sub-1');
-    expect(user.role).toBe('founder');
+    expect(user.role).toBe('root');
     expect(user.tenantId).toBe(TENANT_ID);
   });
 

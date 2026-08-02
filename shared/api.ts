@@ -14,11 +14,14 @@ import type {
   AuthUser,
   BoardConnectRequest,
   BoardHealth,
+  CreateInviteRequest,
+  CreateInviteResponse,
   DashboardStats,
   FederatedAuthProvider,
   FederatedExchangeResponse,
   FederatedProvidersStatusResponse,
   FederatedProviderStatus,
+  ListInvitesResponse,
   LoginRequest,
   NotificationItem,
   OktaExchangeResponse,
@@ -35,6 +38,7 @@ import type {
   TriageRequest,
   TriageResponse,
   WorkItem,
+  WorkspaceInvite,
 } from './types';
 
 export const API_BASE = '/api/v1';
@@ -265,12 +269,30 @@ export const api = {
       body: JSON.stringify({}),
     }),
 
-  // Onboarding (demo tenant profile)
+  // Onboarding (per-user profile)
   getOnboarding: () => request<{ profile: OnboardingProfile | null }>('/onboarding'),
   putOnboarding: (body: OnboardingUpsertRequest) =>
     request<{ profile: OnboardingProfile }>('/onboarding', {
       method: 'PUT',
       body: JSON.stringify(body),
+    }),
+
+  // Workspace invites (root only; email delivery is sandboxed stub)
+  listInvites: () => request<ListInvitesResponse>('/invites'),
+  createInvite: (body: CreateInviteRequest) =>
+    request<CreateInviteResponse>('/invites', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  resendInvite: (id: string) =>
+    request<CreateInviteResponse>(`/invites/${encodeURIComponent(id)}/resend`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+  revokeInvite: (id: string) =>
+    request<{ invite: WorkspaceInvite }>(`/invites/${encodeURIComponent(id)}/revoke`, {
+      method: 'POST',
+      body: JSON.stringify({}),
     }),
 
   // MCP connections — connect each provider one-by-one with a permission level

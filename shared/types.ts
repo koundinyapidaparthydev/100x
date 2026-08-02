@@ -362,7 +362,11 @@ export interface AccessRequestBody {
 // Auth (H1)
 // ---------------------------------------------------------------------------
 
-export type UserRole = 'founder' | 'manager' | 'engineer' | 'auditor';
+/** Workspace access roles. `root` is the org owner (first signup); others are invited. */
+export type UserRole = 'root' | 'manager' | 'engineer' | 'auditor';
+
+/** Invitable roles — root is only granted on workspace creation / signup. */
+export type InvitableRole = Exclude<UserRole, 'root'>;
 
 export interface AuthUser {
   id: string;
@@ -380,9 +384,47 @@ export interface AuthSession {
 }
 
 export interface LoginRequest {
-  /** Demo identity: founder | manager | engineer | auditor (or email of a seeded user). */
+  /** Demo identity: root | manager | engineer | auditor (or email of a seeded user). Alias: founder → root. */
   identity: string;
   surface?: 'web' | 'mobile';
+}
+
+export type WorkspaceInviteStatus = 'pending' | 'accepted' | 'revoked';
+
+export interface WorkspaceInvite {
+  id: string;
+  tenantId: string;
+  email: string;
+  role: InvitableRole;
+  invitedByUserId: string;
+  invitedByEmail: string;
+  status: WorkspaceInviteStatus;
+  createdAt: string;
+  updatedAt: string;
+  acceptedAt: string | null;
+  acceptedByUserId: string | null;
+  /** Sandbox stub: last time an invite email was "sent". */
+  lastEmailAt: string | null;
+  /** Sandbox stub: human-readable email body stored instead of SMTP. */
+  lastEmailPreview: string | null;
+}
+
+export interface CreateInviteRequest {
+  email: string;
+  role: InvitableRole;
+}
+
+export interface CreateInviteResponse {
+  invite: WorkspaceInvite;
+  emailDelivery: {
+    sent: boolean;
+    channel: 'stub';
+    preview: string;
+  };
+}
+
+export interface ListInvitesResponse {
+  invites: WorkspaceInvite[];
 }
 
 export interface LoginResponse {

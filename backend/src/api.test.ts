@@ -291,7 +291,7 @@ describe('jobs / policies / boards / audit / notifications', () => {
   });
 
   it('connects and syncs a sandbox board', async () => {
-    const login = await req.post('/api/v1/auth/login').send({ identity: 'founder' }).expect(200);
+    const login = await req.post('/api/v1/auth/login').send({ identity: 'root' }).expect(200);
     const token = login.body.session.token as string;
     const connected = await req
       .post('/api/v1/boards/connect')
@@ -530,6 +530,85 @@ describe('onboarding', () => {
       .set('Authorization', `Bearer ${managerToken}`)
       .send({ profile: { plan: 'free' } })
       .expect(400);
+  });
+
+  it('scopes completion to the signed-in user, not the shared tenant', async () => {
+    const profile = {
+      plan: 'free' as const,
+      completedAt: new Date().toISOString(),
+      selectedServices: ['jira'],
+      otherByCategory: {},
+      updatedAt: new Date().toISOString(),
+    };
+    await req
+      .put('/api/v1/onboarding')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ profile })
+      .expect(200);
+
+    const engineerLogin = await req.post('/api/v1/auth/login').send({ identity: 'engineer' });
+    const engineerToken = engineerLogin.body.session.token as string;
+    // Engineers cannot PUT onboarding, but GET must not inherit the manager's profile.
+    const engineerView = await req
+      .get('/api/v1/onboarding')
+      .set('Authorization', `Bearer ${engineerToken}`)
+      .expect(200);
+    expect(engineerView.body.profile).toBeNull();
+  });
+});
+
+describe('workspace invites', () => {
+  it('lets root invite by email with stub delivery; manager cannot', async () => {
+    const rootLogin = await req.post('/api/v1/auth/login').send({ identity: 'root' });
+    const rootToken = rootLogin.body.session.token as string;
+
+    const created = await req
+      .post('/api/v1/invites')
+      .set('Authorization', `Bearer ${rootToken}`)
+      .send({ email: 'alex@contoso.com', role: 'engineer' })
+      .expect(201);
+    expect(created.body.invite.email).toBe('alex@contoso.com');
+    expect(created.body.invite.role).toBe('engineer');
+    expect(created.body.emailDelivery.channel).toBe('stub');
+    expect(created.body.emailDelivery.preview).toContain('alex@contoso.com');
+
+    const listed = await req
+      .get('/api/v1/invites')
+      .set('Authorization', `Bearer ${rootToken}`)
+      .expect(200);
+    expect(listed.body.invites).toHaveLength(1);
+
+    await req
+      .post('/api/v1/invites')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ email: 'other@contoso.com', role: 'manager' })
+      .expect(403);
+  });
+
+  it('applies pending invite role when federated access is resolved', async () => {
+    const rootLogin = await req.post('/api/v1/auth/login').send({ identity: 'root' });
+    const rootToken = rootLogin.body.session.token as string;
+    await req
+      .post('/api/v1/invites')
+      .set('Authorization', `Bearer ${rootToken}`)
+      .send({ email: 'invited@gmail.com', role: 'auditor' })
+      .expect(201);
+
+    const { resolveAccessForFederatedUser } = await import('./invites');
+    const applied = resolveAccessForFederatedUser(
+      store,
+      {
+        id: 'google:abc',
+        email: 'invited@gmail.com',
+        displayName: 'Invited',
+        role: 'engineer',
+        tenantId: 'acme',
+        surface: 'web',
+      },
+      'login',
+    );
+    expect(applied.role).toBe('auditor');
+    expect(store.invitesByTenant.acme?.[0]?.status).toBe('accepted');
   });
 });
 

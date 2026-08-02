@@ -1,3 +1,4 @@
+import { api, getSessionToken } from '@shared/api';
 import type { OnboardingPlan, OnboardingProfile, ServiceCategory, ServiceId } from '@shared/types';
 
 export const ONBOARDING_STORAGE_KEY = 'aplifyai-onboarding';
@@ -102,4 +103,39 @@ export function isOnboardingComplete(profile?: OnboardingProfile | null): boolea
 /** Where to send the user after a successful sign-in. */
 export function postAuthPath(): '/onboarding' | '/projects' {
   return isOnboardingComplete() ? '/projects' : '/onboarding';
+}
+
+/**
+ * Pull this user's onboarding profile from the API into localStorage so gates
+ * and post-auth redirects match server truth (not a stale browser draft).
+ * Returns whether onboarding is complete after sync.
+ */
+export async function hydrateOnboardingFromServer(): Promise<boolean> {
+  try {
+    const { profile } = await api.getOnboarding();
+    if (profile) {
+      writeOnboardingProfile(profile);
+      return isOnboardingComplete(profile);
+    }
+    // Server has no profile for this user — do not keep a stale local completedAt
+    // (e.g. leftover from a prior demo account on the same browser).
+    clearOnboardingProfile();
+    return false;
+  } catch {
+    // Fail closed when a session exists: never trust a leftover local completedAt
+    // if the API cannot confirm (old backend, network blip, 401 race).
+    if (getSessionToken() || hasDemoSessionInStorage()) {
+      clearOnboardingProfile();
+      return false;
+    }
+  }
+  return isOnboardingComplete();
+}
+
+function hasDemoSessionInStorage(): boolean {
+  try {
+    return Boolean(localStorage.getItem('aplifyai-demo-session'));
+  } catch {
+    return false;
+  }
 }

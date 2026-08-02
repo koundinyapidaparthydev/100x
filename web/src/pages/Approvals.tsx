@@ -30,7 +30,7 @@ export default function Approvals() {
   const { data, loading, error, reload } = useAsync(() => loadApprovalsWorkspace(projectId), [projectId]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const canDecide = ['founder', 'manager'].includes(readDemoSession()?.role ?? '');
+  const canDecide = ['root', 'manager'].includes(readDemoSession()?.role ?? '');
 
   const enriched = useMemo(() => {
     if (!data) return [];

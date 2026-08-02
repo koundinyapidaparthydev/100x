@@ -68,7 +68,7 @@ export default function TaskDetail() {
   const queueFilter = parseWorkQueueFilter(searchParams.get('filter'));
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const canManage = ['founder', 'manager'].includes(readDemoSession()?.role ?? '');
+  const canManage = ['root', 'manager'].includes(readDemoSession()?.role ?? '');
 
   const { data, loading, error, reload } = useAsync(() => loadTaskDetail(id!), [id]);
 

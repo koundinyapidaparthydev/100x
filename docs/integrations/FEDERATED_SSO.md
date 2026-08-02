@@ -98,12 +98,15 @@ Create a Services ID with Sign in with Apple, configure the return URL to `APPLE
 
 ## Role mapping
 
-1. First matching entry in `{PROVIDER}_GROUP_ROLE_MAP` (Okta/Entra/Workspace groups or Entra `roles`)
-2. Custom claim `aplifyai_role` when present
-3. Signup with empty group map → `founder`
-4. Else `{PROVIDER}_DEFAULT_ROLE` (default `manager`)
+1. Pending workspace invite matching email (role from invite; invite marked accepted)
+2. First matching entry in `{PROVIDER}_GROUP_ROLE_MAP` (Okta/Entra/Workspace groups or Entra `roles`)
+3. Custom claim `aplifyai_role` when present
+4. Signup with empty group map → `root` (org owner; must complete onboarding)
+5. Else `{PROVIDER}_DEFAULT_ROLE` (Google/Apple default `engineer`; enterprise SSO default `manager`)
 
 User ids are namespaced: `okta:{sub}`, `entra:{sub}`, `google:{sub}`, etc.
+
+Legacy role name `founder` is accepted in maps/claims and normalized to `root`.
 
 ## Status endpoint
 

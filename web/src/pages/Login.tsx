@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@shared/api';
-import { readDemoSession, writeDemoSession } from '../lib/session';
-import { postAuthPath } from '../lib/onboardingStorage';
+import { applyDemoSessionToApi, readDemoSession, writeDemoSession } from '../lib/session';
+import { hydrateOnboardingFromServer, postAuthPath } from '../lib/onboardingStorage';
 import { AuthSplit, WorkspaceAuthForm, type DemoRoleId } from '../components/landing';
 
 export default function Login() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [busy, setBusy] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(() => Boolean(readDemoSession()));
   const [error, setError] = useState<string | null>(() =>
     params.get('sso_error') ||
       params.get('okta_error') ||
@@ -18,9 +19,24 @@ export default function Login() {
       params.get('apple_error'),
   );
 
-  if (readDemoSession()) {
-    return <Navigate to={postAuthPath()} replace />;
-  }
+  useEffect(() => {
+    const existing = readDemoSession();
+    if (!existing) {
+      setCheckingSession(false);
+      return;
+    }
+    applyDemoSessionToApi(existing);
+    let cancelled = false;
+    void (async () => {
+      await hydrateOnboardingFromServer();
+      if (!cancelled) {
+        navigate(postAuthPath(), { replace: true });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   const handleLogin = async (identity: DemoRoleId) => {
     setBusy(true);
@@ -33,13 +49,26 @@ export default function Login() {
         role: session.user.role,
         surface: 'web',
       });
-      navigate(postAuthPath());
+      const done = await hydrateOnboardingFromServer();
+      navigate(done ? '/projects' : '/onboarding');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Login failed');
     } finally {
       setBusy(false);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-on-surface-variant">
+        Checking workspace setup…
+      </div>
+    );
+  }
+
+  if (readDemoSession()) {
+    return null;
+  }
 
   return (
     <AuthSplit

@@ -39,6 +39,14 @@ import {
   type AuthedRequest,
 } from './auth';
 import {
+  createInvite,
+  isInvitableRole,
+  listInvites,
+  resolveAccessForFederatedUser,
+  resendInvite,
+  revokeInvite,
+} from './invites';
+import {
   allowlistEntriesFromConnections,
   callToolAsync,
   createConnection,
@@ -196,7 +204,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
   router.post('/auth/login', (req, res) => {
     const body = (req.body ?? {}) as Partial<LoginRequest>;
     if (typeof body.identity !== 'string' || !body.identity.trim()) {
-      res.status(400).json({ error: 'body.identity is required (founder|manager|engineer|auditor or email)' });
+      res.status(400).json({ error: 'body.identity is required (root|manager|engineer|auditor or email)' });
       return;
     }
     if (!demoAuthEnabled()) {
@@ -282,7 +290,13 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
         return;
       }
       try {
-        const completed = await completeCallback(provider, { code, state });
+        const completed = await completeCallback(
+          provider,
+          { code, state },
+          {
+            adjustUser: (user, intent) => resolveAccessForFederatedUser(store, user, intent),
+          },
+        );
         res.redirect(
           302,
           clientCallbackUrl({
@@ -438,7 +452,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     res.json(item);
   });
 
-  router.patch('/work-items/:id/assignee', requireRoles('founder', 'manager'), (req, res) => {
+  router.patch('/work-items/:id/assignee', requireRoles('root', 'manager'), (req, res) => {
     const item = findWorkItem(String(req.params.id));
     if (!item) {
       res.status(404).json({ error: `work item not found: ${req.params.id}` });
@@ -467,7 +481,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     res.json(item);
   });
 
-  router.post('/work-items/:id/request-access', requireRoles('founder', 'manager'), (req, res) => {
+  router.post('/work-items/:id/request-access', requireRoles('root', 'manager'), (req, res) => {
     const item = findWorkItem(String(req.params.id));
     if (!item) {
       res.status(404).json({ error: `work item not found: ${req.params.id}` });
@@ -510,7 +524,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
 
   // Manager swipe decision (mobile). aiFirst=true runs the orchestrator pipeline
   // SYNCHRONOUSLY so the response carries the job's terminal state.
-  router.post('/work-items/:id/triage', requireRoles('founder', 'manager'), async (req, res) => {
+  router.post('/work-items/:id/triage', requireRoles('root', 'manager'), async (req, res) => {
     const item = findWorkItem(String(req.params.id));
     if (!item) {
       res.status(404).json({ error: `work item not found: ${req.params.id}` });
@@ -571,7 +585,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     res.json(boardHealth(store));
   });
 
-  router.post('/boards/connect', requireRoles('founder', 'manager'), async (req, res) => {
+  router.post('/boards/connect', requireRoles('root', 'manager'), async (req, res) => {
     const body = (req.body ?? {}) as Partial<BoardConnectRequest>;
     if (typeof body.projectId !== 'string' || !body.projectId.trim()) {
       res.status(400).json({ error: 'body.projectId is required' });
@@ -644,7 +658,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     res.status(201).json(boardHealth(store).find((b) => b.projectId === projectId));
   });
 
-  router.post('/boards/:projectId/sync', requireRoles('founder', 'manager'), async (req, res) => {
+  router.post('/boards/:projectId/sync', requireRoles('root', 'manager'), async (req, res) => {
     const projectId = String(req.params.projectId ?? '').toUpperCase();
     if (!projectId) {
       res.status(400).json({ error: 'projectId is required' });
@@ -704,7 +718,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     res.json(policy);
   });
 
-  router.patch('/policies/:id', requireRoles('founder', 'manager'), (req, res) => {
+  router.patch('/policies/:id', requireRoles('root', 'manager'), (req, res) => {
     const policy = store.policies.find((p) => p.id === req.params.id);
     if (!policy) {
       res.status(404).json({ error: `policy not found: ${req.params.id}` });
@@ -833,11 +847,11 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
   });
 
   // -- approvals ---------------------------------------------------------------------
-  router.get('/approvals', requireRoles('founder', 'manager', 'auditor'), (_req, res) => {
+  router.get('/approvals', requireRoles('root', 'manager', 'auditor'), (_req, res) => {
     res.json(store.approvals);
   });
 
-  router.post('/approvals/:id/decision', requireRoles('founder', 'manager'), (req, res) => {
+  router.post('/approvals/:id/decision', requireRoles('root', 'manager'), (req, res) => {
     const approval = store.approvals.find((a) => a.id === req.params.id);
     if (!approval) {
       res.status(404).json({ error: `approval not found: ${req.params.id}` });
@@ -866,7 +880,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     res.json([...store.notifications].reverse());
   });
 
-  router.post('/notifications/:id/read', requireRoles('founder', 'manager'), (req, res) => {
+  router.post('/notifications/:id/read', requireRoles('root', 'manager'), (req, res) => {
     const ntf = store.notifications.find((n) => n.id === req.params.id);
     if (!ntf) {
       res.status(404).json({ error: `notification not found: ${req.params.id}` });
@@ -877,7 +891,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     res.json(ntf);
   });
 
-  router.post('/notifications/read-all', requireRoles('founder', 'manager'), (_req, res) => {
+  router.post('/notifications/read-all', requireRoles('root', 'manager'), (_req, res) => {
     for (const n of store.notifications) n.read = true;
     touch();
     res.json({ ok: true, count: store.notifications.length });
@@ -889,11 +903,11 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       res.status(401).json({ error: 'authentication required' });
       return;
     }
-    const profile = store.onboardingByTenant[req.auth.tenantId] ?? null;
+    const profile = store.onboardingByUser[req.auth.id] ?? null;
     res.json({ profile });
   });
 
-  router.put('/onboarding', requireRoles('founder', 'manager'), (req: AuthedRequest, res) => {
+  router.put('/onboarding', requireRoles('root', 'manager'), (req: AuthedRequest, res) => {
     if (!req.auth) {
       res.status(401).json({ error: 'authentication required' });
       return;
@@ -911,7 +925,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       updatedAt: now,
       completedAt: body.profile.completedAt ?? now,
     };
-    store.onboardingByTenant[req.auth.tenantId] = profile;
+    store.onboardingByUser[req.auth.id] = profile;
 
     const policy = orgPolicy();
     if (policy) {
@@ -957,17 +971,105 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       store,
       actorFromAuth(req),
       'onboarding.saved',
-      { type: 'onboarding', id: req.auth.tenantId },
+      { type: 'onboarding', id: req.auth.id },
       {
         plan: profile.plan,
         services: profile.selectedServices.length,
         cloudMode: profile.enterprise?.runtime?.hosting,
         cloudProvider: profile.enterprise?.runtime?.cloudProvider,
+        tenantId: req.auth.tenantId,
       },
       [1, 2],
     );
     touch();
     res.json({ profile });
+  });
+
+  // -- workspace invites (root provisions users by email; stub email delivery) ------
+  router.get('/invites', requireRoles('root'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    res.json({ invites: listInvites(store, req.auth.tenantId) });
+  });
+
+  router.post('/invites', requireRoles('root'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    const body = (req.body ?? {}) as { email?: unknown; role?: unknown };
+    const email = typeof body.email === 'string' ? body.email : '';
+    const role = typeof body.role === 'string' ? body.role : '';
+    if (!isInvitableRole(role)) {
+      res.status(400).json({ error: 'body.role must be manager, engineer, or auditor' });
+      return;
+    }
+    try {
+      const result = createInvite(store, req.auth, { email, role });
+      emitAudit(
+        store,
+        actorFromAuth(req),
+        'invite.created',
+        { type: 'invite', id: result.invite.id },
+        { email: result.invite.email, role: result.invite.role, emailStub: true },
+        [1, 2],
+      );
+      touch();
+      res.status(201).json(result);
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      res.status(err.status ?? 500).json({ error: err.message });
+    }
+  });
+
+  router.post('/invites/:id/resend', requireRoles('root'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    const inviteId = String(req.params.id ?? '');
+    try {
+      const result = resendInvite(store, req.auth, inviteId);
+      emitAudit(
+        store,
+        actorFromAuth(req),
+        'invite.resent',
+        { type: 'invite', id: result.invite.id },
+        { email: result.invite.email, emailStub: true },
+        [1, 2],
+      );
+      touch();
+      res.json(result);
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      res.status(err.status ?? 500).json({ error: err.message });
+    }
+  });
+
+  router.post('/invites/:id/revoke', requireRoles('root'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    const inviteId = String(req.params.id ?? '');
+    try {
+      const invite = revokeInvite(store, req.auth, inviteId);
+      emitAudit(
+        store,
+        actorFromAuth(req),
+        'invite.revoked',
+        { type: 'invite', id: invite.id },
+        { email: invite.email },
+        [1, 2],
+      );
+      touch();
+      res.json({ invite });
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      res.status(err.status ?? 500).json({ error: err.message });
+    }
   });
 
   // -- MCP connections (connect providers one-by-one) ------------------------------
@@ -988,7 +1090,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     res.json(getAtlassianMcpOAuthStatus());
   });
 
-  router.get('/mcp/oauth/atlassian/start', requireRoles('founder', 'manager'), (req: AuthedRequest, res) => {
+  router.get('/mcp/oauth/atlassian/start', requireRoles('root', 'manager'), (req: AuthedRequest, res) => {
     if (!req.auth) {
       res.status(401).json({ error: 'authentication required' });
       return;
@@ -1048,7 +1150,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
 
   router.post(
     '/mcp/connections/:serviceId',
-    requireRoles('founder', 'manager'),
+    requireRoles('root', 'manager'),
     (req: AuthedRequest, res) => {
       if (!req.auth) {
         res.status(401).json({ error: 'authentication required' });
@@ -1095,7 +1197,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
 
   router.delete(
     '/mcp/connections/:serviceId',
-    requireRoles('founder', 'manager'),
+    requireRoles('root', 'manager'),
     (req: AuthedRequest, res) => {
       if (!req.auth) {
         res.status(401).json({ error: 'authentication required' });
@@ -1120,7 +1222,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
 
   router.post(
     '/mcp/connections/:serviceId/tools/:tool',
-    requireRoles('founder', 'manager'),
+    requireRoles('root', 'manager'),
     async (req: AuthedRequest, res) => {
       if (!req.auth) {
         res.status(401).json({ error: 'authentication required' });

@@ -29,7 +29,7 @@ OKTA_REDIRECT_URI=http://localhost:4000/api/v1/auth/okta/callback
 WEB_APP_ORIGIN=http://localhost:3000
 OKTA_DEFAULT_ROLE=manager
 # Optional:
-# OKTA_GROUP_ROLE_MAP={"AplifyAI-Owners":"founder","AplifyAI-Leads":"manager","AplifyAI-Contributors":"engineer"}
+# OKTA_GROUP_ROLE_MAP={"AplifyAI-Owners":"root","AplifyAI-Leads":"manager","AplifyAI-Contributors":"engineer"}
 ```
 
 6. Restart the backend. `GET /api/v1/auth/okta/status` should return `"enabled": true`.
@@ -40,7 +40,7 @@ OKTA_DEFAULT_ROLE=manager
 |--------|----------|
 | `OKTA_GROUP_ROLE_MAP` | First matching Okta `groups` claim wins |
 | Claim `aplifyai_role` | If present and valid, overrides |
-| Signup intent | If no group map configured, defaults to **founder** (workspace owner) |
+| Signup intent | If no group map configured, defaults to **root** (org owner; must complete onboarding) |
 | Otherwise | `OKTA_DEFAULT_ROLE` (default `manager`) |
 
 Add the **groups** claim to the Okta authorization server ID token if you use group mapping.

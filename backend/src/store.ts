@@ -25,6 +25,7 @@ import type {
   Policy,
   ServiceMcpConnection,
   WorkItem,
+  WorkspaceInvite,
 } from '../../shared/types';
 
 export const TENANT_ID = 'acme';
@@ -47,10 +48,27 @@ export interface Store {
   boards: ConnectedBoard[];
   /** Attachment id counter for board write-back (att-<n>). */
   attachmentCounter: number;
-  /** Demo-tenant onboarding answers keyed by tenant id. */
-  onboardingByTenant: Record<string, OnboardingProfile>;
+  /**
+   * Onboarding answers keyed by user id (not tenant).
+   * Shared demo tenants must not mark every SSO user complete because one root finished earlier.
+   */
+  onboardingByUser: Record<string, OnboardingProfile>;
+  /** @deprecated Kept for snapshot migration only; prefer onboardingByUser. */
+  onboardingByTenant?: Record<string, OnboardingProfile>;
   /** Per-tenant MCP connections (service → permission + granted tools). */
   mcpConnectionsByTenant: Record<string, ServiceMcpConnection[]>;
+  /** Pending / accepted workspace invites keyed by tenant. */
+  invitesByTenant: Record<string, WorkspaceInvite[]>;
+  /** Sandbox stub email outbox (invite mail is recorded here, not SMTP). */
+  emailOutbox: Array<{
+    id: string;
+    to: string;
+    subject: string;
+    body: string;
+    createdAt: string;
+    kind: string;
+    relatedId: string;
+  }>;
 }
 
 let idCounter = 0;
@@ -375,8 +393,10 @@ export function createSeedStore(): Store {
     ],
     boards: [],
     attachmentCounter: 0,
-    onboardingByTenant: {},
+    onboardingByUser: {},
     mcpConnectionsByTenant: {},
+    invitesByTenant: {},
+    emailOutbox: [],
   };
 
   // Seed audit trail for the pre-seeded jobs so the log isn't empty on first load.

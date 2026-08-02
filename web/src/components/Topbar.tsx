@@ -17,7 +17,7 @@ import {
 } from './navItems';
 
 const DEMO_SEATS: { id: string; label: string; hint: string }[] = [
-  { id: 'founder', label: 'Workspace owner', hint: 'Full edit access' },
+  { id: 'root', label: 'Root', hint: 'Org owner — policies, invites, full access' },
   { id: 'manager', label: 'Delivery lead', hint: 'Triage & approvals' },
   { id: 'engineer', label: 'Contributor', hint: 'Read-only' },
   { id: 'auditor', label: 'Auditor', hint: 'Approvals visibility' },

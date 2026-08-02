@@ -113,7 +113,7 @@ function ReviewBlock() {
         </span>
       </div>
       <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">
-        Human + code review once by default — then open the MR.
+        Human + code review once by default — then MR after review.
       </p>
       <div className="mt-2 flex flex-wrap gap-1">
         {REVIEWERS.map((t) => (
@@ -133,10 +133,10 @@ function MrBlock() {
   return (
     <div className="rounded-xl border border-primary/40 bg-primary-container/55 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-on-primary-container">
-        Open MR / PR
+        MR / PR after review
       </p>
       <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">
-        Ships to the git host they already use.
+        Opens on the git host they already use.
       </p>
       <div className="mt-2 flex flex-wrap gap-1">
         {REPOS.map(
@@ -177,8 +177,8 @@ export function PipelineFlow() {
               From connected ticket to reviewed draft
             </h2>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant sm:text-base sm:leading-7">
-              Boards and chat fan into one queue. PII clears before models. Agents draft, review runs
-              once by default (human + code review), then the MR opens on GitHub or GitLab.
+              Boards and chat fan into one queue. PII clears before models. Agents draft; review runs
+              once by default (human + code review). Shipping opens the MR on GitHub or GitLab.
             </p>
           </div>
           <p className="max-w-xs text-sm leading-6 text-on-surface-variant sm:text-right">

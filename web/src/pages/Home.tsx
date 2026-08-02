@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
-import { ArrowRight, Monitor, MessageSquare, Sparkles } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
+import { postAuthPath } from '../lib/onboardingStorage';
 import { readDemoSession } from '../lib/session';
 import { Button } from '../components/ui';
 import {
@@ -8,15 +9,10 @@ import {
   HowItWorks,
   MarketingShell,
   MarketingWidth,
+  ModelsSkillsTimeline,
   PipelineFlow,
-  SwipePhoneDemo,
+  PlatformsSurfaces,
 } from '../components/landing';
-import { getService, MARKETING_SURFACE_IDS } from '../lib/serviceCatalog';
-
-const AGENT_LOGOS = MARKETING_SURFACE_IDS.agents.map((id) => getService(id)).filter(Boolean);
-const CHAT_LOGOS = (['slack', 'teams', 'whatsapp', 'telegram'] as const)
-  .map((id) => getService(id))
-  .filter(Boolean);
 
 /** Animated donut — hours saved vs remaining week. */
 function ImpactDonut({
@@ -69,10 +65,9 @@ function ImpactDonut({
   );
 }
 
-
 export default function Home() {
   if (readDemoSession()) {
-    return <Navigate to="/projects" replace />;
+    return <Navigate to={postAuthPath()} replace />;
   }
 
   return (
@@ -93,8 +88,8 @@ export default function Home() {
                 Decide what happens to each work item.
               </h1>
               <p className="mt-3 text-base leading-7 text-on-surface-variant sm:text-lg sm:leading-8">
-                Connect boards and channels, triage on swipe, clear PII, run in your cloud, then
-                review artifacts with an audit trail.
+                Connect boards and channels, clear PII, run in your cloud, review a draft with a
+                human — then train custom models and ship skills into Cursor, Claude Code, and more.
               </p>
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                 <Link to="/signup">
@@ -122,7 +117,7 @@ export default function Home() {
         </motion.div>
 
         <MarketingWidth as="main">
-          <HowItWorks variant="compact" autoAdvance />
+          <ModelsSkillsTimeline />
 
           {/* Impact — big type + charts */}
           <section className="border-t border-outline-variant/60 py-14 sm:py-20" aria-labelledby="impact-heading">
@@ -225,122 +220,11 @@ export default function Home() {
             </motion.div>
           </section>
 
-          {/* Surfaces */}
-          <section className="border-t border-outline-variant/60 py-14 sm:py-16" aria-labelledby="surfaces-heading">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div className="max-w-xl">
-                <p className="text-sm font-semibold tracking-tight text-primary">Surfaces</p>
-                <h2
-                  id="surfaces-heading"
-                  className="mt-2 font-serif text-3xl tracking-tight sm:text-4xl"
-                >
-                  One path. Many places you work.
-                </h2>
-                <p className="mt-3 text-base leading-7 text-on-surface-variant">
-                  Web for depth, mobile for swipe triage, chat and agents when you connect them.
-                </p>
-              </div>
-              <Link to="/platforms" className="shrink-0 text-sm font-semibold text-primary hover:underline">
-                See all platforms →
-              </Link>
-            </div>
+          <PlatformsSurfaces teaser />
 
-            <div className="mt-10 grid gap-6 lg:grid-cols-2">
-              {/* Mobile interactive */}
-              <motion.article
-                className="grid gap-5 rounded-2xl border border-outline-variant/70 bg-surface-container-lowest p-5 sm:grid-cols-[auto_1fr] sm:items-center"
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.45 }}
-              >
-                <SwipePhoneDemo />
-                <div>
-                  <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-mint">
-                    Available · Speed
-                  </p>
-                  <h3 className="mt-1 text-xl font-semibold tracking-tight">Mobile swipe triage</h3>
-                  <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-                    Try it — right sends to AI, left assigns a person. Same decision as web, built for
-                    the phone.
-                  </p>
-                </div>
-              </motion.article>
-
-              {/* Web */}
-              <motion.article
-                className="flex flex-col justify-center rounded-2xl border border-outline-variant/70 bg-surface-container-lowest p-5"
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.45, delay: 0.05 }}
-              >
-                <div className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary-container text-on-primary-container`}>
-                  <Monitor size={20} strokeWidth={1.7} aria-hidden="true" />
-                </div>
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-mint">
-                  Available · Depth
-                </p>
-                <h3 className="mt-1 text-xl font-semibold">Web control plane</h3>
-                <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-                  Policies, PII, queues, drafts, review loops, and audit — full configuration surface.
-                </p>
-              </motion.article>
-
-              {/* Chat */}
-              <motion.article
-                className="rounded-2xl border border-outline-variant/70 bg-surface-container-lowest p-5"
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.45, delay: 0.08 }}
-              >
-                <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-butter-container text-on-butter-container">
-                  <MessageSquare size={20} strokeWidth={1.7} aria-hidden="true" />
-                </div>
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant">
-                  Coming · Conversation
-                </p>
-                <h3 className="mt-1 text-xl font-semibold">Chat channels</h3>
-                <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-                  Slack, Teams, WhatsApp, Telegram into the same governed queue.
-                </p>
-                <div className="mt-3 flex gap-2">
-                  {CHAT_LOGOS.map((s) =>
-                    s ? <img key={s.id} src={s.logo} alt="" className="h-7 w-7 rounded-md" /> : null,
-                  )}
-                </div>
-              </motion.article>
-
-              {/* Agents */}
-              <motion.article
-                className="rounded-2xl border border-outline-variant/70 bg-surface-container-lowest p-5"
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.45, delay: 0.1 }}
-              >
-                <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container text-on-surface">
-                  <Sparkles size={20} strokeWidth={1.7} aria-hidden="true" />
-                </div>
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant">
-                  Coming · Agents
-                </p>
-                <h3 className="mt-1 text-xl font-semibold">MCP / agent clients</h3>
-                <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-                  Cursor, ChatGPT, Codex, Claude Code — drafts after PII clear, then review before MR.
-                </p>
-                <div className="mt-3 flex gap-2">
-                  {AGENT_LOGOS.map((s) =>
-                    s ? <img key={s.id} src={s.logo} alt="" className="h-7 w-7 rounded-md" /> : null,
-                  )}
-                </div>
-              </motion.article>
-            </div>
-          </section>
-
-          {/* Connections stay — catalog chips / interactive tabs already in component */}
           <ConnectionSurfaces teaser />
+
+          <HowItWorks variant="compact" autoAdvance />
 
           <section className="border-t border-outline-variant/60 py-14 sm:py-16" aria-labelledby="who-heading">
             <div className="mx-auto max-w-2xl text-center">
@@ -353,15 +237,15 @@ export default function Home() {
               {[
                 {
                   role: 'Workspace owner',
-                  body: 'Policies, connections, review-loop defaults, and who can join.',
+                  body: 'Policies, model preference, connections, and who can join.',
                 },
                 {
                   role: 'Delivery lead',
-                  body: 'Swipe AI vs human, run review passes, approve before GitHub or GitLab.',
+                  body: 'Swipe AI vs human, approve ticket and model MRs, ship skills from answer groups.',
                 },
                 {
                   role: 'Contributor',
-                  body: 'See evidence and drafts without shadow agents outside the path.',
+                  body: 'Try the custom model and use governed skills — never shadow agents outside the path.',
                 },
               ].map((item, i) => (
                 <motion.div
@@ -387,7 +271,7 @@ export default function Home() {
               Start a free workspace
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-base leading-7 text-on-surface-variant">
-              Connect your stack, triage, set PII rules, and review in a live free workspace.
+              Connect your stack, triage, set PII rules, and review a draft in a live free workspace.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link to="/signup">

@@ -26,7 +26,7 @@ Layers are cumulative. Customers pick a **security level** that enables layers 1
 - SSO (OIDC) for enterprise: Okta, Microsoft Entra ID, Google Workspace
 - Social sign-in: Continue with Google, Continue with Apple
 - MFA for privileged roles
-- RBAC: Founder / Employer / Manager / Employee / Auditor / Service
+- RBAC: Root / Manager / Engineer / Auditor / Service
 - Least privilege; short-lived tokens
 - Session revocation and device awareness on mobile
 

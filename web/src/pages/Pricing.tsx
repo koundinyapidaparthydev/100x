@@ -17,7 +17,7 @@ const VALUE_PATH = [
   { label: 'Connect', icon: Link2, detail: 'Boards & surfaces' },
   { label: 'Triage', icon: Sparkles, detail: 'AI vs human' },
   { label: 'Clear', icon: ShieldCheck, detail: 'PII firewall' },
-  { label: 'Review', icon: Eye, detail: 'Approve & ship' },
+  { label: 'Review', icon: Eye, detail: 'Review draft & ship' },
 ] as const;
 
 const PLANS = [
@@ -25,7 +25,7 @@ const PLANS = [
     id: 'free',
     name: 'Free',
     price: 'Free',
-    blurb: 'Live workspace: connect your stack, triage, PII rules, and approvals.',
+    blurb: 'Live workspace: connect your stack, triage, PII rules, and reviewed drafts.',
     featured: true,
     cta: 'Start free',
     href: '/signup',
@@ -33,7 +33,7 @@ const PLANS = [
       'Connect boards and open Connections',
       'Triage AI vs human on web and mobile',
       'PII firewall and policy surfaces',
-      'Approvals and audit trail',
+      'Reviewed drafts with an audit trail',
     ],
   },
   {
@@ -172,8 +172,9 @@ export default function Pricing() {
                 Start free. Scale with governance.
               </h1>
               <p className="mt-4 text-base leading-7 text-on-surface-variant sm:text-lg sm:leading-8">
-                Free is a live workspace — connect, triage, clear, and review. Team and Enterprise
-                add seats, SSO, and private cloud paths. No listed dollar amounts yet.
+                Free is a live workspace — connect, triage, clear, and review a draft. Custom models
+                and skills unlock after human review. Team and Enterprise add seats, SSO, and private
+                cloud paths. No listed dollar amounts yet.
               </p>
             </div>
 

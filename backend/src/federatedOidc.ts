@@ -119,7 +119,8 @@ function trimEnv(name: string): string | undefined {
 }
 
 function parseRole(value: string): UserRole | null {
-  if (value === 'founder' || value === 'manager' || value === 'engineer' || value === 'auditor') {
+  if (value === 'founder') return 'root'; // legacy IdP / env maps
+  if (value === 'root' || value === 'manager' || value === 'engineer' || value === 'auditor') {
     return value;
   }
   return null;
@@ -318,7 +319,7 @@ function loadProviderConfig(provider: FederatedAuthProvider): ProviderRuntimeCon
         redirectUri,
         webAppOrigin: webOrigin(),
         mobileAppOrigin: mobileOrigin(),
-        defaultRole: parseRole(trimEnv('GOOGLE_DEFAULT_ROLE') ?? 'manager') ?? 'manager',
+        defaultRole: parseRole(trimEnv('GOOGLE_DEFAULT_ROLE') ?? 'engineer') ?? 'engineer',
         groupRoleMap: {},
         scope: trimEnv('GOOGLE_AUTHORIZE_SCOPE') ?? 'openid profile email',
         authorizeExtras: { prompt: 'select_account' },
@@ -344,7 +345,7 @@ function loadProviderConfig(provider: FederatedAuthProvider): ProviderRuntimeCon
         redirectUri,
         webAppOrigin: webOrigin(),
         mobileAppOrigin: mobileOrigin(),
-        defaultRole: parseRole(trimEnv('APPLE_DEFAULT_ROLE') ?? 'manager') ?? 'manager',
+        defaultRole: parseRole(trimEnv('APPLE_DEFAULT_ROLE') ?? 'engineer') ?? 'engineer',
         groupRoleMap: {},
         scope: trimEnv('APPLE_AUTHORIZE_SCOPE') ?? 'openid name email',
         authorizeExtras: { response_mode: 'query' },
@@ -583,6 +584,7 @@ export async function buildAuthorizeUrl(
 export async function completeCallback(
   provider: FederatedAuthProvider,
   input: { code: string; state: string },
+  opts?: { adjustUser?: (user: AuthUser, intent: AuthIntent) => AuthUser },
 ): Promise<{
   exchangeCode: string;
   intent: AuthIntent;
@@ -633,8 +635,10 @@ export async function completeCallback(
   });
 
   let user = mapClaimsToUser(claims, cfg, pending.surface);
-  if (pending.intent === 'signup' && Object.keys(cfg.groupRoleMap).length === 0) {
-    user = { ...user, role: 'founder' };
+  if (opts?.adjustUser) {
+    user = opts.adjustUser(user, pending.intent);
+  } else if (pending.intent === 'signup' && Object.keys(cfg.groupRoleMap).length === 0) {
+    user = { ...user, role: 'root' };
   }
 
   const session = issueFederatedSession(user, provider);

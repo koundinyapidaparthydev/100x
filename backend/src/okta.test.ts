@@ -42,7 +42,7 @@ describe('Okta config + mapping', () => {
     process.env.OKTA_CLIENT_SECRET = 'client-secret';
     process.env.OKTA_REDIRECT_URI = 'http://localhost:4000/api/v1/auth/okta/callback';
     process.env.OKTA_DEFAULT_ROLE = 'engineer';
-    process.env.OKTA_GROUP_ROLE_MAP = JSON.stringify({ 'AplifyAI-Owners': 'founder' });
+    process.env.OKTA_GROUP_ROLE_MAP = JSON.stringify({ 'AplifyAI-Owners': 'root' });
     const cfg = getOktaConfig()!;
     const user = mapOktaClaimsToUser(
       {
@@ -56,7 +56,7 @@ describe('Okta config + mapping', () => {
     );
     expect(user.id).toBe('okta:okta-sub-1');
     expect(user.email).toBe('owner@acme.com');
-    expect(user.role).toBe('founder');
+    expect(user.role).toBe('root');
     expect(user.tenantId).toBe(TENANT_ID);
   });
 

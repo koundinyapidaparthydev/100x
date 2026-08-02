@@ -17,6 +17,7 @@ import Approvals from './pages/Approvals';
 import LegacyWorkItemRedirect from './components/LegacyWorkItemRedirect';
 import Home from './pages/Home';
 import HowItWorksPage from './pages/HowItWorksPage';
+import Features from './pages/Features';
 import Platforms from './pages/Platforms';
 import Pricing from './pages/Pricing';
 import Blog from './pages/Blog';
@@ -25,7 +26,6 @@ import Signup from './pages/Signup';
 import Onboarding from './pages/Onboarding';
 import Connections from './pages/Connections';
 import AuthCallback from './pages/AuthCallback';
-
 function RuntimeRoute() {
   return useLocation().hash === '#cloud' ? <Cloud /> : <Models />;
 }
@@ -46,6 +46,7 @@ export default function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
+        <Route path="/features" element={<Features />} />
         <Route path="/platforms" element={<Platforms />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/blog" element={<Blog />} />

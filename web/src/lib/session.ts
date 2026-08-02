@@ -1,4 +1,5 @@
 import { clearSession, setApiActor, setSessionToken } from '@shared/api';
+import { clearOnboardingProfile } from './onboardingStorage';
 
 export const DEMO_SESSION_KEY = 'aplifyai-demo-session';
 
@@ -43,5 +44,6 @@ export function applyDemoSessionToApi(session: DemoSession | null): void {
 
 export function clearDemoSession(): void {
   localStorage.removeItem(DEMO_SESSION_KEY);
+  clearOnboardingProfile();
   clearSession();
 }
