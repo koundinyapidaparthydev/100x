@@ -907,11 +907,13 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     res.json({ profile });
   });
 
-  router.put('/onboarding', requireRoles('root', 'manager'), (req: AuthedRequest, res) => {
+  router.put('/onboarding', (req: AuthedRequest, res) => {
     if (!req.auth) {
       res.status(401).json({ error: 'authentication required' });
       return;
     }
+    // Every signed-in user must be able to save their own completion profile.
+    // Google/Apple login defaults to engineer; blocking PUT left them stuck on /onboarding.
     const body = (req.body ?? {}) as Partial<OnboardingUpsertRequest>;
     if (!isOnboardingProfile(body.profile)) {
       res.status(400).json({ error: 'body.profile must be a valid OnboardingProfile' });

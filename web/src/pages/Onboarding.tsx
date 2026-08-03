@@ -245,6 +245,7 @@ export default function Onboarding() {
     return existing ?? emptyOnboardingProfile('free');
   });
   const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [gateReady, setGateReady] = useState(false);
   // Only bounce away after server hydrate — never trust a stale local completedAt alone.
   const [alreadyComplete, setAlreadyComplete] = useState(false);
@@ -348,6 +349,7 @@ export default function Onboarding() {
 
   const finish = async () => {
     setBusy(true);
+    setSaveError(null);
     const boardIds = profile.selectedServices.filter((id) => getService(id)?.category === 'boards');
     const withBoards =
       profile.plan === 'free'
@@ -356,13 +358,19 @@ export default function Onboarding() {
     const completed = markOnboardingComplete(withBoards);
     writeOnboardingProfile(completed);
     try {
-      await api.putOnboarding({ profile: completed });
+      const { profile: saved } = await api.putOnboarding({ profile: completed });
+      writeOnboardingProfile(saved);
+      setBusy(false);
+      navigate('/connections');
     } catch (e) {
-      // Local draft is enough for Connections; surface a soft warning if API fails.
       console.warn('onboarding persist failed', e);
+      setSaveError(
+        e instanceof Error
+          ? e.message
+          : 'Could not save onboarding. Check your connection and try again.',
+      );
+      setBusy(false);
     }
-    setBusy(false);
-    navigate('/connections');
   };
 
   const onContinue = () => {
@@ -408,6 +416,15 @@ export default function Onboarding() {
     >
       <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-4 py-3 sm:px-6 lg:px-8">
         <p className="mb-2 shrink-0 text-sm font-semibold tracking-tight text-on-surface">AplifyAI</p>
+        {saveError ? (
+          <p
+            className="mb-2 shrink-0 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-error"
+            data-testid="onboarding-save-error"
+            role="alert"
+          >
+            {saveError}
+          </p>
+        ) : null}
 
         {!plan && (
           <div className="min-h-0 flex-1 overflow-y-auto">

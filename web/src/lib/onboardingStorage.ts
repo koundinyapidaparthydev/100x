@@ -1,4 +1,4 @@
-import { api, getSessionToken } from '@shared/api';
+import { api } from '@shared/api';
 import type {
   EnterpriseMoveAnswers,
   ExpectationsAnswers,
@@ -146,25 +146,13 @@ export async function hydrateOnboardingFromServer(): Promise<boolean> {
       writeOnboardingProfile(profile);
       return isOnboardingComplete(profile);
     }
-    // Server has no profile for this user — do not keep a stale local completedAt
-    // (e.g. leftover from a prior demo account on the same browser).
+    // Server explicitly has no profile for this user — drop any leftover local draft
+    // (e.g. another account on the same browser).
     clearOnboardingProfile();
     return false;
   } catch {
-    // Fail closed when a session exists: never trust a leftover local completedAt
-    // if the API cannot confirm (old backend, network blip, 401 race).
-    if (getSessionToken() || hasDemoSessionInStorage()) {
-      clearOnboardingProfile();
-      return false;
-    }
-  }
-  return isOnboardingComplete();
-}
-
-function hasDemoSessionInStorage(): boolean {
-  try {
-    return Boolean(localStorage.getItem('aplifyai-demo-session'));
-  } catch {
-    return false;
+    // Transient/network errors: do not wipe a locally completed profile or the
+    // user bounces back to the wizard after a successful save.
+    return isOnboardingComplete();
   }
 }

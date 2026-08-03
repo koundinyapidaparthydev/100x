@@ -548,12 +548,36 @@ describe('onboarding', () => {
 
     const engineerLogin = await req.post('/api/v1/auth/login').send({ identity: 'engineer' });
     const engineerToken = engineerLogin.body.session.token as string;
-    // Engineers cannot PUT onboarding, but GET must not inherit the manager's profile.
+    // Engineers can save their own profile, but must not inherit the manager's.
     const engineerView = await req
       .get('/api/v1/onboarding')
       .set('Authorization', `Bearer ${engineerToken}`)
       .expect(200);
     expect(engineerView.body.profile).toBeNull();
+
+    await req
+      .put('/api/v1/onboarding')
+      .set('Authorization', `Bearer ${engineerToken}`)
+      .send({
+        profile: {
+          ...profile,
+          selectedServices: ['github'],
+          completedAt: new Date().toISOString(),
+        },
+      })
+      .expect(200);
+
+    const engineerSaved = await req
+      .get('/api/v1/onboarding')
+      .set('Authorization', `Bearer ${engineerToken}`)
+      .expect(200);
+    expect(engineerSaved.body.profile.selectedServices).toEqual(['github']);
+
+    const managerAgain = await req
+      .get('/api/v1/onboarding')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(managerAgain.body.profile.selectedServices).toEqual(['jira']);
   });
 });
 
