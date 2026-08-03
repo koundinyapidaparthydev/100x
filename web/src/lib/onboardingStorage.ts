@@ -47,12 +47,9 @@ export function emptyOnboardingProfile(plan: OnboardingPlan = 'free'): Onboardin
 }
 
 export function isLiteAnswersComplete(lite?: LiteOnboardingAnswers): boolean {
-  return Boolean(
-    lite?.intent &&
-      lite?.teamSize &&
-      lite?.urgency &&
-      (lite.biggestPains?.length ?? 0) > 0,
-  );
+  const intents =
+    lite?.intents?.length ? lite.intents : lite?.intent ? [lite.intent] : [];
+  return Boolean(intents.length > 0 && lite?.teamSize && (lite.biggestPains?.length ?? 0) > 0);
 }
 
 export function isEnterpriseMoveComplete(move?: EnterpriseMoveAnswers): boolean {

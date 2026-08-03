@@ -41,7 +41,7 @@ const DATA_FLOW_STEPS: Step[] = [
     id: 'review',
     label: 'Reviewers',
     title: 'Reviewer path when it fits',
-    body: 'When the output matches a reviewer lane (CodeRabbit or your own), it continues toward an MR.',
+    body: 'When the output matches a reviewer lane (CodeRabbit or your own), it continues toward an MR after draft review.',
   },
   {
     id: 'mr',
@@ -57,13 +57,13 @@ const DATA_FLOW_STEPS: Step[] = [
   },
 ];
 
-/** Part 2a — custom model from approved input + solution pairs. */
+/** Part 2a — custom model from reviewed input + solution pairs. */
 const MODEL_STEPS: Step[] = [
   {
     id: 'pair',
     label: 'Pairs',
-    title: 'Approved input + approved solution',
-    body: 'Ticket or Slack context on one side, the human-verified output on the other — both already cleared.',
+    title: 'Reviewed input + reviewed solution',
+    body: 'Ticket or Slack context on one side, the human-reviewed draft on the other — both already cleared.',
   },
   {
     id: 'train',
@@ -75,13 +75,13 @@ const MODEL_STEPS: Step[] = [
     id: 'match',
     label: 'Match',
     title: 'Same work again? Match at ≥90%',
-    body: 'When a new task matches a trained pattern at about 90% or better, the custom model can answer without a fresh human gate.',
+    body: 'When a new task matches a trained pattern at about 90% or better, the custom model can answer from previously reviewed drafts.',
   },
   {
     id: 'serve',
     label: 'Serve',
     title: 'Request the model, get the response',
-    body: 'Teams send governed requests to that custom model and receive responses shaped by what humans already approved.',
+    body: 'Teams send governed requests to that custom model and receive responses shaped by reviewed drafts humans already approved.',
   },
 ];
 
@@ -91,13 +91,13 @@ const SKILL_STEPS: Step[] = [
     id: 'categorize',
     label: 'Categorize',
     title: 'Group the work that was done',
-    body: 'Approved runs form categories — text change patterns, bug triage, docs, and other repeatable jobs.',
+    body: 'Reviewed runs form categories — text change patterns, bug triage, docs, and other repeatable jobs.',
   },
   {
     id: 'pattern',
     label: 'Pattern',
     title: 'A pattern becomes a skill',
-    body: 'When the same kind of change shows up again and again, that category becomes a skill pack you control.',
+    body: 'When the same kind of change shows up again and again after review, that category becomes a skill pack you control.',
   },
   {
     id: 'integrate',

@@ -53,11 +53,12 @@ export default function HowItWorksPage() {
               id="agents-fit-heading"
               className="mt-2 font-serif text-3xl tracking-tight sm:text-4xl"
             >
-              Skills from answer groups — after the gate
+              Skills from answer groups — after draft review
             </h2>
             <p className="mt-3 text-base leading-7 text-on-surface-variant">
               Agent clients pull cleared context once connected. Skill packs are built from curated
-              answer categories so the platform keeps control. All Coming until OAuth ships.
+              answer categories after draft review so the platform keeps control. All Coming until
+              OAuth ships.
             </p>
           </div>
 

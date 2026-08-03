@@ -178,7 +178,8 @@ export function PipelineFlow() {
             </h2>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant sm:text-base sm:leading-7">
               Boards and chat fan into one queue. PII clears before models. Agents draft; review runs
-              once by default (human + code review). Shipping opens the MR on GitHub or GitLab.
+              once by default (human + code review). After review, shipping opens the MR on GitHub or
+              GitLab.
             </p>
           </div>
           <p className="max-w-xs text-sm leading-6 text-on-surface-variant sm:text-right">

@@ -25,6 +25,7 @@ function completedTestOnboarding() {
     ...emptyOnboardingProfile('free'),
     selectedServices: ['jira', 'slack', 'github'],
     lite: {
+      intents: ['triage'],
       intent: 'triage',
       teamSize: '6-20',
       biggestPains: ['Triage backlog'],

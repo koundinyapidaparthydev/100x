@@ -25,7 +25,7 @@ const PLANS = [
     id: 'free',
     name: 'Free',
     price: 'Free',
-    blurb: 'Live workspace: connect your stack, triage, PII rules, and reviewed drafts.',
+    blurb: 'Live workspace: connect your stack, triage, PII rules, and reviewed drafts — models and skills after review.',
     featured: true,
     cta: 'Start free',
     href: '/signup',

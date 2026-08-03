@@ -18,7 +18,6 @@ async function fillFreeAnswers(page: Page) {
   await page.getByTestId('lite-intent').getByRole('button', { name: /Triage work faster/i }).click();
   await page.getByTestId('lite-team-size').getByRole('button', { name: /6–20 people/ }).click();
   await page.getByTestId('lite-pains').getByRole('button', { name: /Backlog is drowning us/i }).click();
-  await page.getByTestId('lite-urgency').getByRole('button', { name: /This month/i }).click();
 }
 
 async function fillEnterpriseMove(page: Page) {

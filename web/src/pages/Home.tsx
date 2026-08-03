@@ -150,8 +150,8 @@ export default function Home() {
               />
               <ImpactDonut
                 savedPct={100}
-                label="Human merge"
-                sub="Every MR still needs your approval — agents propose, you ship."
+                label="Human review"
+                sub="Every draft still needs your review — agents propose, you ship."
                 delay={0.25}
               />
             </div>

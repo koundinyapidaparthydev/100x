@@ -138,7 +138,7 @@ export function PlatformsSurfaces({ teaser = false, showIntro = true }: Platform
           </div>
           <h3 className="mt-1 text-xl font-semibold">Web control plane</h3>
           <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-            Policies, PII, queues, model preference, review loops, and audit — full configuration
+            Policies, PII, queues, model preference, reviewed drafts, and audit — full configuration
             surface.
           </p>
         </motion.article>

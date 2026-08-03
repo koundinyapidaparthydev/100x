@@ -428,13 +428,29 @@ export default function Onboarding() {
             <div className="mx-auto flex max-w-3xl flex-col gap-6">
               <section>
                 <OptionCards
+                  mode="multi"
                   testId="lite-intent"
                   label="What do you want to get done first?"
-                  info="Pick the job you want the workspace to emphasize on day one. This sets default queues, suggestions, and which integrations we surface first."
-                  hint="Required · pick one"
+                  info="Select every job you want the workspace to emphasize early. Multiple picks are fine — we use them together for default queues, suggestions, and which integrations we surface first."
+                  hint="Required · select all that apply"
                   columns={2}
-                  selected={profile.lite?.intent}
-                  onSelect={(id) => patchLite({ intent: id as WorkspaceIntent })}
+                  selected={
+                    profile.lite?.intents?.length
+                      ? profile.lite.intents
+                      : profile.lite?.intent
+                        ? [profile.lite.intent]
+                        : []
+                  }
+                  onToggle={(id) => {
+                    const current =
+                      profile.lite?.intents?.length
+                        ? profile.lite.intents
+                        : profile.lite?.intent
+                          ? [profile.lite.intent]
+                          : [];
+                    const next = toggleInList(current, id) as WorkspaceIntent[];
+                    patchLite({ intents: next, intent: next[0] });
+                  }}
                   options={[...FREE_INTENTS]}
                 />
               </section>
@@ -463,18 +479,6 @@ export default function Onboarding() {
                     patchLite({ biggestPains: toggleInList(profile.lite?.biggestPains, id) })
                   }
                   options={[...PAIN_OPTIONS]}
-                />
-              </section>
-              <section>
-                <OptionCards
-                  testId="lite-urgency"
-                  label="When do you need this working?"
-                  info="Pick the soonest realistic go-live for a useful path—not a perfect rollout. Exploring is fine if you are still evaluating fit."
-                  hint="Required · pick one"
-                  columns={2}
-                  selected={profile.lite?.urgency}
-                  onSelect={(id) => patchLite({ urgency: id as DeliveryUrgency })}
-                  options={[...URGENCY_OPTIONS]}
                 />
               </section>
             </div>

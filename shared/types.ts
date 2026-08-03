@@ -596,13 +596,21 @@ export type TokenBudgetAppetite = 'conservative' | 'balanced' | 'aggressive';
 export type McpAllowlistAggressiveness = 'strict' | 'balanced' | 'open';
 
 export interface LiteOnboardingAnswers {
-  /** What they want to accomplish first in the workspace. */
+  /**
+   * What they want to accomplish first in the workspace (multi-select).
+   * Prefer this over singular `intent`.
+   */
+  intents?: WorkspaceIntent[];
+  /** @deprecated Prefer intents */
   intent?: WorkspaceIntent;
   teamSize?: TeamSizeBand;
   /** Work platforms / boards (multi-select). */
   primaryBoards?: ServiceId[];
   /** High-signal pains (multi-select). */
   biggestPains?: string[];
+  /**
+   * @deprecated No longer collected on the free path — setup readiness is implied once onboarding finishes.
+   */
   urgency?: DeliveryUrgency;
   /** @deprecated Prefer primaryBoards */
   primaryBoard?: ServiceId | '';
