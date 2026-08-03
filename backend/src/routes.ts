@@ -15,7 +15,10 @@ import type {
   AiStatus,
   BoardConnectRequest,
   BoardHealth,
+  CreateIdentityGroupRequest,
   DashboardStats,
+  FederatedAuthProvider,
+  IamImportRequest,
   LoginRequest,
   McpAllowlistEntry,
   McpConnectRequest,
@@ -26,18 +29,37 @@ import type {
   ServiceMcpConnection,
   TriageRequest,
   TriageResponse,
+  UpdateIdentityGroupRequest,
+  UpdateTenantUserRequest,
   WorkItem,
   WorkItemAssigneeUpdate,
+  WorkspaceSetupRequest,
 } from '../../shared/types';
 import {
   actorFromAuth,
   demoAuthEnabled,
+  issueFederatedSession,
   issueSession,
   listDemoUsers,
   requireRoles,
   revokeSession,
   type AuthedRequest,
 } from './auth';
+import {
+  completeWorkspaceSetup,
+  createGroup,
+  createIamImportJob,
+  deleteGroup,
+  enrichAuthUser,
+  listBuiltInRoles,
+  listConsoleServices,
+  listGroups,
+  listIamImportJobs,
+  listTenantUsers,
+  updateGroup,
+  updateTenantUser,
+  upsertTenantUserFromAuth,
+} from './identity';
 import {
   createInvite,
   isInvitableRole,
@@ -410,7 +432,11 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       res.status(401).json({ error: 'authentication required' });
       return;
     }
-    res.json({ user: req.auth });
+    // Ensure demo seats appear in the directory; federated users are upserted at SSO time.
+    if (req.auth.id.startsWith('usr-')) {
+      upsertTenantUserFromAuth(store, { ...req.auth, workspaceSetupComplete: true }, { fromInvite: false });
+    }
+    res.json({ user: enrichAuthUser(store, req.auth) });
   });
 
   // -- health ----------------------------------------------------------------
@@ -1068,6 +1094,235 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       );
       touch();
       res.json({ invite });
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      res.status(err.status ?? 500).json({ error: err.message });
+    }
+  });
+
+  // -- workspace identity (users / roles / groups / services / IAM import) ---------
+  function remintSession(user: import('../../shared/types').AuthUser) {
+    const prefix = user.id.includes(':') ? user.id.split(':')[0]! : 'google';
+    const federatedProviders: FederatedAuthProvider[] = [
+      'okta',
+      'entra',
+      'google_workspace',
+      'google',
+      'apple',
+    ];
+    const provider = (federatedProviders as string[]).includes(prefix)
+      ? (prefix as FederatedAuthProvider)
+      : 'google';
+    return issueFederatedSession(user, provider);
+  }
+
+  router.get('/workspace/setup', (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    const user = enrichAuthUser(store, req.auth);
+    res.json({
+      user,
+      complete: user.workspaceSetupComplete === true,
+    });
+  });
+
+  router.put('/workspace/setup', (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    const body = (req.body ?? {}) as WorkspaceSetupRequest;
+    try {
+      // Directory must exist (SSO upsert or demo seed).
+      upsertTenantUserFromAuth(store, req.auth, {
+        isNewSignup: req.auth.role === 'root' && req.auth.workspaceSetupComplete !== true,
+      });
+      const user = completeWorkspaceSetup(store, req.auth, {
+        isPrimaryGoogleAccount: body.isPrimaryGoogleAccount !== false,
+        companyDomain: typeof body.companyDomain === 'string' ? body.companyDomain : undefined,
+        companyWebsite: typeof body.companyWebsite === 'string' ? body.companyWebsite : undefined,
+        workEmail: typeof body.workEmail === 'string' ? body.workEmail : undefined,
+        belongsToParentCompany: body.belongsToParentCompany === true,
+        parentCompanyDomain:
+          typeof body.parentCompanyDomain === 'string' ? body.parentCompanyDomain : undefined,
+      });
+      const session = remintSession(user);
+      emitAudit(
+        store,
+        actorFromAuth(req),
+        'workspace.setup_completed',
+        { type: 'user', id: user.id },
+        {
+          companyDomain: user.companyDomain ?? null,
+          isWorkspaceOwner: user.isWorkspaceOwner === true,
+          belongsToParentCompany: body.belongsToParentCompany === true,
+        },
+        [1, 2],
+      );
+      touch();
+      res.json({ user: session.user, session });
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      res.status(err.status ?? 500).json({ error: err.message });
+    }
+  });
+
+  router.get('/identity/users', requireRoles('root', 'manager'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    res.json({ users: listTenantUsers(store, req.auth.tenantId) });
+  });
+
+  router.patch('/identity/users/:id', requireRoles('root', 'manager'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    const body = (req.body ?? {}) as UpdateTenantUserRequest;
+    try {
+      const user = updateTenantUser(store, req.auth, String(req.params.id ?? ''), body);
+      emitAudit(
+        store,
+        actorFromAuth(req),
+        'identity.user_updated',
+        { type: 'user', id: user.id },
+        { role: user.role, groupIds: user.groupIds },
+        [1, 2],
+      );
+      touch();
+      res.json({ user });
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      res.status(err.status ?? 500).json({ error: err.message });
+    }
+  });
+
+  router.get('/identity/roles', requireRoles('root', 'manager', 'auditor'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    res.json({ roles: listBuiltInRoles() });
+  });
+
+  router.get('/identity/groups', requireRoles('root', 'manager', 'auditor'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    res.json({ groups: listGroups(store, req.auth.tenantId) });
+  });
+
+  router.post('/identity/groups', requireRoles('root', 'manager'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    const body = (req.body ?? {}) as CreateIdentityGroupRequest;
+    try {
+      const group = createGroup(store, req.auth, body);
+      emitAudit(
+        store,
+        actorFromAuth(req),
+        'identity.group_created',
+        { type: 'group', id: group.id },
+        { name: group.name },
+        [1, 2],
+      );
+      touch();
+      res.status(201).json({ group });
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      res.status(err.status ?? 500).json({ error: err.message });
+    }
+  });
+
+  router.patch('/identity/groups/:id', requireRoles('root', 'manager'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    const body = (req.body ?? {}) as UpdateIdentityGroupRequest;
+    try {
+      const group = updateGroup(store, req.auth, String(req.params.id ?? ''), body);
+      emitAudit(
+        store,
+        actorFromAuth(req),
+        'identity.group_updated',
+        { type: 'group', id: group.id },
+        { name: group.name, memberCount: group.memberIds.length },
+        [1, 2],
+      );
+      touch();
+      res.json({ group });
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      res.status(err.status ?? 500).json({ error: err.message });
+    }
+  });
+
+  router.delete('/identity/groups/:id', requireRoles('root'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    try {
+      const groupId = String(req.params.id ?? '');
+      deleteGroup(store, req.auth, groupId);
+      emitAudit(
+        store,
+        actorFromAuth(req),
+        'identity.group_deleted',
+        { type: 'group', id: groupId },
+        {},
+        [1, 2],
+      );
+      touch();
+      res.status(204).send();
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      res.status(err.status ?? 500).json({ error: err.message });
+    }
+  });
+
+  router.get('/identity/services', (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    res.json({ services: listConsoleServices(store, req.auth.tenantId) });
+  });
+
+  router.get('/identity/iam-imports', requireRoles('root', 'manager'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    res.json({ jobs: listIamImportJobs(store, req.auth.tenantId) });
+  });
+
+  router.post('/identity/iam-imports', requireRoles('root', 'manager'), (req: AuthedRequest, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'authentication required' });
+      return;
+    }
+    const body = (req.body ?? {}) as IamImportRequest;
+    try {
+      const job = createIamImportJob(store, req.auth, body);
+      emitAudit(
+        store,
+        actorFromAuth(req),
+        'identity.iam_import_stub',
+        { type: 'iam_import', id: job.id },
+        { source: job.source, mappedUsers: job.mappedUsers, mappedGroups: job.mappedGroups },
+        [1, 2],
+      );
+      touch();
+      res.status(202).json({ job });
     } catch (e) {
       const err = e as Error & { status?: number };
       res.status(err.status ?? 500).json({ error: err.message });

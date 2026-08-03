@@ -27,7 +27,7 @@ export default function Features() {
 
         <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 border-t border-outline-variant/60 pb-10 pt-14 text-center">
           <p className="text-base text-on-surface-variant">
-            See the full path — reviewed drafts and models — with one human gate.
+            See the full path — reviewed drafts and models — with one draft review.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link to="/how-it-works">

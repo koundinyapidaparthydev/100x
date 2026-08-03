@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { CheckSquare, ExternalLink, FolderKanban, Key, ScrollText, Shield, ShieldCheck, Users } from 'lucide-react';
+import { CheckSquare, CloudUpload, ExternalLink, FolderKanban, LayoutGrid, ScrollText, Shield, ShieldCheck, Users, UsersRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '@shared/api';
 import type { InvitableRole, WorkspaceInvite } from '@shared/types';
@@ -59,6 +59,10 @@ export default function Admin() {
   };
 
   const destinations = [
+    { title: 'Console', detail: 'Search-first home for identity and services', to: '/console', icon: LayoutGrid },
+    { title: 'Users', detail: 'Directory, invites, and linked emails', to: '/console/users', icon: Users },
+    { title: 'Roles', detail: 'Built-in Root, Delivery lead, Contributor, Auditor', to: '/console/roles', icon: Shield },
+    { title: 'Groups', detail: 'Organize members and attach roles', to: '/console/groups', icon: UsersRound },
     { title: 'Projects', detail: 'Connected projects and operational work', to: '/projects', icon: FolderKanban },
     { title: 'Governance', detail: 'Policy, PII, model, and cloud defaults', to: '/governance/defaults', icon: ShieldCheck },
     { title: 'Approvals', detail: 'Organization exception decisions', to: '/approvals', icon: CheckSquare },
@@ -215,21 +219,27 @@ export default function Admin() {
       <Card
         hierarchy="secondary"
         title="Additional administration"
-        description="Custom roles and secret vaults are not wired in this sandbox build."
+        description="Identity import stub is available; secret vaults are not wired yet."
         actions={<StatusBadge status="unavailable" label="Partial" />}
       >
         <ul className="grid gap-3 text-sm text-on-surface-variant sm:grid-cols-3">
           {[
-            { label: 'User invites (email stub)', icon: Users, ready: true },
-            { label: 'Custom roles and permissions', icon: Shield, ready: false },
-            { label: 'Integration secret management', icon: Key, ready: false },
-          ].map(({ label, icon: Icon, ready }) => (
+            { label: 'User invites (email stub)', icon: Users, ready: true, to: '/console/users' },
+            { label: 'Import IAM from AWS / GCP', icon: CloudUpload, ready: true, to: '/console/iam-import' },
+            { label: 'Integration secret management', icon: Shield, ready: false, to: null },
+          ].map(({ label, icon: Icon, ready, to }) => (
             <li key={label} className="flex items-center gap-2">
               <Icon size={16} className="shrink-0" />
-              <span>
-                {label}
-                {!ready ? ' — unavailable' : ''}
-              </span>
+              {to && ready ? (
+                <Link to={to} className="text-primary hover:underline">
+                  {label}
+                </Link>
+              ) : (
+                <span>
+                  {label}
+                  {!ready ? ' — unavailable' : ''}
+                </span>
+              )}
             </li>
           ))}
         </ul>

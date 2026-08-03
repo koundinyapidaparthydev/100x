@@ -68,10 +68,12 @@ GOOGLE_REDIRECT_URI=http://localhost:4000/api/v1/auth/google/callback
 # Production / live site:
 # WEB_APP_ORIGIN=https://aplifyai.com
 # GOOGLE_REDIRECT_URI=https://aplifyai.com/api/v1/auth/google/callback
-# GOOGLE_DEFAULT_ROLE=engineer
+# GOOGLE_DEFAULT_ROLE=root
 ```
 
 Create an OAuth 2.0 **Web** client in Google Cloud Console. Add **Authorized JavaScript origins** and **Authorized redirect URIs** that match each environment (local + `https://aplifyai.com`). A `redirect_uri_mismatch` error means the Console client is missing the live callback URL.
+
+Live Cloud Run should set `GOOGLE_DEFAULT_ROLE=root` (Terraform default) so social Google matches workspace-creator semantics; pending invites still override on login.
 
 ### Google Workspace (company domain SSO)
 
@@ -105,7 +107,7 @@ Create a Services ID with Sign in with Apple, configure the return URL to `APPLE
 2. First matching entry in `{PROVIDER}_GROUP_ROLE_MAP` (Okta/Entra/Workspace groups or Entra `roles`)
 3. Custom claim `aplifyai_role` when present
 4. Signup with empty group map → `root` (org owner; must complete onboarding)
-5. Else `{PROVIDER}_DEFAULT_ROLE` (Google/Apple default `engineer`; enterprise SSO default `manager`)
+5. Else `{PROVIDER}_DEFAULT_ROLE` (Google default `root`; Apple default `engineer`; enterprise SSO default `manager`)
 
 User ids are namespaced: `okta:{sub}`, `entra:{sub}`, `google:{sub}`, etc.
 

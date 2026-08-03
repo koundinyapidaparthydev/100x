@@ -20,7 +20,7 @@ export default function HowItWorksPage() {
           <div className="mx-auto max-w-2xl">
             <p className="text-sm font-semibold tracking-tight text-primary">How it works</p>
             <h1 className="mt-2 font-serif text-4xl tracking-tight text-on-surface sm:text-5xl">
-              Two paths. One human gate.
+              Two paths. One draft review.
             </h1>
             <p className="mt-4 text-base leading-7 text-on-surface-variant sm:text-lg sm:leading-8">
               Ticket work clears PII and produces a reviewed draft. Custom models train on governed

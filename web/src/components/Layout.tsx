@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import CommandPalette from './CommandPalette';
 
 function useDesktopNav() {
   const [desktopNav, setDesktopNav] = useState(() =>
@@ -51,6 +52,7 @@ export default function Layout() {
       <main className="min-w-0 flex-1 overflow-x-hidden">
         <Outlet />
       </main>
+      <CommandPalette />
     </div>
   );
 }

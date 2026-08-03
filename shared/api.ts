@@ -14,6 +14,7 @@ import type {
   AuthUser,
   BoardConnectRequest,
   BoardHealth,
+  CreateIdentityGroupRequest,
   CreateInviteRequest,
   CreateInviteResponse,
   DashboardStats,
@@ -21,7 +22,14 @@ import type {
   FederatedExchangeResponse,
   FederatedProvidersStatusResponse,
   FederatedProviderStatus,
+  IamImportRequest,
+  IamImportResponse,
+  IdentityGroup,
+  ListConsoleServicesResponse,
+  ListIdentityGroupsResponse,
   ListInvitesResponse,
+  ListRolesResponse,
+  ListTenantUsersResponse,
   LoginRequest,
   NotificationItem,
   OktaExchangeResponse,
@@ -35,10 +43,15 @@ import type {
   PolicyUpdate,
   ServiceId,
   ServiceMcpConnection,
+  TenantUser,
   TriageRequest,
   TriageResponse,
+  UpdateIdentityGroupRequest,
+  UpdateTenantUserRequest,
   WorkItem,
   WorkspaceInvite,
+  WorkspaceSetupRequest,
+  WorkspaceSetupResponse,
 } from './types';
 
 export const API_BASE = '/api/v1';
@@ -293,6 +306,44 @@ export const api = {
     request<{ invite: WorkspaceInvite }>(`/invites/${encodeURIComponent(id)}/revoke`, {
       method: 'POST',
       body: JSON.stringify({}),
+    }),
+
+  // Workspace company / primary-account gate (post-Google)
+  getWorkspaceSetup: () =>
+    request<{ user: AuthUser; complete: boolean }>('/workspace/setup'),
+  putWorkspaceSetup: (body: WorkspaceSetupRequest) =>
+    request<WorkspaceSetupResponse>('/workspace/setup', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  // Identity management
+  listIdentityUsers: () => request<ListTenantUsersResponse>('/identity/users'),
+  updateIdentityUser: (id: string, body: UpdateTenantUserRequest) =>
+    request<{ user: TenantUser }>(`/identity/users/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  listIdentityRoles: () => request<ListRolesResponse>('/identity/roles'),
+  listIdentityGroups: () => request<ListIdentityGroupsResponse>('/identity/groups'),
+  createIdentityGroup: (body: CreateIdentityGroupRequest) =>
+    request<{ group: IdentityGroup }>('/identity/groups', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateIdentityGroup: (id: string, body: UpdateIdentityGroupRequest) =>
+    request<{ group: IdentityGroup }>(`/identity/groups/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteIdentityGroup: (id: string) =>
+    request<void>(`/identity/groups/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  listConsoleServices: () => request<ListConsoleServicesResponse>('/identity/services'),
+  listIamImports: () => request<{ jobs: import('./types').IamImportJob[] }>('/identity/iam-imports'),
+  createIamImport: (body: IamImportRequest) =>
+    request<IamImportResponse>('/identity/iam-imports', {
+      method: 'POST',
+      body: JSON.stringify(body),
     }),
 
   // MCP connections — connect each provider one-by-one with a permission level

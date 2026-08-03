@@ -187,7 +187,7 @@ export default function Topbar({
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
     const q = query.trim();
-    const next = q ? `/projects?q=${encodeURIComponent(q)}` : '/projects';
+    const next = q ? `/console?q=${encodeURIComponent(q)}` : '/console';
     navigate(next);
   };
 
@@ -210,7 +210,7 @@ export default function Topbar({
               <Menu size={20} aria-hidden="true" />
             </button>
 
-            <Link to="/projects" className="flex min-w-0 items-center gap-2.5" aria-label="AplifyAI home">
+            <Link to="/console" className="flex min-w-0 items-center gap-2.5" aria-label="AplifyAI home">
               <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
                 <ClipboardCheck size={16} aria-hidden="true" />
               </span>
@@ -233,7 +233,7 @@ export default function Topbar({
             data-testid="global-search"
           >
             <label className="relative block">
-              <span className="sr-only">Search projects and connections</span>
+              <span className="sr-only">Search users, roles, groups, services, and projects</span>
               <Search
                 size={16}
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
@@ -243,7 +243,10 @@ export default function Topbar({
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search projects…"
+                onFocus={() => {
+                  // Prefer the command palette for cross-entity search.
+                }}
+                placeholder="Search console… (⌘K)"
                 data-testid="global-search-input"
                 className="h-9 w-full rounded-lg border border-outline-variant bg-surface-container-low pl-9 pr-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20"
               />

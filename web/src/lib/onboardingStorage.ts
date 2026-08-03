@@ -130,8 +130,8 @@ export function isOnboardingComplete(profile?: OnboardingProfile | null): boolea
 }
 
 /** Where to send the user after a successful sign-in. */
-export function postAuthPath(): '/onboarding' | '/projects' {
-  return isOnboardingComplete() ? '/projects' : '/onboarding';
+export function postAuthPath(): '/onboarding' | '/console' | '/auth/workspace' {
+  return isOnboardingComplete() ? '/console' : '/onboarding';
 }
 
 /**

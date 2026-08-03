@@ -50,8 +50,21 @@ export default function AuthCallback() {
           surface: session.user.surface,
         });
         const done = await hydrateOnboardingFromServer();
+        let setupComplete = session.user.workspaceSetupComplete === true;
+        if (!setupComplete) {
+          try {
+            const setup = await api.getWorkspaceSetup();
+            setupComplete = setup.complete;
+          } catch {
+            setupComplete = false;
+          }
+        }
+        if (!setupComplete) {
+          navigate('/auth/workspace', { replace: true });
+          return;
+        }
         // Signup always onboards; login only skips when THIS user completed on the server.
-        navigate(intent === 'signup' || !done ? '/onboarding' : '/projects', { replace: true });
+        navigate(intent === 'signup' || !done ? '/onboarding' : '/console', { replace: true });
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Sign-in failed');

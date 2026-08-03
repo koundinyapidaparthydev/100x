@@ -21,6 +21,7 @@ export type NavItem = {
 };
 
 export const ORGANIZATION_ITEMS: NavItem[] = [
+  { name: 'Console', path: '/console', icon: LayoutGrid, testId: 'nav-console' },
   { name: 'Projects', path: '/projects', icon: FolderKanban, testId: 'nav-projects', exact: true },
   { name: 'Connections', path: '/connections', icon: Link2, testId: 'nav-connections' },
   { name: 'Approvals', path: '/approvals', icon: CheckSquare, testId: 'nav-approvals' },

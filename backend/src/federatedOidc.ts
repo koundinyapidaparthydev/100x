@@ -320,7 +320,8 @@ function loadProviderConfig(provider: FederatedAuthProvider): ProviderRuntimeCon
         redirectUri,
         webAppOrigin: webOrigin(),
         mobileAppOrigin: mobileOrigin(),
-        defaultRole: parseRole(trimEnv('GOOGLE_DEFAULT_ROLE') ?? 'engineer') ?? 'engineer',
+        // Workspace creators / social Google default to root; invites still override on login.
+        defaultRole: parseRole(trimEnv('GOOGLE_DEFAULT_ROLE') ?? 'root') ?? 'root',
         groupRoleMap: {},
         scope: trimEnv('GOOGLE_AUTHORIZE_SCOPE') ?? 'openid profile email',
         authorizeExtras: { prompt: 'select_account' },

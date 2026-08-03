@@ -114,7 +114,7 @@ const GATE = {
   id: 'human-gate',
   label: 'Human gate',
   title: 'Human reviews the draft',
-  body: 'Ticket drafts and model MRs share one gate: a person reviews the draft and evidence, approves or rejects, and the audit trail records the decision before ship or skills.',
+  body: 'Ticket drafts and model MRs share one draft review: a person reviews the draft and evidence, approves or rejects, and the audit trail records the decision before ship or skills.',
 };
 
 export type DualTrackFlowProps = {
@@ -291,7 +291,7 @@ export function DualTrackFlow({ variant = 'full', autoAdvance = false }: DualTra
           id="how-it-works-heading"
           className="mt-2 font-serif text-3xl tracking-tight text-on-surface sm:text-4xl"
         >
-          {compact ? 'Two paths. One human gate.' : 'Ticket work and custom models — same gate.'}
+          {compact ? 'Two paths. One draft review.' : 'Ticket work and custom models — same draft review.'}
         </h2>
         <p className="mt-3 text-base leading-7 text-on-surface-variant">
           Day-to-day tickets clear PII and produce a reviewed draft. Custom models train on governed
@@ -383,7 +383,7 @@ export function DualTrackFlow({ variant = 'full', autoAdvance = false }: DualTra
             <div className="border-b border-outline-variant/60 bg-surface-container-low px-4 py-3 sm:px-5">
               <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant">
                 {activeTone === 'gate'
-                  ? 'Shared gate'
+                  ? 'Shared draft review'
                   : activeTone === 'ticket'
                     ? 'Ticket path'
                     : 'Model path'}

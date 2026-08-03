@@ -20,10 +20,13 @@ import type {
   ApprovalItem,
   AuditActor,
   AuditEvent,
+  IdentityGroup,
+  IamImportJob,
   NotificationItem,
   OnboardingProfile,
   Policy,
   ServiceMcpConnection,
+  TenantUser,
   WorkItem,
   WorkspaceInvite,
 } from '../../shared/types';
@@ -59,6 +62,12 @@ export interface Store {
   mcpConnectionsByTenant: Record<string, ServiceMcpConnection[]>;
   /** Pending / accepted workspace invites keyed by tenant. */
   invitesByTenant: Record<string, WorkspaceInvite[]>;
+  /** Workspace members (federated + demo) keyed by tenant. */
+  usersByTenant: Record<string, TenantUser[]>;
+  /** Identity groups keyed by tenant. */
+  groupsByTenant: Record<string, IdentityGroup[]>;
+  /** Sandbox stub IAM import jobs. */
+  iamImportJobs: IamImportJob[];
   /** Sandbox stub email outbox (invite mail is recorded here, not SMTP). */
   emailOutbox: Array<{
     id: string;
@@ -396,6 +405,95 @@ export function createSeedStore(): Store {
     onboardingByUser: {},
     mcpConnectionsByTenant: {},
     invitesByTenant: {},
+    usersByTenant: {
+      [TENANT_ID]: [
+        {
+          id: 'usr-root-1',
+          tenantId: TENANT_ID,
+          email: 'root@acme.demo',
+          displayName: 'Asha Root',
+          role: 'root',
+          linkedEmails: [],
+          companyDomain: 'acme.demo',
+          isWorkspaceOwner: true,
+          workspaceSetupComplete: true,
+          groupIds: [],
+          createdAt: hoursAgo(48),
+          updatedAt: hoursAgo(48),
+          lastLoginAt: hoursAgo(1),
+        },
+        {
+          id: 'usr-manager-1',
+          tenantId: TENANT_ID,
+          email: 'manager@acme.demo',
+          displayName: 'Marcus Manager',
+          role: 'manager',
+          linkedEmails: [],
+          companyDomain: 'acme.demo',
+          isWorkspaceOwner: false,
+          workspaceSetupComplete: true,
+          groupIds: [],
+          createdAt: hoursAgo(48),
+          updatedAt: hoursAgo(48),
+          lastLoginAt: hoursAgo(2),
+        },
+        {
+          id: 'usr-engineer-1',
+          tenantId: TENANT_ID,
+          email: 'engineer@acme.demo',
+          displayName: 'Dev Engineer',
+          role: 'engineer',
+          linkedEmails: [],
+          companyDomain: 'acme.demo',
+          isWorkspaceOwner: false,
+          workspaceSetupComplete: true,
+          groupIds: [],
+          createdAt: hoursAgo(48),
+          updatedAt: hoursAgo(48),
+          lastLoginAt: hoursAgo(3),
+        },
+        {
+          id: 'usr-auditor-1',
+          tenantId: TENANT_ID,
+          email: 'auditor@acme.demo',
+          displayName: 'Audit Viewer',
+          role: 'auditor',
+          linkedEmails: [],
+          companyDomain: 'acme.demo',
+          isWorkspaceOwner: false,
+          workspaceSetupComplete: true,
+          groupIds: [],
+          createdAt: hoursAgo(48),
+          updatedAt: hoursAgo(48),
+          lastLoginAt: hoursAgo(4),
+        },
+      ],
+    },
+    groupsByTenant: {
+      [TENANT_ID]: [
+        {
+          id: 'grp-owners',
+          tenantId: TENANT_ID,
+          name: 'Owners',
+          description: 'Workspace owners and roots',
+          roleIds: ['root'],
+          memberIds: ['usr-root-1'],
+          createdAt: hoursAgo(48),
+          updatedAt: hoursAgo(48),
+        },
+        {
+          id: 'grp-delivery',
+          tenantId: TENANT_ID,
+          name: 'Delivery',
+          description: 'Delivery leads and contributors',
+          roleIds: ['manager', 'engineer'],
+          memberIds: ['usr-manager-1', 'usr-engineer-1'],
+          createdAt: hoursAgo(48),
+          updatedAt: hoursAgo(48),
+        },
+      ],
+    },
+    iamImportJobs: [],
     emailOutbox: [],
   };
 

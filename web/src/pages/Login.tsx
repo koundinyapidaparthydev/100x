@@ -50,7 +50,7 @@ export default function Login() {
         surface: 'web',
       });
       const done = await hydrateOnboardingFromServer();
-      navigate(done ? '/projects' : '/onboarding');
+      navigate(done ? '/console' : '/onboarding');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Login failed');
     } finally {

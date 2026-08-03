@@ -375,6 +375,14 @@ export interface AuthUser {
   role: UserRole;
   tenantId: string;
   surface: 'web' | 'mobile';
+  /** Company / workspace domain captured after Google signup (e.g. acme.com). */
+  companyDomain?: string;
+  /** Additional emails linked to this identity (work email ≠ Google email). */
+  linkedEmails?: string[];
+  /** True when this user created the workspace (root owner path). */
+  isWorkspaceOwner?: boolean;
+  /** False until the post-Google company / primary-account gate is completed. */
+  workspaceSetupComplete?: boolean;
 }
 
 export interface AuthSession {
@@ -425,6 +433,125 @@ export interface CreateInviteResponse {
 
 export interface ListInvitesResponse {
   invites: WorkspaceInvite[];
+}
+
+/** Persisted workspace member (federated + demo), keyed under usersByTenant. */
+export interface TenantUser {
+  id: string;
+  tenantId: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  linkedEmails: string[];
+  companyDomain: string | null;
+  isWorkspaceOwner: boolean;
+  workspaceSetupComplete: boolean;
+  groupIds: string[];
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt: string | null;
+}
+
+export interface IdentityGroup {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string;
+  roleIds: UserRole[];
+  memberIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BuiltInRoleDefinition {
+  id: UserRole;
+  label: string;
+  description: string;
+  builtIn: true;
+}
+
+export interface WorkspaceSetupRequest {
+  isPrimaryGoogleAccount: boolean;
+  companyDomain?: string;
+  companyWebsite?: string;
+  workEmail?: string;
+  belongsToParentCompany: boolean;
+  parentCompanyDomain?: string;
+}
+
+export interface WorkspaceSetupResponse {
+  user: AuthUser;
+  session: AuthSession;
+}
+
+export interface ListTenantUsersResponse {
+  users: TenantUser[];
+}
+
+export interface UpdateTenantUserRequest {
+  role?: UserRole;
+  linkedEmails?: string[];
+  groupIds?: string[];
+}
+
+export interface ListIdentityGroupsResponse {
+  groups: IdentityGroup[];
+}
+
+export interface CreateIdentityGroupRequest {
+  name: string;
+  description?: string;
+  roleIds?: UserRole[];
+  memberIds?: string[];
+}
+
+export interface UpdateIdentityGroupRequest {
+  name?: string;
+  description?: string;
+  roleIds?: UserRole[];
+  memberIds?: string[];
+}
+
+export interface ListRolesResponse {
+  roles: BuiltInRoleDefinition[];
+}
+
+export interface ConsoleServiceRecord {
+  id: string;
+  name: string;
+  category: string;
+  connected: boolean;
+  permissionLevel: string | null;
+  source: 'catalog' | 'mcp';
+}
+
+export interface ListConsoleServicesResponse {
+  services: ConsoleServiceRecord[];
+}
+
+export type IamImportSource = 'aws_iam' | 'gcp_iam' | 'csv' | 'json';
+
+export interface IamImportRequest {
+  source: IamImportSource;
+  /** Raw exported JSON/CSV text, or a short note when using a connected cloud. */
+  payload?: string;
+  connectedCloudAccount?: string;
+}
+
+export interface IamImportJob {
+  id: string;
+  tenantId: string;
+  source: IamImportSource;
+  status: 'queued' | 'preview' | 'completed' | 'failed';
+  summary: string;
+  createdAt: string;
+  createdByUserId: string;
+  mappedUsers: number;
+  mappedGroups: number;
+}
+
+export interface IamImportResponse {
+  job: IamImportJob;
 }
 
 export interface LoginResponse {

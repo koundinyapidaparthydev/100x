@@ -11,6 +11,7 @@ import type {
   UserRole,
   WorkspaceInvite,
 } from '../../shared/types';
+import { enrichAuthUser, upsertTenantUserFromAuth } from './identity';
 import { nextId, TENANT_ID, type Store } from './store';
 
 const INVITABLE: InvitableRole[] = ['manager', 'engineer', 'auditor'];
@@ -169,6 +170,7 @@ export function revokeInvite(store: Store, actor: AuthUser, inviteId: string): W
 /**
  * Apply pending invite role (login) or promote signup → root.
  * Prefer invite over default IdP role when email matches.
+ * Always upserts the user into the tenant directory.
  */
 export function resolveAccessForFederatedUser(
   store: Store,
@@ -180,18 +182,40 @@ export function resolveAccessForFederatedUser(
     (i) => i.email === email && i.status === 'pending',
   );
 
+  let resolved: AuthUser = user;
+
   if (pending) {
     const now = new Date().toISOString();
     pending.status = 'accepted';
     pending.acceptedAt = now;
     pending.acceptedByUserId = user.id;
     pending.updatedAt = now;
-    return { ...user, role: pending.role };
+    resolved = { ...user, role: pending.role, isWorkspaceOwner: false, workspaceSetupComplete: true };
+  } else if (intent === 'signup') {
+    resolved = {
+      ...user,
+      role: 'root' satisfies UserRole,
+      isWorkspaceOwner: true,
+      workspaceSetupComplete: false,
+    };
+  } else {
+    // Returning login: keep the directory role instead of re-applying IdP default.
+    const existing = store.usersByTenant[user.tenantId]?.find((u) => u.id === user.id);
+    if (existing) {
+      resolved = {
+        ...user,
+        role: existing.role,
+        isWorkspaceOwner: existing.isWorkspaceOwner,
+        workspaceSetupComplete: existing.workspaceSetupComplete,
+        companyDomain: existing.companyDomain ?? undefined,
+        linkedEmails: existing.linkedEmails.length ? [...existing.linkedEmails] : undefined,
+      };
+    }
   }
 
-  if (intent === 'signup') {
-    return { ...user, role: 'root' satisfies UserRole };
-  }
-
-  return user;
+  upsertTenantUserFromAuth(store, resolved, {
+    isNewSignup: intent === 'signup',
+    fromInvite: Boolean(pending),
+  });
+  return enrichAuthUser(store, resolved);
 }

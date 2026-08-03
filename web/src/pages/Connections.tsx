@@ -166,8 +166,8 @@ export default function Connections() {
         title="Connections"
         description="Connect each MCP provider one-by-one. Pick a permission level — the MCP server still enforces the user’s real ACLs."
         actions={
-          <Button type="button" onClick={() => navigate('/projects')} data-testid="connections-to-projects">
-            Go to projects
+          <Button type="button" onClick={() => navigate('/console')} data-testid="connections-to-projects">
+            Go to console
           </Button>
         }
       />
@@ -229,7 +229,7 @@ export default function Connections() {
             <Button type="button" onClick={() => navigate('/onboarding?edit=1')} variant="secondary">
               Open onboarding
             </Button>
-            <Button onClick={() => navigate('/projects')}>Continue to projects</Button>
+            <Button onClick={() => navigate('/console')}>Continue to console</Button>
           </div>
         </Card>
       )}

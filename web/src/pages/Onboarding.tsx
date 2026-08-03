@@ -281,7 +281,7 @@ export default function Onboarding() {
   }
 
   if (alreadyComplete && !editing) {
-    return <Navigate to="/projects" replace />;
+    return <Navigate to="/console" replace />;
   }
 
   const totalSteps = plan === 'enterprise' ? 4 : 2;
@@ -361,7 +361,7 @@ export default function Onboarding() {
       const { profile: saved } = await api.putOnboarding({ profile: completed });
       writeOnboardingProfile(saved);
       setBusy(false);
-      navigate('/connections');
+      navigate('/console');
     } catch (e) {
       console.warn('onboarding persist failed', e);
       setSaveError(

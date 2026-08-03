@@ -118,9 +118,9 @@ variable "google_redirect_uri" {
 }
 
 variable "google_default_role" {
-  description = "Default UserRole for Google social login when no invite applies."
+  description = "Default UserRole for Google social login when no invite applies. Workspace creators use root."
   type        = string
-  default     = "engineer"
+  default     = "root"
 }
 
 variable "jira_base_url" {

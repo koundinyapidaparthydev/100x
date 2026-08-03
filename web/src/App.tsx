@@ -26,6 +26,14 @@ import Signup from './pages/Signup';
 import Onboarding from './pages/Onboarding';
 import Connections from './pages/Connections';
 import AuthCallback from './pages/AuthCallback';
+import WorkspaceGate from './pages/WorkspaceGate';
+import ConsoleHome from './pages/ConsoleHome';
+import ConsoleUsers from './pages/ConsoleUsers';
+import ConsoleRoles from './pages/ConsoleRoles';
+import ConsoleGroups from './pages/ConsoleGroups';
+import ConsoleServices from './pages/ConsoleServices';
+import IamImportWizard from './pages/IamImportWizard';
+
 function RuntimeRoute() {
   return useLocation().hash === '#cloud' ? <Cloud /> : <Models />;
 }
@@ -45,6 +53,14 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route
+          path="/auth/workspace"
+          element={
+            <RequireAuth>
+              <WorkspaceGate />
+            </RequireAuth>
+          }
+        />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/features" element={<Features />} />
         <Route path="/platforms" element={<Platforms />} />
@@ -68,6 +84,12 @@ export default function App() {
             </RequireAuth>
           }
         >
+          <Route path="console" element={<ConsoleHome />} />
+          <Route path="console/users" element={<ConsoleUsers />} />
+          <Route path="console/roles" element={<ConsoleRoles />} />
+          <Route path="console/groups" element={<ConsoleGroups />} />
+          <Route path="console/services" element={<ConsoleServices />} />
+          <Route path="console/iam-import" element={<IamImportWizard />} />
           <Route path="projects" element={<Projects />} />
           <Route path="connections" element={<Connections />} />
           <Route path="projects/:projectId" element={<ProjectOverview />} />
@@ -82,7 +104,7 @@ export default function App() {
           <Route path="audit" element={<AuditLog />} />
           <Route path="admin" element={<Admin />} />
 
-          <Route path="dashboard" element={<LegacyRedirect to="/projects" />} />
+          <Route path="dashboard" element={<LegacyRedirect to="/console" />} />
           <Route path="boards" element={<LegacyRedirect to="/projects" />} />
           <Route path="boards/task/:id" element={<LegacyWorkItemRedirect />} />
           <Route path="policies" element={<LegacyRedirect to="/governance/defaults" />} />

@@ -55,6 +55,15 @@ function hydrateStore(value: unknown): Store {
   if (!parsed.invitesByTenant || typeof parsed.invitesByTenant !== 'object') {
     parsed.invitesByTenant = {};
   }
+  if (!parsed.usersByTenant || typeof parsed.usersByTenant !== 'object') {
+    parsed.usersByTenant = {};
+  }
+  if (!parsed.groupsByTenant || typeof parsed.groupsByTenant !== 'object') {
+    parsed.groupsByTenant = {};
+  }
+  if (!Array.isArray(parsed.iamImportJobs)) {
+    parsed.iamImportJobs = [];
+  }
   if (!Array.isArray(parsed.emailOutbox)) {
     parsed.emailOutbox = [];
   }
