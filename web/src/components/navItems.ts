@@ -4,10 +4,11 @@ import {
   FileCheck,
   FolderKanban,
   History,
+  Home,
   LayoutGrid,
   Link2,
   ListTodo,
-  Settings,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { projectRoutes } from '../lib/projectRoutes';
@@ -21,6 +22,7 @@ export type NavItem = {
 };
 
 export const ORGANIZATION_ITEMS: NavItem[] = [
+  { name: 'Home', path: '/home', icon: Home, testId: 'nav-home', exact: true },
   { name: 'Console', path: '/console', icon: LayoutGrid, testId: 'nav-console' },
   { name: 'Projects', path: '/projects', icon: FolderKanban, testId: 'nav-projects', exact: true },
   { name: 'Connections', path: '/connections', icon: Link2, testId: 'nav-connections' },
@@ -30,9 +32,9 @@ export const ORGANIZATION_ITEMS: NavItem[] = [
 ];
 
 export const ADMIN_ITEM: NavItem = {
-  name: 'Settings',
+  name: 'Security',
   path: '/admin',
-  icon: Settings,
+  icon: ShieldCheck,
   testId: 'nav-admin',
 };
 

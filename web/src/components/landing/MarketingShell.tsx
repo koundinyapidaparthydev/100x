@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
+import { AplifyLogo } from '../AplifyLogo';
 import { Button } from '../ui';
 import { MarketingFooter } from './MarketingFooter';
 import { MarketingWidth } from './MarketingWidth';
@@ -40,8 +41,8 @@ export function MarketingShell({
         as="nav"
         className="flex items-center justify-between gap-4 py-4"
       >
-        <Link to="/" className="font-serif text-lg tracking-tight text-on-surface">
-          AplifyAI
+        <Link to="/" className="inline-flex items-center" aria-label="AplifyAI home">
+          <AplifyLogo size={28} withWordmark wordmarkClassName="font-serif text-lg font-normal tracking-tight" />
         </Link>
         <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-2">
           <div className="hidden items-center gap-1 lg:flex">

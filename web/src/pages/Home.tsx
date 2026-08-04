@@ -4,6 +4,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { postAuthPath } from '../lib/onboardingStorage';
 import { readDemoSession } from '../lib/session';
 import { Button } from '../components/ui';
+import { AplifyLogo } from '../components/AplifyLogo';
 import {
   ConnectionSurfaces,
   HowItWorks,
@@ -81,9 +82,12 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             >
-              <p className="font-serif text-4xl tracking-tight text-on-surface sm:text-5xl lg:text-6xl">
-                AplifyAI
-              </p>
+              <div className="flex flex-col items-center gap-4">
+                <AplifyLogo size={56} />
+                <p className="font-serif text-4xl tracking-tight text-on-surface sm:text-5xl lg:text-6xl">
+                  AplifyAI
+                </p>
+              </div>
               <h1 className="mt-4 text-3xl font-semibold tracking-tight text-on-surface sm:text-4xl lg:text-[2.75rem] lg:leading-[1.12]">
                 Decide what happens to each work item.
               </h1>

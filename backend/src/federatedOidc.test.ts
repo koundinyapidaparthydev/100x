@@ -67,8 +67,8 @@ describe('federated OIDC providers', () => {
     process.env.ENTRA_CLIENT_ID = 'entra-client';
     process.env.ENTRA_CLIENT_SECRET = 'entra-secret';
     process.env.ENTRA_REDIRECT_URI = 'http://localhost:4000/api/v1/auth/entra/callback';
-    process.env.ENTRA_DEFAULT_ROLE = 'engineer';
-    process.env.ENTRA_GROUP_ROLE_MAP = JSON.stringify({ 'AplifyAI-Owners': 'root' });
+    process.env.ENTRA_DEFAULT_ROLE = 'role-default';
+    process.env.ENTRA_GROUP_ROLE_MAP = JSON.stringify({ 'AplifyAI-Owners': 'role-owners' });
     const cfg = getProviderConfig('entra')!;
     const user = mapClaimsToUser(
       {
@@ -81,7 +81,7 @@ describe('federated OIDC providers', () => {
       'web',
     );
     expect(user.id).toBe('entra:entra-sub-1');
-    expect(user.role).toBe('root');
+    expect(user.roleId).toBe('role-owners');
     expect(user.tenantId).toBe(TENANT_ID);
   });
 
@@ -116,7 +116,7 @@ describe('federated OIDC providers', () => {
         id: 'google:abc',
         email: 'lead@gmail.com',
         displayName: 'Lead',
-        role: 'manager',
+        roleId: null,
         tenantId: TENANT_ID,
         surface: 'mobile',
       },
@@ -137,7 +137,7 @@ describe('federated OIDC providers', () => {
         id: 'google:replay',
         email: 'replay@gmail.com',
         displayName: 'Replay',
-        role: 'manager',
+        roleId: null,
         tenantId: TENANT_ID,
         surface: 'web',
       },

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Elasticsearch">
+  <rect width="64" height="64" rx="12" fill="#00BFB3"/>
+  <ellipse cx="32" cy="20" rx="18" ry="6" fill="#fff" opacity=".95"/>
+  <ellipse cx="32" cy="32" rx="18" ry="6" fill="#fff" opacity=".8"/>
+  <ellipse cx="32" cy="44" rx="18" ry="6" fill="#fff" opacity=".65"/>
+</svg>

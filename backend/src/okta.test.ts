@@ -36,13 +36,13 @@ describe('Okta config + mapping', () => {
     expect(getOktaConfig()?.clientId).toBe('client-id');
   });
 
-  it('maps Okta claims to AuthUser with group role map', () => {
+  it('maps Okta claims to AuthUser with group role map (custom role ids)', () => {
     process.env.OKTA_ISSUER = 'https://example.okta.com/oauth2/default';
     process.env.OKTA_CLIENT_ID = 'client-id';
     process.env.OKTA_CLIENT_SECRET = 'client-secret';
     process.env.OKTA_REDIRECT_URI = 'http://localhost:4000/api/v1/auth/okta/callback';
-    process.env.OKTA_DEFAULT_ROLE = 'engineer';
-    process.env.OKTA_GROUP_ROLE_MAP = JSON.stringify({ 'AplifyAI-Owners': 'root' });
+    process.env.OKTA_DEFAULT_ROLE = 'role-default';
+    process.env.OKTA_GROUP_ROLE_MAP = JSON.stringify({ 'AplifyAI-Owners': 'role-owners' });
     const cfg = getOktaConfig()!;
     const user = mapOktaClaimsToUser(
       {
@@ -56,8 +56,23 @@ describe('Okta config + mapping', () => {
     );
     expect(user.id).toBe('okta:okta-sub-1');
     expect(user.email).toBe('owner@acme.com');
-    expect(user.role).toBe('root');
+    expect(user.roleId).toBe('role-owners');
     expect(user.tenantId).toBe(TENANT_ID);
+  });
+
+  it('ignores legacy built-in role names in the group map', () => {
+    process.env.OKTA_ISSUER = 'https://example.okta.com/oauth2/default';
+    process.env.OKTA_CLIENT_ID = 'client-id';
+    process.env.OKTA_CLIENT_SECRET = 'client-secret';
+    process.env.OKTA_REDIRECT_URI = 'http://localhost:4000/api/v1/auth/okta/callback';
+    process.env.OKTA_GROUP_ROLE_MAP = JSON.stringify({ 'AplifyAI-Owners': 'root' });
+    const cfg = getOktaConfig()!;
+    const user = mapOktaClaimsToUser(
+      { sub: 'okta-sub-2', email: 'legacy@acme.com', groups: ['AplifyAI-Owners'] },
+      cfg,
+      'web',
+    );
+    expect(user.roleId).toBeNull();
   });
 
   it('issues federated sessions that round-trip through getSession', () => {
@@ -65,13 +80,13 @@ describe('Okta config + mapping', () => {
       id: 'okta:abc',
       email: 'lead@acme.com',
       displayName: 'Lead',
-      role: 'manager',
+      roleId: 'role-lead',
       tenantId: TENANT_ID,
       surface: 'web',
     });
     const loaded = getSession(session.token);
     expect(loaded?.user.email).toBe('lead@acme.com');
-    expect(loaded?.user.role).toBe('manager');
+    expect(loaded?.user.roleId).toBe('role-lead');
     expect(loaded?.user.id).toBe('okta:abc');
   });
 

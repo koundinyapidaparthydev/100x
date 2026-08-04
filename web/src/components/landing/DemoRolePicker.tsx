@@ -5,7 +5,7 @@ import { api } from '@shared/api';
 import type { FederatedAuthProvider, FederatedProviderStatus } from '@shared/types';
 import { Button, Field } from '../ui';
 
-export type DemoRoleId = 'manager' | 'root' | 'engineer';
+export type DemoRoleId = 'root' | 'member' | 'engineer';
 
 type AuthMode = 'owner' | 'member';
 
@@ -16,14 +16,9 @@ const DEMO_WORKSPACE = 'acme-delivery';
 
 const MEMBER_SEATS: { id: DemoRoleId; title: string; description: string }[] = [
   {
-    id: 'manager',
-    title: 'Delivery lead',
-    description: 'Triage work, assign people, and record approval decisions.',
-  },
-  {
-    id: 'engineer',
-    title: 'Contributor',
-    description: 'Read-only access to work items, AI drafts, and evidence.',
+    id: 'member',
+    title: 'Member',
+    description: 'Limited access until a workspace admin assigns a custom role.',
   },
 ];
 
@@ -55,7 +50,7 @@ const PROVIDER_BUTTON: Record<
 
 /**
  * AplifyAI sign-in: one-click demo entry + Workspace owner vs Team member seats.
- * Maps to demo identities root / manager / engineer under the hood.
+ * Maps to demo identities root / member under the hood.
  */
 export function WorkspaceAuthForm({
   busy,
@@ -78,7 +73,7 @@ export function WorkspaceAuthForm({
   const [mode, setMode] = useState<AuthMode>(variant === 'signup' ? 'owner' : 'member');
   const [ownerEmail, setOwnerEmail] = useState('root@acme.demo');
   const [workspace, setWorkspace] = useState(DEMO_WORKSPACE);
-  const [memberSeat, setMemberSeat] = useState<DemoRoleId>('manager');
+  const [memberSeat, setMemberSeat] = useState<DemoRoleId>('member');
   const [providers, setProviders] = useState<FederatedProviderStatus[]>([]);
   const [providersChecked, setProvidersChecked] = useState(false);
   const [showSeatPicker, setShowSeatPicker] = useState(false);
@@ -215,7 +210,7 @@ export function WorkspaceAuthForm({
                 }`}
                 onClick={() => setMode('owner')}
               >
-                Root
+                Workspace owner
               </button>
               <button
                 type="button"
@@ -349,7 +344,6 @@ export function WorkspaceAuthForm({
 export const AwsConsoleAuth = WorkspaceAuthForm;
 export const DemoRolePicker = WorkspaceAuthForm;
 export const DEMO_ROLES = [
-  { id: 'root' as const, title: 'Root' },
-  { id: 'manager' as const, title: 'Delivery lead' },
-  { id: 'engineer' as const, title: 'Contributor' },
+  { id: 'root' as const, title: 'Workspace owner' },
+  { id: 'member' as const, title: 'Member' },
 ];

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@shared/api';
+import { hasPlatformCapability } from '../lib/rbac';
 import type { IamImportJob, IamImportSource } from '@shared/types';
 import { useAsync } from '../lib/useAsync';
 import {
@@ -23,7 +24,7 @@ const SOURCES: { id: IamImportSource; label: string; hint: string }[] = [
 
 export default function IamImportWizard() {
   const me = useAsync(() => api.me(), []);
-  const canManage = me.data?.user.role === 'root' || me.data?.user.role === 'manager';
+  const canManage = hasPlatformCapability(me.data?.user, 'identity.manage');
   const [step, setStep] = useState(0);
   const [source, setSource] = useState<IamImportSource>('aws_iam');
   const [payload, setPayload] = useState('');
@@ -85,7 +86,7 @@ export default function IamImportWizard() {
       <AsyncBoundary loading={me.loading} error={me.error} onRetry={me.reload}>
         {!canManage ? (
           <Card>
-            <p className="text-sm text-on-surface-variant">Requires role: root or manager.</p>
+            <p className="text-sm text-on-surface-variant">Requires capability: identity.manage (or workspace owner).</p>
           </Card>
         ) : (
           <div className="space-y-6" data-testid="iam-import-wizard">

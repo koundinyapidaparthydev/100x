@@ -1,12 +1,13 @@
 /**
  * Atlassian Rovo MCP OAuth (Authorization Code + PKCE).
  *
- * - start: build authorize URL
- * - callback: exchange code → access token (held in-process for demo)
+ * - start: build authorize URL (pending state carries tenantId)
+ * - callback: exchange code → access token (in-process + returned for store persist)
  * - MCP_ATLASSIAN_ACCESS_TOKEN env still overrides for long-lived tokens
  */
 
 import { createHash, randomBytes } from 'node:crypto';
+import type { Store } from '../store';
 
 export type AtlassianMcpOAuthStatus = {
   enabled: boolean;
@@ -20,12 +21,13 @@ export type AtlassianMcpOAuthStatus = {
 interface PendingAtlassianAuth {
   codeVerifier: string;
   expiresAt: number;
+  tenantId: string;
 }
 
 const pendingByState = new Map<string, PendingAtlassianAuth>();
 const PENDING_TTL_MS = 10 * 60 * 1000;
 
-/** In-process token from OAuth callback (demo; restart clears it). */
+/** In-process token from OAuth callback (demo fallback; restart clears it). */
 let runtimeAccessToken: string | null = null;
 let runtimeTokenExpiresAt = 0;
 
@@ -42,9 +44,26 @@ function pkceChallenge(verifier: string): string {
   return base64Url(createHash('sha256').update(verifier).digest());
 }
 
-export function getAtlassianAccessToken(): string | undefined {
+export type AtlassianTokenLookup = {
+  store?: Store;
+  tenantId?: string;
+};
+
+export function getAtlassianAccessToken(lookup?: AtlassianTokenLookup): string | undefined {
   const fromEnv = trimEnv('MCP_ATLASSIAN_ACCESS_TOKEN');
   if (fromEnv) return fromEnv;
+
+  if (lookup?.store && lookup.tenantId) {
+    const stored = lookup.store.mcpCredentialsByTenant[lookup.tenantId]?.atlassian;
+    if (stored?.accessToken) {
+      if (typeof stored.expiresAt === 'number' && stored.expiresAt <= Date.now()) {
+        /* expired — fall through to runtime */
+      } else {
+        return stored.accessToken;
+      }
+    }
+  }
+
   if (runtimeAccessToken && runtimeTokenExpiresAt > Date.now()) return runtimeAccessToken;
   if (runtimeAccessToken && runtimeTokenExpiresAt <= Date.now()) {
     runtimeAccessToken = null;
@@ -58,10 +77,10 @@ export function clearAtlassianRuntimeToken(): void {
   runtimeTokenExpiresAt = 0;
 }
 
-export function getAtlassianMcpOAuthStatus(): AtlassianMcpOAuthStatus {
+export function getAtlassianMcpOAuthStatus(lookup?: AtlassianTokenLookup): AtlassianMcpOAuthStatus {
   const clientId = trimEnv('MCP_ATLASSIAN_CLIENT_ID');
   const redirectUri = trimEnv('MCP_ATLASSIAN_REDIRECT_URI');
-  const hasAccessToken = Boolean(getAtlassianAccessToken());
+  const hasAccessToken = Boolean(getAtlassianAccessToken(lookup));
   const authorizeReady = Boolean(clientId && redirectUri);
 
   if (!clientId && !hasAccessToken) {
@@ -86,6 +105,7 @@ export function getAtlassianMcpOAuthStatus(): AtlassianMcpOAuthStatus {
 }
 
 export function buildAtlassianAuthorizeUrl(
+  tenantId: string,
   scopes = ['read:jira-work', 'read:confluence-content.all', 'offline_access'],
 ): { url: string; state: string } | null {
   const clientId = trimEnv('MCP_ATLASSIAN_CLIENT_ID');
@@ -96,7 +116,11 @@ export function buildAtlassianAuthorizeUrl(
 
   const state = base64Url(randomBytes(16));
   const codeVerifier = base64Url(randomBytes(32));
-  pendingByState.set(state, { codeVerifier, expiresAt: Date.now() + PENDING_TTL_MS });
+  pendingByState.set(state, {
+    codeVerifier,
+    expiresAt: Date.now() + PENDING_TTL_MS,
+    tenantId,
+  });
 
   const url = new URL(authorizeBase);
   url.searchParams.set('audience', 'api.atlassian.com');
@@ -112,21 +136,26 @@ export function buildAtlassianAuthorizeUrl(
   return { url: url.toString(), state };
 }
 
-export function consumeAtlassianPkce(state: string): string | null {
+export function consumeAtlassianPkce(
+  state: string,
+): { codeVerifier: string; tenantId: string } | null {
   const pending = pendingByState.get(state);
   pendingByState.delete(state);
   if (!pending || pending.expiresAt < Date.now()) return null;
-  return pending.codeVerifier;
+  return { codeVerifier: pending.codeVerifier, tenantId: pending.tenantId };
 }
 
 export type AtlassianTokenExchangeResult = {
   accessToken: string;
+  refreshToken?: string;
   expiresIn: number;
   scope?: string;
+  tenantId: string;
 };
 
 /**
  * Exchange authorization code for access token and store it in-process.
+ * Caller should also persist via setAtlassianCredentials(store, tenantId, …).
  */
 export async function completeAtlassianOAuthCallback(input: {
   code: string;
@@ -140,8 +169,8 @@ export async function completeAtlassianOAuthCallback(input: {
     throw new Error('Atlassian MCP OAuth is not configured');
   }
 
-  const codeVerifier = consumeAtlassianPkce(input.state);
-  if (!codeVerifier) {
+  const pending = consumeAtlassianPkce(input.state);
+  if (!pending) {
     throw new Error('Invalid or expired OAuth state');
   }
 
@@ -150,7 +179,7 @@ export async function completeAtlassianOAuthCallback(input: {
     client_id: clientId,
     code: input.code,
     redirect_uri: redirectUri,
-    code_verifier: codeVerifier,
+    code_verifier: pending.codeVerifier,
   });
   if (clientSecret) body.set('client_secret', clientSecret);
 
@@ -164,6 +193,7 @@ export async function completeAtlassianOAuthCallback(input: {
   });
   const json = (await res.json()) as {
     access_token?: string;
+    refresh_token?: string;
     expires_in?: number;
     scope?: string;
     error?: string;
@@ -179,7 +209,9 @@ export async function completeAtlassianOAuthCallback(input: {
 
   return {
     accessToken: json.access_token,
+    refreshToken: json.refresh_token,
     expiresIn,
     scope: json.scope,
+    tenantId: pending.tenantId,
   };
 }

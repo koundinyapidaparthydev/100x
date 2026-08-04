@@ -1,24 +1,13 @@
 /**
  * Workspace membership invites (sandbox).
- * Root invites by email → stub "email" is recorded → invitee SSO login accepts the role.
+ * Owner invites by email → stub/SendGrid email is recorded → invitee SSO login accepts the role.
  * Credentials are never shared; invitees authenticate themselves.
  */
 
-import type {
-  AuthUser,
-  CreateInviteResponse,
-  InvitableRole,
-  UserRole,
-  WorkspaceInvite,
-} from '../../shared/types';
-import { enrichAuthUser, upsertTenantUserFromAuth } from './identity';
+import type { AuthUser, CreateInviteResponse, InviteEmailChannel, WorkspaceInvite } from '../../shared/types';
+import { enrichAuthUser, findCustomRole, roleHasPlatform, upsertTenantUserFromAuth } from './identity';
+import { sendWithSendgrid, sendgridConfigured } from './mail/sendgrid';
 import { nextId, TENANT_ID, type Store } from './store';
-
-const INVITABLE: InvitableRole[] = ['manager', 'engineer', 'auditor'];
-
-export function isInvitableRole(role: string): role is InvitableRole {
-  return (INVITABLE as string[]).includes(role);
-}
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -38,9 +27,10 @@ function inviteEmailPreview(invite: WorkspaceInvite, webOrigin: string): string 
   const join = `${webOrigin.replace(/\/$/, '')}/login?invite=${encodeURIComponent(invite.id)}`;
   return [
     `To: ${invite.email}`,
-    `Subject: You're invited to AplifyAI (${invite.role})`,
+    `Subject: You're invited to AplifyAI`,
     '',
-    `${invite.invitedByEmail} invited you to join workspace ${invite.tenantId} as ${invite.role}.`,
+    `${invite.invitedByEmail} invited you to join workspace ${invite.tenantId}.`,
+    `Assigned role id: ${invite.roleId}`,
     '',
     `Sign in with this email to accept: ${join}`,
     '',
@@ -48,20 +38,65 @@ function inviteEmailPreview(invite: WorkspaceInvite, webOrigin: string): string 
   ].join('\n');
 }
 
-export function createInvite(
+async function deliverInviteEmail(
+  store: Store,
+  invite: WorkspaceInvite,
+  preview: string,
+): Promise<CreateInviteResponse['emailDelivery']> {
+  const subject = `You're invited to AplifyAI`;
+  const now = new Date().toISOString();
+  let channel: InviteEmailChannel = 'stub';
+  let messageId: string | null = null;
+
+  if (sendgridConfigured()) {
+    try {
+      const html = preview
+        .split('\n')
+        .map((line) => `<div>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>`)
+        .join('');
+      const sent = await sendWithSendgrid({
+        to: invite.email,
+        subject,
+        text: preview,
+        html: `<pre style="font-family:system-ui,sans-serif;white-space:pre-wrap">${html}</pre>`,
+        customArgs: { inviteId: invite.id, tenantId: invite.tenantId },
+      });
+      channel = 'sendgrid';
+      messageId = sent.messageId;
+    } catch {
+      channel = 'stub';
+      messageId = null;
+    }
+  }
+
+  store.emailOutbox.push({
+    id: nextId('mail'),
+    to: invite.email,
+    subject,
+    body: preview,
+    createdAt: now,
+    kind: 'workspace_invite',
+    relatedId: invite.id,
+  });
+
+  return { sent: true, channel, preview, messageId };
+}
+
+export async function createInvite(
   store: Store,
   actor: AuthUser,
-  input: { email: string; role: InvitableRole },
-): CreateInviteResponse {
-  if (actor.role !== 'root') {
-    throw Object.assign(new Error('only root can invite users'), { status: 403 });
+  input: { email: string; roleId: string },
+): Promise<CreateInviteResponse> {
+  if (!roleHasPlatform(store, actor, 'invites.manage')) {
+    throw Object.assign(new Error('requires capability: invites.manage'), { status: 403 });
   }
   const email = normalizeEmail(input.email);
   if (!isValidEmail(email)) {
     throw Object.assign(new Error('a valid email is required'), { status: 400 });
   }
-  if (!isInvitableRole(input.role)) {
-    throw Object.assign(new Error('role must be manager, engineer, or auditor'), { status: 400 });
+  const roleId = typeof input.roleId === 'string' ? input.roleId.trim() : '';
+  if (!roleId || !findCustomRole(store, roleId, actor.tenantId)) {
+    throw Object.assign(new Error('roleId must reference an existing custom role'), { status: 400 });
   }
 
   const existing = listInvites(store, actor.tenantId).find(
@@ -76,7 +111,7 @@ export function createInvite(
     id: nextId('inv'),
     tenantId: actor.tenantId,
     email,
-    role: input.role,
+    roleId,
     invitedByUserId: actor.id,
     invitedByEmail: actor.email,
     status: 'pending',
@@ -95,29 +130,22 @@ export function createInvite(
 
   if (!store.invitesByTenant[actor.tenantId]) store.invitesByTenant[actor.tenantId] = [];
   store.invitesByTenant[actor.tenantId]!.push(invite);
-  store.emailOutbox.push({
-    id: nextId('mail'),
-    to: email,
-    subject: `You're invited to AplifyAI (${invite.role})`,
-    body: preview,
-    createdAt: now,
-    kind: 'workspace_invite',
-    relatedId: invite.id,
-  });
+
+  const delivery = await deliverInviteEmail(store, invite, preview);
 
   return {
     invite,
-    emailDelivery: { sent: true, channel: 'stub', preview },
+    emailDelivery: delivery,
   };
 }
 
-export function resendInvite(
+export async function resendInvite(
   store: Store,
   actor: AuthUser,
   inviteId: string,
-): CreateInviteResponse {
-  if (actor.role !== 'root') {
-    throw Object.assign(new Error('only root can resend invites'), { status: 403 });
+): Promise<CreateInviteResponse> {
+  if (!roleHasPlatform(store, actor, 'invites.manage')) {
+    throw Object.assign(new Error('requires capability: invites.manage'), { status: 403 });
   }
   const invite = listInvites(store, actor.tenantId).find((i) => i.id === inviteId);
   if (!invite) {
@@ -134,25 +162,17 @@ export function resendInvite(
   invite.lastEmailPreview = preview;
   invite.updatedAt = now;
 
-  store.emailOutbox.push({
-    id: nextId('mail'),
-    to: invite.email,
-    subject: `You're invited to AplifyAI (${invite.role})`,
-    body: preview,
-    createdAt: now,
-    kind: 'workspace_invite',
-    relatedId: invite.id,
-  });
+  const delivery = await deliverInviteEmail(store, invite, preview);
 
   return {
     invite,
-    emailDelivery: { sent: true, channel: 'stub', preview },
+    emailDelivery: delivery,
   };
 }
 
 export function revokeInvite(store: Store, actor: AuthUser, inviteId: string): WorkspaceInvite {
-  if (actor.role !== 'root') {
-    throw Object.assign(new Error('only root can revoke invites'), { status: 403 });
+  if (!roleHasPlatform(store, actor, 'invites.manage')) {
+    throw Object.assign(new Error('requires capability: invites.manage'), { status: 403 });
   }
   const invite = listInvites(store, actor.tenantId).find((i) => i.id === inviteId);
   if (!invite) {
@@ -168,7 +188,7 @@ export function revokeInvite(store: Store, actor: AuthUser, inviteId: string): W
 }
 
 /**
- * Apply pending invite role (login) or promote signup → root.
+ * Apply pending invite role (login) or promote signup → workspace owner.
  * Prefer invite over default IdP role when email matches.
  * Always upserts the user into the tenant directory.
  */
@@ -190,11 +210,16 @@ export function resolveAccessForFederatedUser(
     pending.acceptedAt = now;
     pending.acceptedByUserId = user.id;
     pending.updatedAt = now;
-    resolved = { ...user, role: pending.role, isWorkspaceOwner: false, workspaceSetupComplete: true };
+    resolved = {
+      ...user,
+      roleId: pending.roleId,
+      isWorkspaceOwner: false,
+      workspaceSetupComplete: true,
+    };
   } else if (intent === 'signup') {
     resolved = {
       ...user,
-      role: 'root' satisfies UserRole,
+      roleId: null,
       isWorkspaceOwner: true,
       workspaceSetupComplete: false,
     };
@@ -204,7 +229,7 @@ export function resolveAccessForFederatedUser(
     if (existing) {
       resolved = {
         ...user,
-        role: existing.role,
+        roleId: existing.roleId,
         isWorkspaceOwner: existing.isWorkspaceOwner,
         workspaceSetupComplete: existing.workspaceSetupComplete,
         companyDomain: existing.companyDomain ?? undefined,

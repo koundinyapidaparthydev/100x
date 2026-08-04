@@ -1,53 +1,31 @@
 /**
- * Workspace identity: users, groups, built-in roles, services catalog, IAM import stub.
+ * Workspace identity: users, groups, custom roles, services catalog, IAM import stub.
  */
 
-import { MCP_PROVIDERS } from '../../shared/mcpProviders';
+import { MCP_PROVIDERS, type McpPermissionLevel } from '../../shared/mcpProviders';
 import type {
   AuthUser,
-  BuiltInRoleDefinition,
   ConsoleServiceRecord,
+  CreateCustomRoleRequest,
   CreateIdentityGroupRequest,
+  CustomRole,
   IamImportJob,
   IamImportRequest,
   IamImportSource,
   IdentityGroup,
+  PlatformCapability,
+  RoleRule,
   TenantUser,
+  UpdateCustomRoleRequest,
   UpdateIdentityGroupRequest,
   UpdateTenantUserRequest,
-  UserRole,
+  UserEnvironmentGrant,
   WorkspaceSetupRequest,
 } from '../../shared/types';
+import { PLATFORM_CAPABILITIES } from '../../shared/types';
 import { nextId, TENANT_ID, type Store } from './store';
 
-const BUILT_IN_ROLES: BuiltInRoleDefinition[] = [
-  {
-    id: 'root',
-    label: 'Root',
-    description: 'Workspace owner — full access including invites, identity, and governance.',
-    builtIn: true,
-  },
-  {
-    id: 'manager',
-    label: 'Delivery lead',
-    description: 'Triage, approvals, and delivery operations.',
-    builtIn: true,
-  },
-  {
-    id: 'engineer',
-    label: 'Contributor',
-    description: 'Contribute to work items; limited admin surface.',
-    builtIn: true,
-  },
-  {
-    id: 'auditor',
-    label: 'Auditor',
-    description: 'Read-focused access for reviews and audit trails.',
-    builtIn: true,
-  },
-];
-
-const ALL_ROLES: UserRole[] = ['root', 'manager', 'engineer', 'auditor'];
+const MCP_LEVEL_RANK: Record<McpPermissionLevel, number> = { read: 0, write: 1, admin: 2 };
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -73,14 +51,381 @@ function normalizeDomain(raw: string | undefined): string | null {
   return value;
 }
 
-export function listBuiltInRoles(): BuiltInRoleDefinition[] {
-  return BUILT_IN_ROLES.map((r) => ({ ...r }));
+function connectableServerIds(): Set<string> {
+  return new Set(
+    MCP_PROVIDERS.filter((p) => p.connectable && p.availability !== 'none').map((p) => p.serverId),
+  );
+}
+
+export function isPlatformCapability(value: string): value is PlatformCapability {
+  return (PLATFORM_CAPABILITIES as string[]).includes(value);
+}
+
+export function validateRoleRules(rules: RoleRule[]): RoleRule[] {
+  const servers = connectableServerIds();
+  const out: RoleRule[] = [];
+  for (const rule of rules) {
+    if (rule.kind === 'platform') {
+      if (!isPlatformCapability(rule.capability)) {
+        throw Object.assign(new Error(`unknown platform capability: ${rule.capability}`), {
+          status: 400,
+        });
+      }
+      out.push({ kind: 'platform', capability: rule.capability });
+      continue;
+    }
+    if (rule.kind === 'mcp_access') {
+      const serverId = typeof rule.serverId === 'string' ? rule.serverId.trim() : '';
+      if (!serverId || !servers.has(serverId)) {
+        throw Object.assign(new Error(`unknown MCP serverId: ${rule.serverId}`), { status: 400 });
+      }
+      const level = rule.permissionLevel;
+      if (level !== 'read' && level !== 'write' && level !== 'admin') {
+        throw Object.assign(new Error('permissionLevel must be read, write, or admin'), {
+          status: 400,
+        });
+      }
+      const provider = MCP_PROVIDERS.find((p) => p.serverId === serverId);
+      if (provider && !provider.permissionLevels.includes(level)) {
+        throw Object.assign(
+          new Error(`permission level '${level}' is not offered for ${serverId}`),
+          { status: 400 },
+        );
+      }
+      out.push({ kind: 'mcp_access', serverId, permissionLevel: level });
+      continue;
+    }
+    throw Object.assign(new Error('invalid role rule kind'), { status: 400 });
+  }
+  return out;
+}
+
+export function listCustomRoles(store: Store, tenantId = TENANT_ID): CustomRole[] {
+  return [...(store.rolesByTenant[tenantId] ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function findCustomRole(
+  store: Store,
+  roleId: string,
+  tenantId = TENANT_ID,
+): CustomRole | null {
+  return (store.rolesByTenant[tenantId] ?? []).find((r) => r.id === roleId) ?? null;
+}
+
+export function createCustomRole(
+  store: Store,
+  actor: AuthUser,
+  input: CreateCustomRoleRequest,
+): CustomRole {
+  assertActorPlatform(store, actor, 'identity.manage');
+  const name = input.name?.trim();
+  if (!name) {
+    throw Object.assign(new Error('role name is required'), { status: 400 });
+  }
+  const now = new Date().toISOString();
+  const role: CustomRole = {
+    id: nextId('role'),
+    tenantId: actor.tenantId,
+    name,
+    description: (input.description ?? '').trim(),
+    subject: 'user',
+    rules: validateRoleRules(input.rules ?? []),
+    createdAt: now,
+    updatedAt: now,
+  };
+  if (!store.rolesByTenant[actor.tenantId]) store.rolesByTenant[actor.tenantId] = [];
+  store.rolesByTenant[actor.tenantId]!.push(role);
+  return role;
+}
+
+export function updateCustomRole(
+  store: Store,
+  actor: AuthUser,
+  roleId: string,
+  input: UpdateCustomRoleRequest,
+): CustomRole {
+  assertActorPlatform(store, actor, 'identity.manage');
+  const role = findCustomRole(store, roleId, actor.tenantId);
+  if (!role) {
+    throw Object.assign(new Error('role not found'), { status: 404 });
+  }
+  if (typeof input.name === 'string' && input.name.trim()) role.name = input.name.trim();
+  if (typeof input.description === 'string') role.description = input.description.trim();
+  if (input.rules) role.rules = validateRoleRules(input.rules);
+  role.updatedAt = new Date().toISOString();
+  return role;
+}
+
+export function deleteCustomRole(store: Store, actor: AuthUser, roleId: string): void {
+  assertActorPlatform(store, actor, 'identity.manage');
+  const roles = store.rolesByTenant[actor.tenantId] ?? [];
+  const idx = roles.findIndex((r) => r.id === roleId);
+  if (idx < 0) {
+    throw Object.assign(new Error('role not found'), { status: 404 });
+  }
+  roles.splice(idx, 1);
+  for (const user of listTenantUsers(store, actor.tenantId)) {
+    if (user.roleId === roleId) {
+      user.roleId = null;
+      user.updatedAt = new Date().toISOString();
+    }
+  }
+  for (const group of listGroups(store, actor.tenantId)) {
+    if (group.roleIds.includes(roleId)) {
+      group.roleIds = group.roleIds.filter((id) => id !== roleId);
+      group.updatedAt = new Date().toISOString();
+    }
+  }
+  const grants = store.environmentGrantsByTenant[actor.tenantId] ?? [];
+  for (const grant of grants) {
+    if (grant.roleId === roleId) grant.roleId = null;
+  }
+}
+
+function tenantEnvGrants(store: Store, tenantId: string): UserEnvironmentGrant[] {
+  if (!store.environmentGrantsByTenant[tenantId]) {
+    store.environmentGrantsByTenant[tenantId] = [];
+  }
+  return store.environmentGrantsByTenant[tenantId]!;
+}
+
+export function isWorkspaceOwnerUser(store: Store, user: AuthUser): boolean {
+  if (user.isWorkspaceOwner) return true;
+  const stored = findTenantUser(store, user.id, user.tenantId);
+  return stored?.isWorkspaceOwner === true;
+}
+
+export function listGrantsForUser(
+  store: Store,
+  tenantId: string,
+  userId: string,
+): UserEnvironmentGrant[] {
+  return tenantEnvGrants(store, tenantId).filter((g) => g.userId === userId);
+}
+
+export function findUserEnvGrant(
+  store: Store,
+  tenantId: string,
+  userId: string,
+  environmentId: string,
+): UserEnvironmentGrant | null {
+  return (
+    tenantEnvGrants(store, tenantId).find(
+      (g) => g.userId === userId && g.environmentId === environmentId,
+    ) ?? null
+  );
+}
+
+export function userCanAccessEnvironment(
+  store: Store,
+  actor: AuthUser,
+  environmentId: string,
+): boolean {
+  if (isWorkspaceOwnerUser(store, actor)) return true;
+  return Boolean(findUserEnvGrant(store, actor.tenantId, actor.id, environmentId));
+}
+
+/**
+ * Role id effective for the actor in a given environment.
+ * Owner → null (bypass). Grant membership required for non-owners.
+ */
+export function effectiveRoleIdForEnvironment(
+  store: Store,
+  actor: AuthUser,
+  environmentId: string,
+): string | null {
+  if (isWorkspaceOwnerUser(store, actor)) return null;
+  const grant = findUserEnvGrant(store, actor.tenantId, actor.id, environmentId);
+  if (!grant) return null;
+  if (grant.roleId) return grant.roleId;
+  const stored = findTenantUser(store, actor.id, actor.tenantId);
+  return stored?.roleId ?? actor.roleId ?? null;
+}
+
+/** Active-env role id (or null for owner / no grant). */
+export function effectiveRoleIdForActiveEnv(store: Store, actor: AuthUser): string | null {
+  const envId = store.activeEnvironmentByTenant[actor.tenantId] ?? '';
+  if (!envId) {
+    if (isWorkspaceOwnerUser(store, actor)) return null;
+    const stored = findTenantUser(store, actor.id, actor.tenantId);
+    return stored?.roleId ?? actor.roleId ?? null;
+  }
+  if (isWorkspaceOwnerUser(store, actor)) return null;
+  if (!userCanAccessEnvironment(store, actor, envId)) return null;
+  return effectiveRoleIdForEnvironment(store, actor, envId);
+}
+
+/** Inline rules on the active-env grant (if any). */
+function activeEnvGrantRules(store: Store, actor: AuthUser): RoleRule[] {
+  const envId = store.activeEnvironmentByTenant[actor.tenantId] ?? '';
+  if (!envId) return [];
+  const grant = findUserEnvGrant(store, actor.tenantId, actor.id, envId);
+  return grant?.rules ?? [];
+}
+
+export function getUserEnvironmentGrants(
+  store: Store,
+  tenantId: string,
+  userId: string,
+): UserEnvironmentGrant[] {
+  return listGrantsForUser(store, tenantId, userId);
+}
+
+export function setUserEnvironmentGrants(
+  store: Store,
+  actor: AuthUser,
+  userId: string,
+  input: Array<{
+    environmentId: string;
+    roleId: string | null;
+    rules?: UserEnvironmentGrant['rules'];
+  }>,
+): UserEnvironmentGrant[] {
+  assertActorPlatform(store, actor, 'identity.manage');
+  const user = findTenantUser(store, userId, actor.tenantId);
+  if (!user) {
+    throw Object.assign(new Error('user not found'), { status: 404 });
+  }
+  const envs = store.environmentsByTenant[actor.tenantId] ?? [];
+  const envIds = new Set(envs.map((e) => e.id));
+  if (envIds.size === 0) {
+    throw Object.assign(new Error('no environments configured'), { status: 400 });
+  }
+  const next: UserEnvironmentGrant[] = [];
+  const seen = new Set<string>();
+  for (const row of input) {
+    const environmentId = typeof row.environmentId === 'string' ? row.environmentId.trim() : '';
+    if (!environmentId || !envIds.has(environmentId)) {
+      throw Object.assign(new Error(`unknown environmentId: ${row.environmentId}`), {
+        status: 400,
+      });
+    }
+    if (seen.has(environmentId)) {
+      throw Object.assign(new Error(`duplicate environmentId: ${environmentId}`), { status: 400 });
+    }
+    seen.add(environmentId);
+    let roleId: string | null = null;
+    if (row.roleId !== null && row.roleId !== undefined && row.roleId !== '') {
+      if (!findCustomRole(store, row.roleId, actor.tenantId)) {
+        throw Object.assign(new Error('role not found'), { status: 400 });
+      }
+      roleId = row.roleId;
+    }
+    const grant: UserEnvironmentGrant = {
+      userId,
+      environmentId,
+      roleId,
+    };
+    if (row.rules) {
+      grant.rules = validateRoleRules(row.rules);
+    }
+    next.push(grant);
+  }
+
+  const grants = tenantEnvGrants(store, actor.tenantId);
+  const kept = grants.filter((g) => g.userId !== userId);
+  store.environmentGrantsByTenant[actor.tenantId] = [...kept, ...next];
+  return next;
+}
+
+/** Owner bypass or role includes every listed platform capability (active env). */
+export function roleHasPlatform(
+  store: Store,
+  user: AuthUser,
+  ...capabilities: PlatformCapability[]
+): boolean {
+  if (isWorkspaceOwnerUser(store, user)) return true;
+  if (!capabilities.length) return true;
+  const envId = store.activeEnvironmentByTenant[user.tenantId] ?? '';
+  if (envId && !userCanAccessEnvironment(store, user, envId)) return false;
+  const roleId = effectiveRoleIdForActiveEnv(store, user);
+  const role = roleId ? findCustomRole(store, roleId, user.tenantId) : null;
+  const granted = new Set<PlatformCapability>();
+  if (role) {
+    for (const r of role.rules) {
+      if (r.kind === 'platform') granted.add(r.capability);
+    }
+  }
+  for (const r of activeEnvGrantRules(store, user)) {
+    if (r.kind === 'platform') granted.add(r.capability);
+  }
+  return capabilities.every((c) => granted.has(c));
+}
+
+/**
+ * Highest MCP permission level granted by the user's active-env role for a server.
+ * Owner → 'admin' (full). Missing grant → null.
+ */
+export function roleMcpLevel(
+  store: Store,
+  user: AuthUser,
+  serverId: string,
+): McpPermissionLevel | null {
+  if (isWorkspaceOwnerUser(store, user)) return 'admin';
+  const envId = store.activeEnvironmentByTenant[user.tenantId] ?? '';
+  if (envId && !userCanAccessEnvironment(store, user, envId)) return null;
+  const roleId = effectiveRoleIdForActiveEnv(store, user);
+  const role = roleId ? findCustomRole(store, roleId, user.tenantId) : null;
+  let best: McpPermissionLevel | null = null;
+  const consider = (level: McpPermissionLevel) => {
+    if (!best || MCP_LEVEL_RANK[level] > MCP_LEVEL_RANK[best]) best = level;
+  };
+  if (role) {
+    for (const rule of role.rules) {
+      if (rule.kind === 'mcp_access' && rule.serverId === serverId) {
+        consider(rule.permissionLevel);
+      }
+    }
+  }
+  for (const rule of activeEnvGrantRules(store, user)) {
+    if (rule.kind === 'mcp_access' && rule.serverId === serverId) {
+      consider(rule.permissionLevel);
+    }
+  }
+  return best;
+}
+
+export function minMcpLevel(a: McpPermissionLevel, b: McpPermissionLevel): McpPermissionLevel {
+  return MCP_LEVEL_RANK[a] <= MCP_LEVEL_RANK[b] ? a : b;
+}
+
+export function effectivePlatformCapabilities(store: Store, user: AuthUser): PlatformCapability[] {
+  if (isWorkspaceOwnerUser(store, user)) return [...PLATFORM_CAPABILITIES];
+  const envId = store.activeEnvironmentByTenant[user.tenantId] ?? '';
+  if (envId && !userCanAccessEnvironment(store, user, envId)) return [];
+  const roleId = effectiveRoleIdForActiveEnv(store, user);
+  const role = roleId ? findCustomRole(store, roleId, user.tenantId) : null;
+  const granted = new Set<PlatformCapability>();
+  if (role) {
+    for (const r of role.rules) {
+      if (r.kind === 'platform') granted.add(r.capability);
+    }
+  }
+  for (const r of activeEnvGrantRules(store, user)) {
+    if (r.kind === 'platform') granted.add(r.capability);
+  }
+  return [...granted];
+}
+
+function assertActorPlatform(
+  store: Store,
+  actor: AuthUser,
+  ...capabilities: PlatformCapability[]
+): void {
+  if (!roleHasPlatform(store, actor, ...capabilities)) {
+    throw Object.assign(new Error(`requires capability: ${capabilities.join(' | ')}`), {
+      status: 403,
+    });
+  }
 }
 
 export function listTenantUsers(store: Store, tenantId = TENANT_ID): TenantUser[] {
-  return [...(store.usersByTenant[tenantId] ?? [])].sort((a, b) =>
-    a.displayName.localeCompare(b.displayName),
-  );
+  return [...(store.usersByTenant[tenantId] ?? [])]
+    .map((u) => ({
+      ...u,
+      environmentGrants: listGrantsForUser(store, tenantId, u.id),
+    }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
 export function findTenantUser(store: Store, userId: string, tenantId = TENANT_ID): TenantUser | null {
@@ -92,7 +437,7 @@ export function authUserFromTenant(user: TenantUser, surface: AuthUser['surface'
     id: user.id,
     email: user.email,
     displayName: user.displayName,
-    role: user.role,
+    roleId: user.roleId,
     tenantId: user.tenantId,
     surface,
     companyDomain: user.companyDomain ?? undefined,
@@ -105,22 +450,27 @@ export function authUserFromTenant(user: TenantUser, surface: AuthUser['surface'
 /** Merge persisted identity fields onto the session user (for /auth/me). */
 export function enrichAuthUser(store: Store, user: AuthUser): AuthUser {
   const stored = findTenantUser(store, user.id, user.tenantId);
-  if (!stored) return user;
+  const base = stored
+    ? {
+        ...user,
+        roleId: stored.roleId,
+        companyDomain: stored.companyDomain ?? undefined,
+        linkedEmails: stored.linkedEmails.length ? [...stored.linkedEmails] : undefined,
+        isWorkspaceOwner: stored.isWorkspaceOwner,
+        workspaceSetupComplete: stored.workspaceSetupComplete,
+        displayName: stored.displayName || user.displayName,
+        email: stored.email || user.email,
+      }
+    : user;
   return {
-    ...user,
-    role: stored.role,
-    companyDomain: stored.companyDomain ?? undefined,
-    linkedEmails: stored.linkedEmails.length ? [...stored.linkedEmails] : undefined,
-    isWorkspaceOwner: stored.isWorkspaceOwner,
-    workspaceSetupComplete: stored.workspaceSetupComplete,
-    displayName: stored.displayName || user.displayName,
-    email: stored.email || user.email,
+    ...base,
+    platformCapabilities: effectivePlatformCapabilities(store, base),
   };
 }
 
 /**
  * Upsert a federated / demo user into the tenant directory.
- * Signup without invite → workspace owner (root) with setup incomplete.
+ * Signup without invite → workspace owner with setup incomplete.
  */
 export function upsertTenantUserFromAuth(
   store: Store,
@@ -134,12 +484,15 @@ export function upsertTenantUserFromAuth(
   if (existing) {
     existing.email = normalizeEmail(user.email);
     existing.displayName = user.displayName;
-    existing.role = user.role;
+    if (user.roleId !== undefined) existing.roleId = user.roleId;
     existing.lastLoginAt = now;
     existing.updatedAt = now;
     if (opts?.fromInvite) {
       existing.isWorkspaceOwner = false;
       existing.workspaceSetupComplete = true;
+    }
+    if (user.isWorkspaceOwner !== undefined) {
+      existing.isWorkspaceOwner = user.isWorkspaceOwner;
     }
     return existing;
   }
@@ -149,10 +502,12 @@ export function upsertTenantUserFromAuth(
     tenantId: user.tenantId,
     email: normalizeEmail(user.email),
     displayName: user.displayName,
-    role: user.role,
+    roleId: user.roleId ?? null,
     linkedEmails: [],
     companyDomain: domainFromEmail(user.email),
-    isWorkspaceOwner: opts?.isNewSignup === true && !opts?.fromInvite && user.role === 'root',
+    isWorkspaceOwner:
+      user.isWorkspaceOwner === true ||
+      (opts?.isNewSignup === true && !opts?.fromInvite && !user.roleId),
     workspaceSetupComplete: opts?.fromInvite === true || user.id.startsWith('usr-'),
     groupIds: [],
     createdAt: now,
@@ -201,19 +556,15 @@ export function completeWorkspaceSetup(
       throw Object.assign(new Error('parent company domain is required'), { status: 400 });
     }
     stored.isWorkspaceOwner = false;
-    // Keep invite-assigned role if already non-root; otherwise wait as contributor.
-    if (stored.role === 'root') {
-      stored.role = 'engineer';
-    }
+    // Keep invite-assigned role if set; otherwise remain unassigned until an admin assigns one.
   } else {
     stored.isWorkspaceOwner = true;
-    stored.role = 'root';
+    stored.roleId = null;
   }
 
-  // Touch unused primary flag for audit metadata callers.
   void input.isPrimaryGoogleAccount;
 
-  return authUserFromTenant(stored, actor.surface);
+  return enrichAuthUser(store, authUserFromTenant(stored, actor.surface));
 }
 
 export function updateTenantUser(
@@ -222,22 +573,20 @@ export function updateTenantUser(
   userId: string,
   input: UpdateTenantUserRequest,
 ): TenantUser {
-  if (actor.role !== 'root' && actor.role !== 'manager') {
-    throw Object.assign(new Error('requires role: root | manager'), { status: 403 });
-  }
+  assertActorPlatform(store, actor, 'identity.manage');
   const user = findTenantUser(store, userId, actor.tenantId);
   if (!user) {
     throw Object.assign(new Error('user not found'), { status: 404 });
   }
-  if (input.role !== undefined) {
-    if (!ALL_ROLES.includes(input.role)) {
-      throw Object.assign(new Error('invalid role'), { status: 400 });
+  if (input.roleId !== undefined) {
+    if (input.roleId === null) {
+      user.roleId = null;
+    } else {
+      if (!findCustomRole(store, input.roleId, actor.tenantId)) {
+        throw Object.assign(new Error('role not found'), { status: 400 });
+      }
+      user.roleId = input.roleId;
     }
-    if (input.role === 'root' && actor.role !== 'root') {
-      throw Object.assign(new Error('only root can assign root'), { status: 403 });
-    }
-    user.role = input.role;
-    user.isWorkspaceOwner = input.role === 'root' ? user.isWorkspaceOwner : false;
   }
   if (input.linkedEmails) {
     user.linkedEmails = input.linkedEmails.map(normalizeEmail).filter(isValidEmail);
@@ -262,14 +611,18 @@ export function listGroups(store: Store, tenantId = TENANT_ID): IdentityGroup[] 
   return [...(store.groupsByTenant[tenantId] ?? [])].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function filterValidRoleIds(store: Store, tenantId: string, roleIds: string[] | undefined): string[] {
+  if (!roleIds?.length) return [];
+  const valid = new Set(listCustomRoles(store, tenantId).map((r) => r.id));
+  return roleIds.filter((id) => valid.has(id));
+}
+
 export function createGroup(
   store: Store,
   actor: AuthUser,
   input: CreateIdentityGroupRequest,
 ): IdentityGroup {
-  if (actor.role !== 'root' && actor.role !== 'manager') {
-    throw Object.assign(new Error('requires role: root | manager'), { status: 403 });
-  }
+  assertActorPlatform(store, actor, 'identity.manage');
   const name = input.name?.trim();
   if (!name) {
     throw Object.assign(new Error('group name is required'), { status: 400 });
@@ -280,7 +633,7 @@ export function createGroup(
     tenantId: actor.tenantId,
     name,
     description: (input.description ?? '').trim(),
-    roleIds: (input.roleIds ?? []).filter((r) => ALL_ROLES.includes(r)),
+    roleIds: filterValidRoleIds(store, actor.tenantId, input.roleIds),
     memberIds: input.memberIds ?? [],
     createdAt: now,
     updatedAt: now,
@@ -304,9 +657,7 @@ export function updateGroup(
   groupId: string,
   input: UpdateIdentityGroupRequest,
 ): IdentityGroup {
-  if (actor.role !== 'root' && actor.role !== 'manager') {
-    throw Object.assign(new Error('requires role: root | manager'), { status: 403 });
-  }
+  assertActorPlatform(store, actor, 'identity.manage');
   const group = listGroups(store, actor.tenantId).find((g) => g.id === groupId);
   if (!group) {
     throw Object.assign(new Error('group not found'), { status: 404 });
@@ -315,7 +666,7 @@ export function updateGroup(
   if (typeof input.name === 'string' && input.name.trim()) group.name = input.name.trim();
   if (typeof input.description === 'string') group.description = input.description.trim();
   if (input.roleIds) {
-    group.roleIds = input.roleIds.filter((r) => ALL_ROLES.includes(r));
+    group.roleIds = filterValidRoleIds(store, actor.tenantId, input.roleIds);
   }
   if (input.memberIds) {
     const prev = new Set(group.memberIds);
@@ -338,9 +689,7 @@ export function updateGroup(
 }
 
 export function deleteGroup(store: Store, actor: AuthUser, groupId: string): void {
-  if (actor.role !== 'root') {
-    throw Object.assign(new Error('only root can delete groups'), { status: 403 });
-  }
+  assertActorPlatform(store, actor, 'groups.delete');
   const groups = store.groupsByTenant[actor.tenantId] ?? [];
   const idx = groups.findIndex((g) => g.id === groupId);
   if (idx < 0) {
@@ -355,8 +704,15 @@ export function deleteGroup(store: Store, actor: AuthUser, groupId: string): voi
   }
 }
 
-export function listConsoleServices(store: Store, tenantId = TENANT_ID): ConsoleServiceRecord[] {
-  const connections = store.mcpConnectionsByTenant[tenantId] ?? [];
+export function listConsoleServices(
+  store: Store,
+  tenantId = TENANT_ID,
+  environmentId?: string,
+): ConsoleServiceRecord[] {
+  const envId = environmentId ?? store.activeEnvironmentByTenant[tenantId] ?? '';
+  const connections = (store.mcpConnectionsByTenant[tenantId] ?? []).filter(
+    (c) => !envId || c.environmentId === envId,
+  );
   const byId = new Map(connections.map((c) => [c.serviceId, c]));
   return MCP_PROVIDERS.filter((p) => p.availability !== 'none').map((provider) => {
     const conn = byId.get(provider.serviceId);
@@ -368,9 +724,11 @@ export function listConsoleServices(store: Store, tenantId = TENANT_ID): Console
       id: provider.serviceId,
       name,
       category: provider.availability,
+      availability: provider.availability,
       connected: Boolean(conn),
       permissionLevel: conn?.permissionLevel ?? null,
       source: 'mcp' as const,
+      notes: provider.notes,
     };
   });
 }
@@ -382,9 +740,7 @@ export function createIamImportJob(
   actor: AuthUser,
   input: IamImportRequest,
 ): IamImportJob {
-  if (actor.role !== 'root' && actor.role !== 'manager') {
-    throw Object.assign(new Error('requires role: root | manager'), { status: 403 });
-  }
+  assertActorPlatform(store, actor, 'identity.manage');
   if (!IMPORT_SOURCES.includes(input.source)) {
     throw Object.assign(new Error('unsupported IAM import source'), { status: 400 });
   }
@@ -393,7 +749,6 @@ export function createIamImportJob(
   let mappedUsers = 0;
   let mappedGroups = 0;
   if (payload) {
-    // Best-effort parse counts for the stub preview; never fails the request.
     try {
       if (input.source === 'csv' || payload.includes(',')) {
         const lines = payload.split(/\r?\n/).filter((l) => l.trim());
@@ -421,10 +776,9 @@ export function createIamImportJob(
     tenantId: actor.tenantId,
     source: input.source,
     status: 'preview',
-    summary:
-      input.connectedCloudAccount
-        ? `Stub import queued from connected account ${input.connectedCloudAccount}. Live sync ships in Phase 2.`
-        : `Stub import preview from ${input.source}: ${mappedUsers} user(s), ${mappedGroups} group(s). No live cloud pull yet.`,
+    summary: input.connectedCloudAccount
+      ? `Stub import queued from connected account ${input.connectedCloudAccount}. Live sync ships in Phase 2.`
+      : `Stub import preview from ${input.source}: ${mappedUsers} user(s), ${mappedGroups} group(s). No live cloud pull yet.`,
     createdAt: new Date().toISOString(),
     createdByUserId: actor.id,
     mappedUsers,

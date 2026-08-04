@@ -71,14 +71,17 @@ export function cloudModeDisplay(mode: string): string {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  root: 'Root',
-  founder: 'Root', // legacy
-  manager: 'Delivery lead',
-  engineer: 'Contributor',
-  auditor: 'Auditor',
+  root: 'Workspace owner',
+  owner: 'Workspace owner',
+  founder: 'Workspace owner', // legacy
+  member: 'Member',
+  manager: 'Member', // legacy demo seat
+  engineer: 'Member',
+  auditor: 'Member',
 };
 
 export function roleDisplay(role: string): string {
+  if (!role) return 'Unassigned';
   return ROLE_LABELS[role] ?? humanize(role);
 }
 

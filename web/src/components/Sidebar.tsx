@@ -1,5 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { ClipboardCheck, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { AplifyLogo } from './AplifyLogo';
+import EnvironmentSwitcher from './EnvironmentSwitcher';
 import { getProjectRouteContext } from '../lib/projectRoutes';
 import { cn } from '../lib/utils';
 import {
@@ -50,14 +52,8 @@ export default function Sidebar({ open = false, onClose, ownTestIds = false }: S
           open ? 'visible translate-x-0 shadow-xl' : 'invisible -translate-x-full',
         )}
       >
-        <div className="mb-5 flex h-11 items-center gap-3 px-2">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-on-primary">
-            <ClipboardCheck size={20} aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-base font-semibold tracking-tight text-on-surface">AplifyAI</p>
-            <p className="truncate text-xs text-on-surface-variant">Work with clear guardrails</p>
-          </div>
+        <div className="mb-4 flex h-11 items-center gap-3 px-2">
+          <AplifyLogo size={36} withWordmark wordmarkClassName="text-base" />
           <button
             type="button"
             aria-label="Close navigation"
@@ -66,6 +62,10 @@ export default function Sidebar({ open = false, onClose, ownTestIds = false }: S
           >
             <X size={18} />
           </button>
+        </div>
+
+        <div className="mb-4 px-1">
+          <EnvironmentSwitcher variant="drawer" onNavigated={onClose} />
         </div>
 
         <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto" data-testid="sidebar-navigation">

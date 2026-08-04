@@ -5,6 +5,9 @@
  * permission level + granted tool names; listTools / callTool honor that
  * allowlist. Real transports (stdio / HTTP / OAuth) plug in later behind the
  * same interface — each provider’s MCP server still enforces end-user ACLs.
+ *
+ * When a user role is supplied, tools must also pass the role’s mcp_access
+ * grant (connection level ∩ role level).
  */
 
 import {
@@ -27,45 +30,86 @@ export type McpCallResult = {
   transport?: 'stub' | 'remote_http' | 'stdio';
 };
 
+export type McpCallOpts = {
+  store?: import('../store').Store;
+  tenantId?: string;
+  /**
+   * When provided, tools must also be allowed at this role grant level
+   * (intersected with the connection permission). `null` denies all tools.
+   * Omit for system/orchestrator paths (connection allowlist only).
+   */
+  rolePermissionLevel?: McpPermissionLevel | null;
+};
+
+const LEVEL_RANK: Record<McpPermissionLevel, number> = { read: 0, write: 1, admin: 2 };
+
+function toolAllowedAtLevel(
+  connection: ServiceMcpConnection,
+  tool: string,
+  level: McpPermissionLevel,
+): boolean {
+  const provider = getMcpProvider(connection.serviceId);
+  if (!provider) {
+    return connection.grantedTools.includes(tool);
+  }
+  const allowed = new Set(toolsForPermissionLevel(provider, level).map((t) => t.name));
+  return allowed.has(tool);
+}
+
 export function createConnection(
   serviceId: ServiceId,
   permissionLevel: McpPermissionLevel,
+  opts?: {
+    live?: boolean;
+    authState?: ServiceMcpConnection['authState'];
+    environmentId?: string;
+  },
 ): ServiceMcpConnection {
   const provider = getMcpProvider(serviceId);
   const now = new Date().toISOString();
+  const environmentId = opts?.environmentId?.trim() || 'env-prod';
   if (!provider || !provider.connectable) {
     return {
       serviceId,
       serverId: serviceId,
+      environmentId,
       status: 'error',
       permissionLevel,
       grantedTools: [],
       connectedAt: null,
       updatedAt: now,
       lastError: 'No connectable MCP provider for this service',
+      authState: 'error',
+      live: false,
     };
   }
   if (!provider.permissionLevels.includes(permissionLevel)) {
     return {
       serviceId,
       serverId: provider.serverId,
+      environmentId,
       status: 'error',
       permissionLevel,
       grantedTools: [],
       connectedAt: null,
       updatedAt: now,
       lastError: `Permission level '${permissionLevel}' is not offered for ${provider.serverId}`,
+      authState: 'error',
+      live: false,
     };
   }
   const granted = toolsForPermissionLevel(provider, permissionLevel).map((t) => t.name);
   return {
     serviceId,
     serverId: provider.serverId,
+    environmentId,
     status: 'connected',
     permissionLevel,
     grantedTools: granted,
     connectedAt: now,
     updatedAt: now,
+    live: opts?.live ?? false,
+    authState: opts?.authState ?? 'ready',
   };
 }
 
@@ -78,6 +122,7 @@ function denyOrAllowlist(
   connection: ServiceMcpConnection,
   tool: string,
   started: number,
+  rolePermissionLevel?: McpPermissionLevel | null,
 ): McpCallResult | null {
   if (connection.status !== 'connected') {
     return {
@@ -98,6 +143,32 @@ function denyOrAllowlist(
       bytes: 0,
       error: `Tool '${tool}' is not granted at permission level '${connection.permissionLevel}'`,
     };
+  }
+  if (rolePermissionLevel !== undefined) {
+    if (rolePermissionLevel === null) {
+      return {
+        ok: false,
+        serverId: connection.serverId,
+        tool,
+        latencyMs: Date.now() - started,
+        bytes: 0,
+        error: `Tool '${tool}' is not granted by the user's role for '${connection.serverId}'`,
+      };
+    }
+    const effective: McpPermissionLevel =
+      LEVEL_RANK[rolePermissionLevel] <= LEVEL_RANK[connection.permissionLevel]
+        ? rolePermissionLevel
+        : connection.permissionLevel;
+    if (!toolAllowedAtLevel(connection, tool, effective)) {
+      return {
+        ok: false,
+        serverId: connection.serverId,
+        tool,
+        latencyMs: Date.now() - started,
+        bytes: 0,
+        error: `Tool '${tool}' exceeds role grant '${rolePermissionLevel}' (effective '${effective}') for '${connection.serverId}'`,
+      };
+    }
   }
   return null;
 }
@@ -136,9 +207,10 @@ export function callTool(
   connection: ServiceMcpConnection,
   tool: string,
   _args: Record<string, unknown> = {},
+  opts?: Pick<McpCallOpts, 'rolePermissionLevel'>,
 ): McpCallResult {
   const started = Date.now();
-  const denied = denyOrAllowlist(connection, tool, started);
+  const denied = denyOrAllowlist(connection, tool, started, opts?.rolePermissionLevel);
   if (denied) return denied;
   return stubResult(connection, tool, started);
 }
@@ -151,18 +223,24 @@ export async function callToolAsync(
   connection: ServiceMcpConnection,
   tool: string,
   args: Record<string, unknown> = {},
+  opts?: McpCallOpts,
 ): Promise<McpCallResult> {
   const started = Date.now();
-  const denied = denyOrAllowlist(connection, tool, started);
+  const denied = denyOrAllowlist(connection, tool, started, opts?.rolePermissionLevel);
   if (denied) return denied;
 
   const transport = resolveTransport(connection.serviceId);
-  if (transport.ready && transport.endpoint && transport.kind === 'remote_http') {
+  const bearer = bearerForService(connection.serviceId, {
+    store: opts?.store,
+    tenantId: opts?.tenantId,
+  });
+  // Tenant PATs / OAuth tokens can unlock the default endpoint even when env.ready is false.
+  if (transport.endpoint && (transport.ready || Boolean(bearer))) {
     const remote = await callRemoteMcpTool({
       endpoint: transport.endpoint,
       tool,
       args,
-      bearerToken: bearerForService(connection.serviceId),
+      bearerToken: bearer,
     });
     if (remote.ok) {
       const body = JSON.stringify(remote.data ?? {});
@@ -195,6 +273,7 @@ export async function callToolAsync(
 export async function enrichFromConnections(
   connections: ServiceMcpConnection[],
   workItemKey: string,
+  opts?: McpCallOpts,
 ): Promise<{ servers: string[]; snippets: string[]; calls: McpCallResult[] }> {
   const connected = connections.filter((c) => c.status === 'connected');
   const calls: McpCallResult[] = [];
@@ -202,7 +281,7 @@ export async function enrichFromConnections(
   for (const conn of connected) {
     const readTool = conn.grantedTools.find((t) => /get_|read_|search|list_/i.test(t));
     if (!readTool) continue;
-    const result = await callToolAsync(conn, readTool, { issueKey: workItemKey });
+    const result = await callToolAsync(conn, readTool, { issueKey: workItemKey }, opts);
     calls.push(result);
     if (result.ok) {
       snippets.push(

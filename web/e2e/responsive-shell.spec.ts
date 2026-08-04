@@ -1,22 +1,22 @@
 import { expect, test, type Page } from '@playwright/test';
 import { clearBrowserSession, loginAs } from './helpers';
 
-/** Tailwind `md` breakpoint — desktop topbar owns nav-* IDs at ≥768. */
+/** Tailwind `md` breakpoint — desktop chrome at ≥768. */
 const DESKTOP_MIN = 768;
 
-async function expectTopbarOwnsNav(page: Page) {
-  await expect(page.locator('[data-testid="topbar"] [data-testid="nav-projects"]')).toBeVisible();
-  await expect(page.locator('[data-testid="topbar"] [data-testid="nav-approvals"]')).toBeVisible();
-  await expect(page.locator('[data-testid="topbar"] [data-testid="nav-governance"]')).toBeVisible();
-  await expect(page.locator('[data-testid="topbar"] [data-testid="nav-audit"]')).toBeVisible();
+async function expectDesktopChrome(page: Page) {
+  await expect(page.locator('[data-testid="topbar"] [data-testid="environment-switcher"]')).toBeVisible();
   await expect(page.locator('[data-testid="topbar"] [data-testid="nav-admin"]')).toBeVisible();
   await expect(page.getByTestId('nav-notifications')).toBeVisible();
+  // Org links moved out of the desktop topbar.
+  await expect(page.locator('[data-testid="topbar"] [data-testid="nav-projects"]')).toHaveCount(0);
   await expect(page.locator('[data-testid="sidebar-navigation"] [data-testid="nav-projects"]')).toHaveCount(0);
 }
 
 async function expectDrawerOwnsNav(page: Page) {
   await expect(page.locator('[data-testid="topbar"] [data-testid="nav-projects"]')).toHaveCount(0);
   await expect(page.locator('[data-testid="topbar"] [data-testid="nav-admin"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="topbar"] [data-testid="environment-switcher"]')).toHaveCount(0);
   // Notifications bell stays in the top chrome on all viewports.
   await expect(page.getByTestId('nav-notifications')).toBeVisible();
 
@@ -24,6 +24,7 @@ async function expectDrawerOwnsNav(page: Page) {
   await expect(drawer).toBeHidden();
   await page.getByRole('button', { name: 'Open navigation' }).click();
   await expect(drawer).toBeVisible();
+  await expect(page.getByTestId('environment-switcher')).toBeVisible();
   await expect(drawer.getByTestId('nav-projects')).toBeVisible();
   await expect(drawer.getByTestId('nav-approvals')).toBeVisible();
   await expect(drawer.getByTestId('nav-governance')).toBeVisible();
@@ -97,14 +98,14 @@ test.describe('Responsive shell', () => {
   test.describe('desktop top-nav chrome', () => {
     test.use({ viewport: { width: DESKTOP_MIN, height: 800 } });
 
-    test('desktop topbar owns nav IDs; drawer stays collapsed', async ({ page }) => {
+    test('desktop topbar owns env switcher; drawer stays collapsed', async ({ page }) => {
       await clearBrowserSession(page);
       await loginAs(page, 'manager');
 
       await expect(page.getByTestId('topbar')).toBeVisible();
       await expect(page.getByRole('button', { name: 'Open navigation' })).toBeHidden();
       await expect(page.getByTestId('sidebar-navigation')).toBeHidden();
-      await expectTopbarOwnsNav(page);
+      await expectDesktopChrome(page);
 
       await page.goto('/projects/INFRA');
       await expect(page.getByTestId('project-context-row')).toBeVisible();

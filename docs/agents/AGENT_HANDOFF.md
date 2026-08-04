@@ -99,6 +99,24 @@ Use this file to **delegate parallel work** to multiple coding agents. Each work
 
 ---
 
+### WS-H — Solutions, custom models & skills
+
+**Owns:** call-set → Solution promotion; custom model registry; skill packs  
+**Source docs:**  
+- [../ai/SOLUTIONS.md](../ai/SOLUTIONS.md)  
+- [../ai/MODELS_AND_SKILLS.md](../ai/MODELS_AND_SKILLS.md)  
+
+**Deliverables:**  
+- Promote only when approved **and** merged  
+- Sandbox train / publish APIs using Solutions only  
+- Shared types + audit events; later web corpus UI  
+
+**Must not:** train on uncleared drafts or unmerged call sets  
+
+**Depends on:** WS-A audit/PII rules; WS-C job artifacts for call-set content  
+
+---
+
 ## Suggested first parallel batch
 
 After shared schemas exist:
@@ -109,6 +127,7 @@ After shared schemas exist:
 | 2 | WS-B | Jira issue fetch + comment post |
 | 3 | WS-C | AiJob state machine + budget guard |
 | 4 | WS-F | Auth’d web shell + policy forms stub |
+| 5 | WS-H | Solution promote gate + sandbox train/publish |
 
 Then: WS-D, WS-E, WS-G.
 

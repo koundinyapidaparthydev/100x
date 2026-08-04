@@ -61,6 +61,82 @@ function hydrateStore(value: unknown): Store {
   if (!parsed.groupsByTenant || typeof parsed.groupsByTenant !== 'object') {
     parsed.groupsByTenant = {};
   }
+  if (!parsed.rolesByTenant || typeof parsed.rolesByTenant !== 'object') {
+    parsed.rolesByTenant = {};
+  }
+  // Migrate legacy built-in UserRole enums → roleId null / empty group roleIds.
+  for (const users of Object.values(parsed.usersByTenant)) {
+    if (!Array.isArray(users)) continue;
+    for (const user of users as unknown as Array<Record<string, unknown>>) {
+      if (!('roleId' in user) && typeof user.role === 'string') {
+        const legacy = user.role;
+        user.roleId = null;
+        if (legacy === 'root' && user.isWorkspaceOwner === undefined) {
+          user.isWorkspaceOwner = true;
+        }
+        delete user.role;
+      }
+      if (typeof user.roleId !== 'string' && user.roleId !== null) {
+        user.roleId = null;
+      }
+    }
+  }
+  for (const groups of Object.values(parsed.groupsByTenant)) {
+    if (!Array.isArray(groups)) continue;
+    for (const group of groups as unknown as Array<Record<string, unknown>>) {
+      const roleIds = group.roleIds;
+      if (!Array.isArray(roleIds)) {
+        group.roleIds = [];
+        continue;
+      }
+      const legacyBuiltIns = new Set(['root', 'manager', 'engineer', 'auditor']);
+      group.roleIds = roleIds.filter(
+        (id) => typeof id === 'string' && !legacyBuiltIns.has(id),
+      );
+    }
+  }
+  if (!parsed.environmentsByTenant || typeof parsed.environmentsByTenant !== 'object') {
+    parsed.environmentsByTenant = {};
+  }
+  if (!parsed.activeEnvironmentByTenant || typeof parsed.activeEnvironmentByTenant !== 'object') {
+    parsed.activeEnvironmentByTenant = {};
+  }
+  if (!parsed.environmentGrantsByTenant || typeof parsed.environmentGrantsByTenant !== 'object') {
+    parsed.environmentGrantsByTenant = {};
+  }
+  if (!parsed.homeLayoutByUser || typeof parsed.homeLayoutByUser !== 'object') {
+    parsed.homeLayoutByUser = {};
+  }
+  // Migrate MCP connections missing environmentId onto active/default (prod) env.
+  for (const [tenantId, connections] of Object.entries(parsed.mcpConnectionsByTenant ?? {})) {
+    if (!Array.isArray(connections)) continue;
+    const envs = parsed.environmentsByTenant?.[tenantId] ?? [];
+    const activeId =
+      parsed.activeEnvironmentByTenant?.[tenantId] ??
+      envs.find((e) => e.key === 'prod')?.id ??
+      envs[0]?.id ??
+      '';
+    for (const conn of connections as unknown as Array<Record<string, unknown>>) {
+      if (typeof conn.environmentId !== 'string' || !conn.environmentId) {
+        conn.environmentId = activeId || 'env-prod';
+      }
+    }
+  }
+  if (!parsed.callSetsByTenant || typeof parsed.callSetsByTenant !== 'object') {
+    parsed.callSetsByTenant = {};
+  }
+  if (!parsed.solutionsByTenant || typeof parsed.solutionsByTenant !== 'object') {
+    parsed.solutionsByTenant = {};
+  }
+  if (!parsed.customModelsByTenant || typeof parsed.customModelsByTenant !== 'object') {
+    parsed.customModelsByTenant = {};
+  }
+  if (!parsed.skillPacksByTenant || typeof parsed.skillPacksByTenant !== 'object') {
+    parsed.skillPacksByTenant = {};
+  }
+  if (!parsed.securityByUser || typeof parsed.securityByUser !== 'object') {
+    parsed.securityByUser = {};
+  }
   if (!Array.isArray(parsed.iamImportJobs)) {
     parsed.iamImportJobs = [];
   }
@@ -69,6 +145,9 @@ function hydrateStore(value: unknown): Store {
   }
   if (!parsed.mcpConnectionsByTenant || typeof parsed.mcpConnectionsByTenant !== 'object') {
     parsed.mcpConnectionsByTenant = {};
+  }
+  if (!parsed.mcpCredentialsByTenant || typeof parsed.mcpCredentialsByTenant !== 'object') {
+    parsed.mcpCredentialsByTenant = {};
   }
   // Migrate legacy string PII modes → full clearing rules.
   parsed.policies = parsed.policies.map((policy) => {

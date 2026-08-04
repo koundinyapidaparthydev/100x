@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@shared/api';
-import { hydrateOnboardingFromServer, postAuthPath } from '../lib/onboardingStorage';
-import { applyDemoSessionToApi, readDemoSession, writeDemoSession } from '../lib/session';
+import { hydrateOnboardingFromServer, resolvePostAuthLanding } from '../lib/onboardingStorage';
+import { applyDemoSessionToApi, readDemoSession, demoSeatFromUser, writeDemoSession } from '../lib/session';
 import { AuthSplit, WorkspaceAuthForm, type DemoRoleId } from '../components/landing';
 
 export default function Signup() {
@@ -21,8 +21,9 @@ export default function Signup() {
     let cancelled = false;
     void (async () => {
       await hydrateOnboardingFromServer();
+      const dest = await resolvePostAuthLanding();
       if (!cancelled) {
-        navigate(postAuthPath(), { replace: true });
+        navigate(dest, { replace: true });
       }
     })();
     return () => {
@@ -38,7 +39,7 @@ export default function Signup() {
       writeDemoSession({
         token: session.token,
         id: session.user.id,
-        role: session.user.role,
+        role: demoSeatFromUser(session.user),
         surface: 'web',
       });
       await hydrateOnboardingFromServer();

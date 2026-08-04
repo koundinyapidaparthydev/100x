@@ -84,7 +84,7 @@ describe('board connector API loop', () => {
       addAttachment: vi.fn().mockResolvedValue({ attachmentId: 'attachment-1' }),
     };
     const req = supertest(createApp({ store, boardConnector: connector }));
-    const login = await req.post('/api/v1/auth/login').send({ identity: 'manager' }).expect(200);
+    const login = await req.post('/api/v1/auth/login').send({ identity: 'root' }).expect(200);
     const bearer = { Authorization: `Bearer ${login.body.session.token as string}` };
 
     await req.post('/api/v1/boards/connect').set(bearer).send({ projectId: 'new', name: 'New board' }).expect(201);
@@ -109,7 +109,7 @@ describe('board connector API loop', () => {
       addAttachment: vi.fn().mockImplementation(async () => ({ attachmentId: `attachment-${++attachment}` })),
     };
     const req = supertest(createApp({ store, boardConnector: connector }));
-    const login = await req.post('/api/v1/auth/login').send({ identity: 'manager' }).expect(200);
+    const login = await req.post('/api/v1/auth/login').send({ identity: 'root' }).expect(200);
 
     const result = await req
       .post('/api/v1/work-items/wi-aplifyai-101/triage')

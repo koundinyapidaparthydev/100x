@@ -25,6 +25,7 @@ export const SERVICE_CATEGORY_LABELS: Record<ServiceCategory, string> = {
   code: 'Code',
   docs: 'Docs / knowledge',
   cloud: 'Cloud / runtime',
+  logging: 'Logging / observability',
   identity: 'Identity (SSO)',
 };
 
@@ -435,6 +436,56 @@ const SERVICE_CATALOG_BASE: Array<Omit<ServiceCatalogEntry, 'catalogStatus'>> = 
     logo: '/brands/claude_code.svg',
     status: 'planned',
     secureHint: 'Agent client for cleared ticket context after connect. Coming soon.',
+  },
+
+  // Logging / observability
+  {
+    id: 'datadog',
+    name: 'Datadog',
+    category: 'logging',
+    logo: '/brands/datadog.svg',
+    status: 'planned',
+    secureHint: 'API key + site allowlist. Set MCP_DATADOG_URL or MCP_DATADOG_API_KEY for live MCP.',
+  },
+  {
+    id: 'aws_cloudwatch',
+    name: 'AWS CloudWatch',
+    category: 'logging',
+    logo: '/brands/aws_cloudwatch.svg',
+    status: 'planned',
+    secureHint: 'IAM role or MCP_CLOUDWATCH_URL for log groups / metrics MCP.',
+  },
+  {
+    id: 'splunk',
+    name: 'Splunk',
+    category: 'logging',
+    logo: '/brands/splunk.svg',
+    status: 'planned',
+    secureHint: 'Splunk token + MCP_SPLUNK_URL for SPL search MCP.',
+  },
+  {
+    id: 'elasticsearch',
+    name: 'Elasticsearch / OpenSearch',
+    category: 'logging',
+    logo: '/brands/elasticsearch.svg',
+    status: 'planned',
+    secureHint: 'Cluster URL + token (MCP_ELASTICSEARCH_* or MCP_OPENSEARCH_*).',
+  },
+  {
+    id: 'new_relic',
+    name: 'New Relic',
+    category: 'logging',
+    logo: '/brands/new_relic.svg',
+    status: 'planned',
+    secureHint: 'User API key + MCP_NEW_RELIC_URL for NRQL / logs MCP.',
+  },
+  {
+    id: 'grafana_loki',
+    name: 'Grafana Loki',
+    category: 'logging',
+    logo: '/brands/grafana_loki.svg',
+    status: 'planned',
+    secureHint: 'Loki / Grafana token + MCP_GRAFANA_LOKI_URL for LogQL MCP.',
   },
 
   // Identity

@@ -27,7 +27,7 @@ describe('Atlassian MCP OAuth', () => {
   it('builds a PKCE authorize URL when client + redirect are set', () => {
     process.env.MCP_ATLASSIAN_CLIENT_ID = 'client';
     process.env.MCP_ATLASSIAN_REDIRECT_URI = 'http://localhost:4000/callback';
-    const started = buildAtlassianAuthorizeUrl();
+    const started = buildAtlassianAuthorizeUrl('acme');
     expect(started).not.toBeNull();
     expect(started!.url).toContain('auth.atlassian.com');
     expect(started!.url).toContain('code_challenge');
@@ -39,14 +39,19 @@ describe('Atlassian MCP OAuth', () => {
     process.env.MCP_ATLASSIAN_CLIENT_ID = 'client';
     process.env.MCP_ATLASSIAN_REDIRECT_URI = 'http://localhost:4000/callback';
     process.env.MCP_ATLASSIAN_TOKEN_URL = 'https://example.test/oauth/token';
-    const started = buildAtlassianAuthorizeUrl();
+    const started = buildAtlassianAuthorizeUrl('acme');
     expect(started).not.toBeNull();
 
     vi.stubGlobal(
       'fetch',
       vi.fn(async () =>
         new Response(
-          JSON.stringify({ access_token: 'atl-token', expires_in: 3600, scope: 'read:jira-work' }),
+          JSON.stringify({
+            access_token: 'atl-token',
+            refresh_token: 'atl-refresh',
+            expires_in: 3600,
+            scope: 'read:jira-work',
+          }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         ),
       ),
@@ -57,6 +62,8 @@ describe('Atlassian MCP OAuth', () => {
       state: started!.state,
     });
     expect(result.accessToken).toBe('atl-token');
+    expect(result.tenantId).toBe('acme');
+    expect(result.refreshToken).toBe('atl-refresh');
     expect(getAtlassianAccessToken()).toBe('atl-token');
     expect(getAtlassianMcpOAuthStatus().hasAccessToken).toBe(true);
   });

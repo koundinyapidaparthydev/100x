@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AWS CloudWatch">
+  <rect width="64" height="64" rx="12" fill="#232F3E"/>
+  <path d="M12 40c6-14 12-20 20-20s14 6 20 20" fill="none" stroke="#FF9900" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="32" cy="28" r="4" fill="#FF9900"/>
+  <path d="M18 46h28" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+</svg>

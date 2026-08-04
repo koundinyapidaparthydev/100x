@@ -297,6 +297,156 @@ export interface ApprovalItem {
   requestedAt: string;
 }
 
+// ---------------------------------------------------------------------------
+// Solutions / custom models / skills (learning layer)
+// Source: docs/ai/SOLUTIONS.md, docs/ai/MODELS_AND_SKILLS.md
+// ---------------------------------------------------------------------------
+
+/** Ordered turn inside a call set — content must already be PII-cleared. */
+export interface SolutionCallTurn {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  at?: string;
+}
+
+/**
+ * In-flight learning candidate for one work item run.
+ * Becomes a Solution only after approve + merge + promote.
+ */
+export type CallSetStatus = 'open' | 'approved' | 'merged' | 'promoted' | 'rejected';
+
+export interface SolutionCallSet {
+  id: string;
+  tenantId: string;
+  workItemId: string;
+  aiJobId: string | null;
+  /** Sanitized input context (ticket / thread). */
+  inputSummary: string;
+  /** Human-reviewed solution narrative / accepted draft. */
+  solutionSummary: string;
+  turns: SolutionCallTurn[];
+  artifactIds: string[];
+  approvalId: string | null;
+  approvedAt: string | null;
+  approvedBy: string | null;
+  /** MR/PR URL, commit SHA, or explicit no-code ship marker. */
+  mergeRef: string | null;
+  mergedAt: string | null;
+  status: CallSetStatus;
+  /** Hint used when promoting into skill categories. */
+  categoryHint: string | null;
+  /** Set once promote succeeds. */
+  solutionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SolutionStatus = 'active' | 'archived' | 'superseded';
+
+/** Immutable training record — approved + merged call set snapshot. */
+export interface Solution {
+  id: string;
+  tenantId: string;
+  callSetId: string;
+  workItemId: string;
+  category: string;
+  inputSummary: string;
+  solutionSummary: string;
+  turns: SolutionCallTurn[];
+  artifactIds: string[];
+  mergeRef: string;
+  mergedAt: string;
+  approvedBy: string;
+  approvedAt: string;
+  status: SolutionStatus;
+  usedByModelIds: string[];
+  usedBySkillIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CustomModelStatus =
+  | 'collecting'
+  | 'queued'
+  | 'training'
+  | 'ready'
+  | 'failed'
+  | 'archived';
+
+export interface CustomModel {
+  id: string;
+  tenantId: string;
+  name: string;
+  status: CustomModelStatus;
+  solutionIds: string[];
+  /** Default 0.9 — new tasks must match at least this closely to prefer the custom model. */
+  matchThreshold: number;
+  baseProvider: string;
+  baseModelId: string;
+  artifactUri: string | null;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SkillKitTarget = 'cursor' | 'claude_code' | 'codex' | 'chatgpt' | 'custom';
+export type SkillPackStatus = 'draft' | 'review' | 'published' | 'archived';
+
+export interface SkillPack {
+  id: string;
+  tenantId: string;
+  name: string;
+  category: string;
+  status: SkillPackStatus;
+  solutionIds: string[];
+  targetKits: SkillKitTarget[];
+  /** Sanitized playbook / skill body. */
+  instructions: string;
+  publishedAt: string | null;
+  publishedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCallSetRequest {
+  workItemId: string;
+  inputSummary: string;
+  solutionSummary: string;
+  turns?: SolutionCallTurn[];
+  artifactIds?: string[];
+  aiJobId?: string | null;
+  categoryHint?: string | null;
+  approvalId?: string | null;
+}
+
+export interface ApproveCallSetRequest {
+  approvedBy?: string;
+}
+
+export interface MergeCallSetRequest {
+  mergeRef: string;
+}
+
+export interface CreateCustomModelRequest {
+  name: string;
+  baseProvider?: string;
+  baseModelId?: string;
+  matchThreshold?: number;
+  solutionIds?: string[];
+}
+
+export interface LinkSolutionsRequest {
+  solutionIds: string[];
+}
+
+export interface CreateSkillPackRequest {
+  name: string;
+  category: string;
+  instructions?: string;
+  targetKits?: SkillKitTarget[];
+  solutionIds?: string[];
+}
+
 export type NotificationKind = 'ai_ready' | 'pii_block' | 'approval' | 'system' | 'security';
 
 export interface NotificationItem {
@@ -359,30 +509,102 @@ export interface AccessRequestBody {
 }
 
 // ---------------------------------------------------------------------------
-// Auth (H1)
+// Auth (H1) — custom roles + platform / MCP rule grants
 // ---------------------------------------------------------------------------
 
-/** Workspace access roles. `root` is the org owner (first signup); others are invited. */
-export type UserRole = 'root' | 'manager' | 'engineer' | 'auditor';
+/** Non-MCP console/ops capabilities selectable when composing a custom role. */
+export type PlatformCapability =
+  | 'identity.read'
+  | 'identity.manage'
+  | 'invites.manage'
+  | 'groups.delete'
+  | 'environments.manage'
+  | 'boards.connect'
+  | 'work_items.triage'
+  | 'approvals.read'
+  | 'approvals.decide'
+  | 'policies.manage'
+  | 'mcp.connect'
+  | 'notifications.manage'
+  | 'solutions.manage'
+  | 'learning.manage';
 
-/** Invitable roles — root is only granted on workspace creation / signup. */
-export type InvitableRole = Exclude<UserRole, 'root'>;
+export const PLATFORM_CAPABILITIES: PlatformCapability[] = [
+  'identity.read',
+  'identity.manage',
+  'invites.manage',
+  'groups.delete',
+  'environments.manage',
+  'boards.connect',
+  'work_items.triage',
+  'approvals.read',
+  'approvals.decide',
+  'policies.manage',
+  'mcp.connect',
+  'notifications.manage',
+  'solutions.manage',
+  'learning.manage',
+];
+
+export type RoleSubject = 'user';
+
+/** MCP provider access grant — level intersects with the tenant connection level. */
+export type McpAccessRoleRule = {
+  kind: 'mcp_access';
+  serverId: string;
+  permissionLevel: 'read' | 'write' | 'admin';
+};
+
+/** Platform capability grant for console/API gates. */
+export type PlatformRoleRule = {
+  kind: 'platform';
+  capability: PlatformCapability;
+};
+
+export type RoleRule = McpAccessRoleRule | PlatformRoleRule;
+
+/** Tenant-defined role. Empty by default; composed from rule kinds (not built-in templates). */
+export interface CustomRole {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string;
+  subject: RoleSubject;
+  rules: RoleRule[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCustomRoleRequest {
+  name: string;
+  description?: string;
+  rules?: RoleRule[];
+}
+
+export interface UpdateCustomRoleRequest {
+  name?: string;
+  description?: string;
+  rules?: RoleRule[];
+}
 
 export interface AuthUser {
   id: string;
   displayName: string;
   email: string;
-  role: UserRole;
+  /** Assigned custom role id, or null when owner-only / unassigned. */
+  roleId: string | null;
   tenantId: string;
   surface: 'web' | 'mobile';
   /** Company / workspace domain captured after Google signup (e.g. acme.com). */
   companyDomain?: string;
   /** Additional emails linked to this identity (work email ≠ Google email). */
   linkedEmails?: string[];
-  /** True when this user created the workspace (root owner path). */
+  /** True when this user created the workspace (owner path). Full platform + MCP bypass. */
   isWorkspaceOwner?: boolean;
   /** False until the post-Google company / primary-account gate is completed. */
   workspaceSetupComplete?: boolean;
+  /** Effective platform capabilities (owner = all). Populated on /auth/me enrichment. */
+  platformCapabilities?: PlatformCapability[];
 }
 
 export interface AuthSession {
@@ -392,7 +614,7 @@ export interface AuthSession {
 }
 
 export interface LoginRequest {
-  /** Demo identity: root | manager | engineer | auditor (or email of a seeded user). Alias: founder → root. */
+  /** Demo identity: owner|root|member|engineer (or email of a seeded user). Alias: founder → owner. */
   identity: string;
   surface?: 'web' | 'mobile';
 }
@@ -403,7 +625,8 @@ export interface WorkspaceInvite {
   id: string;
   tenantId: string;
   email: string;
-  role: InvitableRole;
+  /** Custom role id granted on accept. */
+  roleId: string;
   invitedByUserId: string;
   invitedByEmail: string;
   status: WorkspaceInviteStatus;
@@ -411,28 +634,44 @@ export interface WorkspaceInvite {
   updatedAt: string;
   acceptedAt: string | null;
   acceptedByUserId: string | null;
-  /** Sandbox stub: last time an invite email was "sent". */
+  /** Last time an invite email was sent (SendGrid or stub outbox). */
   lastEmailAt: string | null;
-  /** Sandbox stub: human-readable email body stored instead of SMTP. */
+  /** Human-readable email body preview (also stored when SendGrid sends). */
   lastEmailPreview: string | null;
 }
 
 export interface CreateInviteRequest {
   email: string;
-  role: InvitableRole;
+  roleId: string;
 }
+
+export type InviteEmailChannel = 'sendgrid' | 'stub';
 
 export interface CreateInviteResponse {
   invite: WorkspaceInvite;
   emailDelivery: {
     sent: boolean;
-    channel: 'stub';
+    channel: InviteEmailChannel;
     preview: string;
+    /** SendGrid x-message-id when channel is sendgrid. */
+    messageId?: string | null;
   };
 }
 
 export interface ListInvitesResponse {
   invites: WorkspaceInvite[];
+}
+
+/**
+ * Per-environment membership for a workspace user.
+ * Permissions come from `roleId` (CustomRole) for that environment; optional
+ * inline `rules` can extend later without a role.
+ */
+export interface UserEnvironmentGrant {
+  userId: string;
+  environmentId: string;
+  roleId: string | null;
+  rules?: RoleRule[];
 }
 
 /** Persisted workspace member (federated + demo), keyed under usersByTenant. */
@@ -441,15 +680,30 @@ export interface TenantUser {
   tenantId: string;
   email: string;
   displayName: string;
-  role: UserRole;
+  roleId: string | null;
   linkedEmails: string[];
   companyDomain: string | null;
   isWorkspaceOwner: boolean;
   workspaceSetupComplete: boolean;
   groupIds: string[];
+  /** Summary of env memberships (populated on list responses). */
+  environmentGrants?: UserEnvironmentGrant[];
   createdAt: string;
   updatedAt: string;
   lastLoginAt: string | null;
+}
+
+export interface UpdateUserEnvironmentGrantsRequest {
+  grants: Array<{
+    environmentId: string;
+    roleId: string | null;
+    rules?: RoleRule[];
+  }>;
+}
+
+export interface UserEnvironmentGrantsResponse {
+  userId: string;
+  grants: UserEnvironmentGrant[];
 }
 
 export interface IdentityGroup {
@@ -457,17 +711,11 @@ export interface IdentityGroup {
   tenantId: string;
   name: string;
   description: string;
-  roleIds: UserRole[];
+  /** Custom role ids attached to the group (display / assignment helpers). */
+  roleIds: string[];
   memberIds: string[];
   createdAt: string;
   updatedAt: string;
-}
-
-export interface BuiltInRoleDefinition {
-  id: UserRole;
-  label: string;
-  description: string;
-  builtIn: true;
 }
 
 export interface WorkspaceSetupRequest {
@@ -489,7 +737,7 @@ export interface ListTenantUsersResponse {
 }
 
 export interface UpdateTenantUserRequest {
-  role?: UserRole;
+  roleId?: string | null;
   linkedEmails?: string[];
   groupIds?: string[];
 }
@@ -501,28 +749,121 @@ export interface ListIdentityGroupsResponse {
 export interface CreateIdentityGroupRequest {
   name: string;
   description?: string;
-  roleIds?: UserRole[];
+  roleIds?: string[];
   memberIds?: string[];
 }
 
 export interface UpdateIdentityGroupRequest {
   name?: string;
   description?: string;
-  roleIds?: UserRole[];
+  roleIds?: string[];
   memberIds?: string[];
 }
 
+/** Deployment / release environment within a workspace (UI + persistence MVP). */
+export type WorkspaceEnvironment = {
+  id: string;
+  tenantId: string;
+  /** Slug: prod | stage | dev | custom */
+  key: 'prod' | 'stage' | 'dev' | string;
+  name: string;
+  createdAt: string;
+};
+
+export type WorkspaceEnvironmentState = {
+  environments: WorkspaceEnvironment[];
+  activeEnvironmentId: string;
+};
+
+export interface CreateEnvironmentRequest {
+  key: string;
+  name: string;
+}
+
+export interface SetActiveEnvironmentRequest {
+  environmentId: string;
+}
+
+export interface EnsureEnvironmentsRequest {
+  /** Keys to create when the workspace has none yet. At least one required. */
+  keys: string[];
+}
+
+/** Per-user platform access controls (sandbox stubs until WebAuthn/IdP wired). */
+export interface RegisteredPasskey {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface PlatformAccessKey {
+  id: string;
+  name: string;
+  /** Public prefix shown in lists (e.g. apk_ab12…). */
+  prefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface UserSecuritySettings {
+  userId: string;
+  tenantId: string;
+  /** User has completed (sandbox) 2FA enrollment. */
+  twoFactorEnabled: boolean;
+  /** Workspace preference: require 2FA for this account on next sign-in. */
+  twoFactorRequired: boolean;
+  passkeysEnabled: boolean;
+  passkeys: RegisteredPasskey[];
+  accessKeys: PlatformAccessKey[];
+  updatedAt: string;
+}
+
+export interface UpdateSecuritySettingsRequest {
+  twoFactorEnabled?: boolean;
+  twoFactorRequired?: boolean;
+  passkeysEnabled?: boolean;
+}
+
+export interface CreatePasskeyRequest {
+  name: string;
+}
+
+export interface CreateAccessKeyRequest {
+  name: string;
+}
+
+export interface CreateAccessKeyResponse {
+  key: PlatformAccessKey;
+  /** Shown once — store securely. */
+  secret: string;
+  settings: UserSecuritySettings;
+}
+
 export interface ListRolesResponse {
-  roles: BuiltInRoleDefinition[];
+  roles: CustomRole[];
+}
+
+export interface CreateRoleResponse {
+  role: CustomRole;
+}
+
+export interface UpdateRoleResponse {
+  role: CustomRole;
 }
 
 export interface ConsoleServiceRecord {
   id: string;
   name: string;
+  /** Product category (conversation, boards, code, …) when known. */
   category: string;
+  /** MCP availability band (official_remote, community, …). */
+  availability?: string;
   connected: boolean;
   permissionLevel: string | null;
   source: 'catalog' | 'mcp';
+  notes?: string;
 }
 
 export interface ListConsoleServicesResponse {
@@ -620,6 +961,7 @@ export type ServiceCategory =
   | 'code'
   | 'docs'
   | 'cloud'
+  | 'logging'
   | 'identity';
 
 export type ServiceId =
@@ -673,6 +1015,12 @@ export type ServiceId =
   | 'chatgpt'
   | 'codex'
   | 'claude_code'
+  | 'datadog'
+  | 'aws_cloudwatch'
+  | 'splunk'
+  | 'elasticsearch'
+  | 'new_relic'
+  | 'grafana_loki'
   | 'okta'
   | 'azure_ad'
   | 'google_workspace'
@@ -685,11 +1033,24 @@ export type McpConnectionStatus = 'available' | 'planned' | 'needs_secure_setup'
 /** Tenant-selected capability band when connecting an MCP provider. */
 export type McpPermissionLevel = 'read' | 'write' | 'admin';
 
-/** Live connection record for one service’s MCP server (no secrets stored in demo). */
+/** Auth / transport readiness surfaced to the Connections UI (never includes secrets). */
+export type McpAuthState = 'none' | 'oauth_required' | 'token_required' | 'ready' | 'error';
+
+/** Live connection record for one service’s MCP server (secrets stay in credential store). */
 export interface ServiceMcpConnection {
   serviceId: ServiceId;
   serverId: string;
+  /**
+   * Workspace environment this connection belongs to.
+   * Uniqueness is (environmentId, serviceId). Legacy rows migrate onto the
+   * tenant’s active/default (prod) environment.
+   */
+  environmentId: string;
   status: 'connected' | 'pending' | 'error' | 'disconnected';
+  /**
+   * Tool gating band at connect time. Product axis is the user’s env role ∩
+   * this level; owners typically connect at `admin`.
+   */
   permissionLevel: McpPermissionLevel;
   /** Tool names granted at the selected permission level. */
   grantedTools: string[];
@@ -697,14 +1058,83 @@ export interface ServiceMcpConnection {
   updatedAt: string;
   /** Last error message if status === 'error'. */
   lastError?: string;
+  /** Whether credentials + transport are ready for live remote calls. */
+  live?: boolean;
+  /** Explains gaps when not fully ready (oauth / token / transport). */
+  authState?: McpAuthState;
+}
+
+/** Widget ids recommended on the connection-aware Home. */
+export type HomeWidgetId = 'tickets' | 'channels' | 'approvals' | 'activity';
+
+/** Per-user Home layout preference (show/hide + order). */
+export interface HomeLayoutPrefs {
+  userId: string;
+  tenantId: string;
+  /** Ordered widget ids the user wants visible. Empty = use recommendations. */
+  widgets: HomeWidgetId[];
+  updatedAt: string;
+}
+
+export interface UpdateHomeLayoutRequest {
+  widgets: HomeWidgetId[];
+}
+
+/** Stored OAuth tokens for an MCP provider family (never returned to clients). */
+export interface TenantMcpOAuthTokens {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}
+
+/** IAM / cloud-role identifiers (secrets stay in env / workload identity). */
+export interface TenantMcpIamCredentials {
+  /** AWS role ARN to assume for AWS / CloudWatch MCP. */
+  roleArn?: string;
+  /** Azure subscription id. */
+  subscriptionId?: string;
+  /** Azure AD tenant id. */
+  azureTenantId?: string;
+  /** GCP project id. */
+  projectId?: string;
+  /** Optional service-principal / client id (secret via env). */
+  clientId?: string;
+}
+
+/**
+ * Per-tenant MCP secrets — never returned on GET /mcp/connections.
+ * Prefer tokensByServiceId for PAT / API keys; keep github/atlassian for compat.
+ */
+export interface TenantMcpCredentials {
+  atlassian?: TenantMcpOAuthTokens;
+  /** @deprecated Prefer tokensByServiceId.github — still read/written for compat. */
+  github?: {
+    token: string;
+  };
+  /** Bearer / PAT / API key by service id (Notion, Linear, logging, ADO, …). */
+  tokensByServiceId?: Partial<Record<ServiceId, { token: string }>>;
+  /** OAuth access tokens keyed by provider family (slack, gitlab, google, microsoft, linear, …). */
+  oauthByProvider?: Partial<Record<string, TenantMcpOAuthTokens>>;
+  /** Cloud IAM / role linkage by service id. */
+  iamByServiceId?: Partial<Record<ServiceId, TenantMcpIamCredentials>>;
+}
+
+export type McpConnectErrorCode = 'oauth_required' | 'token_required' | 'transport_unavailable';
+
+export interface McpConnectErrorBody {
+  error: string;
+  code: McpConnectErrorCode;
+  authorizePath?: string;
 }
 
 export interface McpConnectRequest {
-  permissionLevel: McpPermissionLevel;
+  /** Optional — defaults to `admin` for owner-connected services. */
+  permissionLevel?: McpPermissionLevel;
 }
 
 export interface McpConnectionsResponse {
   connections: ServiceMcpConnection[];
+  environmentId?: string;
 }
 
 export type TeamSizeBand = '1-5' | '6-20' | '21-100' | '100+';

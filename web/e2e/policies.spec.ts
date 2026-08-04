@@ -8,7 +8,7 @@ test.describe('Policies & PII', () => {
   });
 
   test('policy defaults persist a security-level change', async ({ page }) => {
-    await page.getByTestId('nav-governance').click();
+    await page.goto('/governance/defaults');
     await expect(page).toHaveURL(/\/governance\/defaults$/);
     await expect(page.getByTestId('policies-page')).toBeVisible();
     await expect(page.getByTestId('policy-edit-form')).toBeVisible();
@@ -30,7 +30,7 @@ test.describe('Policies & PII', () => {
   });
 
   test('PII rules page loads and save persists mode change', async ({ page }) => {
-    await page.getByTestId('nav-governance').click();
+    await page.goto('/governance/defaults');
     await page.getByRole('link', { name: 'PII & PCI' }).click();
     await expect(page).toHaveURL(/\/governance\/pii$/);
     await expect(page.getByTestId('pii-rules-page')).toBeVisible();

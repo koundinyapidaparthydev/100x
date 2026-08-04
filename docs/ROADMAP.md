@@ -49,6 +49,8 @@ Build step by step. Foundation before scale.
 - Bug-finding / flow-optimization agents (policy-gated)  
 - Enterprise security level 6 hardening  
 - Compliance exports, pen-test remediation  
+- **Solutions corpus** — approved + merged call sets become Solutions ([ai/SOLUTIONS.md](ai/SOLUTIONS.md))  
+- **Custom models & skills** — train/serve models and publish skill packs from Solutions ([ai/MODELS_AND_SKILLS.md](ai/MODELS_AND_SKILLS.md))  
 
 ## Phase 8 — Scale & later surfaces
 
@@ -59,5 +61,7 @@ Build step by step. Foundation before scale.
 ## Parallelization hint
 
 Phases 2–4 can partially overlap once Phase 1 contracts are stable. Cloud adapters (Phase 5) can start with interface stubs during Phase 3.
+
+**Learning layer (now):** Solutions contracts + sandbox promote/train/publish can land in parallel with MCP and control-plane work. Real fine-tune vendors wait until Solution promotion is correct. See [agents/AGENT_HANDOFF.md](agents/AGENT_HANDOFF.md) workstream WS-H.
 
 See [agents/AGENT_HANDOFF.md](agents/AGENT_HANDOFF.md) for workstream splits.

@@ -18,6 +18,16 @@ describe('McpGateway', () => {
     expect(allowed.ok).toBe(true);
   });
 
+  it('intersects connection grants with the user role MCP level', () => {
+    const conn = createConnection('jira', 'admin');
+    const deniedWrite = callTool(conn, 'jira_add_comment', {}, { rolePermissionLevel: 'read' });
+    expect(deniedWrite.ok).toBe(false);
+    const allowedRead = callTool(conn, 'jira_get_issue', {}, { rolePermissionLevel: 'read' });
+    expect(allowedRead.ok).toBe(true);
+    const deniedNoGrant = callTool(conn, 'jira_get_issue', {}, { rolePermissionLevel: null });
+    expect(deniedNoGrant.ok).toBe(false);
+  });
+
   it('rejects services without an MCP provider', () => {
     const conn = createConnection('smartsheet', 'read');
     expect(conn.status).toBe('error');
@@ -34,6 +44,8 @@ describe('McpGateway', () => {
       'gitlab',
       'linear',
       'teams',
+      'datadog',
+      'aws_cloudwatch',
     ] as const) {
       const conn = createConnection(id, 'read');
       expect(conn.status, id).toBe('connected');

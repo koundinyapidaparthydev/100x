@@ -20,7 +20,7 @@ function piiSummary(policy: Policy): string {
 }
 
 export default function Policies() {
-  const canManage = ['root', 'manager'].includes(readDemoSession()?.role ?? '');
+  const canManage = ['root', 'owner'].includes(readDemoSession()?.role ?? '');
   const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), []);
   const policy = policies?.find((item) => item.scope === 'org') ?? policies?.[0] ?? null;
   const [securityLevel, setSecurityLevel] = useState<SecurityLevel>('standard');

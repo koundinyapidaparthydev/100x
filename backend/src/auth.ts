@@ -5,14 +5,9 @@
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
-import type {
-  AuthSession,
-  AuthUser,
-  FederatedAuthProvider,
-  LoginRequest,
-  UserRole,
-} from '../../shared/types';
-import { TENANT_ID } from './store';
+import type { AuthSession, AuthUser, FederatedAuthProvider, LoginRequest, PlatformCapability } from '../../shared/types';
+import { enrichAuthUser, roleHasPlatform } from './identity';
+import { TENANT_ID, type Store } from './store';
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h short-lived demo sessions
 
@@ -34,8 +29,9 @@ interface SessionClaims {
   nonce: string;
   email?: string;
   displayName?: string;
-  role?: UserRole;
+  roleId?: string | null;
   tenantId?: string;
+  isWorkspaceOwner?: boolean;
   authProvider?: SessionAuthProvider;
 }
 
@@ -44,41 +40,51 @@ const SEEDED_USERS: AuthUser[] = [
     id: 'usr-root-1',
     displayName: 'Asha Root',
     email: 'root@acme.demo',
-    role: 'root',
+    roleId: null,
     tenantId: TENANT_ID,
     surface: 'web',
+    isWorkspaceOwner: true,
+    workspaceSetupComplete: true,
   },
   {
     id: 'usr-manager-1',
     displayName: 'Marcus Manager',
     email: 'manager@acme.demo',
-    role: 'manager',
+    roleId: null,
     tenantId: TENANT_ID,
     surface: 'web',
+    isWorkspaceOwner: false,
+    workspaceSetupComplete: true,
   },
   {
     id: 'usr-manager-mobile',
     displayName: 'Priya Manager',
     email: 'priya@acme.demo',
-    role: 'manager',
+    roleId: null,
     tenantId: TENANT_ID,
     surface: 'mobile',
+    isWorkspaceOwner: false,
+    workspaceSetupComplete: true,
   },
   {
     id: 'usr-engineer-1',
     displayName: 'Dev Engineer',
     email: 'engineer@acme.demo',
-    role: 'engineer',
+    roleId: null,
     tenantId: TENANT_ID,
     surface: 'web',
+    isWorkspaceOwner: false,
+    workspaceSetupComplete: true,
   },
   {
     id: 'usr-auditor-1',
     displayName: 'Audit Viewer',
     email: 'auditor@acme.demo',
-    role: 'auditor',
+    roleId: null,
     tenantId: TENANT_ID,
     surface: 'web',
+    isWorkspaceOwner: false,
+    workspaceSetupComplete: true,
   },
 ];
 
@@ -122,21 +128,36 @@ function sign(unsigned: string): string {
 function resolveIdentity(identity: string, surface: 'web' | 'mobile'): AuthUser | null {
   const key = identity.trim().toLowerCase();
   // Prefer the mobile-seeded manager profile for the default demo path.
-  if (key === 'manager' && surface === 'mobile') {
+  if ((key === 'manager' || key === 'member') && surface === 'mobile') {
     const mobile = SEEDED_USERS.find((u) => u.id === 'usr-manager-mobile')!;
     return { ...mobile, surface: 'mobile' };
   }
-  // Legacy demo aliases: founder → root workspace owner.
-  if (key === 'founder' || key === 'founder@acme.demo' || key === 'usr-founder-1') {
-    const root = SEEDED_USERS.find((u) => u.role === 'root')!;
+  // Legacy demo aliases: founder → workspace owner; member → limited engineer seat.
+  if (key === 'founder' || key === 'founder@acme.demo' || key === 'usr-founder-1' || key === 'owner') {
+    const root = SEEDED_USERS.find((u) => u.id === 'usr-root-1')!;
     return { ...root, surface };
   }
-  const byRole = SEEDED_USERS.find((u) => u.role === key);
-  if (byRole) return { ...byRole, surface };
+  if (key === 'member') {
+    const engineer = SEEDED_USERS.find((u) => u.id === 'usr-engineer-1')!;
+    return { ...engineer, surface };
+  }
   const byEmail = SEEDED_USERS.find((u) => u.email.toLowerCase() === key);
   if (byEmail) return { ...byEmail, surface };
   const byId = SEEDED_USERS.find((u) => u.id === identity.trim());
   if (byId) return { ...byId, surface };
+  // Legacy identity keys root|manager|engineer|auditor still resolve for tests / seat switcher.
+  if (key === 'root') {
+    return { ...SEEDED_USERS.find((u) => u.id === 'usr-root-1')!, surface };
+  }
+  if (key === 'manager') {
+    return { ...SEEDED_USERS.find((u) => u.id === 'usr-manager-1')!, surface };
+  }
+  if (key === 'engineer') {
+    return { ...SEEDED_USERS.find((u) => u.id === 'usr-engineer-1')!, surface };
+  }
+  if (key === 'auditor') {
+    return { ...SEEDED_USERS.find((u) => u.id === 'usr-auditor-1')!, surface };
+  }
   return null;
 }
 
@@ -157,8 +178,9 @@ function mintSession(
         nonce: randomBytes(16).toString('base64url'),
         email: user.email,
         displayName: user.displayName,
-        role: user.role,
+        roleId: user.roleId,
         tenantId: user.tenantId,
+        isWorkspaceOwner: user.isWorkspaceOwner === true,
         authProvider: opts?.authProvider ?? 'okta',
       }
     : {
@@ -220,30 +242,34 @@ export function getSession(token: string): SessionRecord | null {
       return null;
     }
     if (claims.v === 2) {
-      const rawRole = typeof claims.role === 'string' ? (claims.role as string) : '';
-      const normalizedRole = rawRole === 'founder' ? 'root' : rawRole;
       if (
         typeof claims.email !== 'string' ||
         typeof claims.displayName !== 'string' ||
-        typeof claims.tenantId !== 'string' ||
-        !['root', 'manager', 'engineer', 'auditor'].includes(normalizedRole)
+        typeof claims.tenantId !== 'string'
       ) {
         return null;
       }
+      const roleId =
+        claims.roleId === null || claims.roleId === undefined
+          ? null
+          : typeof claims.roleId === 'string'
+            ? claims.roleId
+            : null;
       const user: AuthUser = {
         id: claims.sub,
         email: claims.email,
         displayName: claims.displayName,
-        role: normalizedRole as UserRole,
+        roleId,
         tenantId: claims.tenantId,
         surface: claims.surface,
+        isWorkspaceOwner: claims.isWorkspaceOwner === true,
       };
       return { token, user, expiresAt: claims.exp };
     }
     // Legacy demo token ids.
     const seeded =
       SEEDED_USERS.find((candidate) => candidate.id === claims.sub) ??
-      (claims.sub === 'usr-founder-1' ? SEEDED_USERS.find((u) => u.role === 'root') : undefined);
+      (claims.sub === 'usr-founder-1' ? SEEDED_USERS.find((u) => u.id === 'usr-root-1') : undefined);
     if (!seeded) return null;
     const user = { ...seeded, surface: claims.surface };
     return { token, user, expiresAt: claims.exp };
@@ -296,14 +322,20 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
   next();
 }
 
-export function requireRoles(...roles: UserRole[]) {
+/**
+ * Allow if workspace owner or the user's custom role includes every listed capability.
+ * Enriches req.auth from the tenant directory when a store is provided.
+ */
+export function requirePlatform(store: Store, ...capabilities: PlatformCapability[]) {
   return (req: AuthedRequest, res: Response, next: NextFunction): void => {
     if (!req.auth) {
       res.status(401).json({ error: 'authentication required' });
       return;
     }
-    if (!roles.includes(req.auth.role)) {
-      res.status(403).json({ error: `requires role: ${roles.join(' | ')}` });
+    const user = enrichAuthUser(store, req.auth);
+    req.auth = user;
+    if (!roleHasPlatform(store, user, ...capabilities)) {
+      res.status(403).json({ error: `requires capability: ${capabilities.join(' | ')}` });
       return;
     }
     next();

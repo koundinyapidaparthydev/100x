@@ -134,11 +134,11 @@ export const MCP_PROVIDERS: McpProviderDef[] = [
     serviceId: 'notion',
     serverId: 'notion',
     availability: 'official_remote',
-    authMode: 'oauth',
+    authMode: 'api_token',
     connectable: true,
     permissionLevels: LEVELS,
     docsUrl: 'https://developers.notion.com/docs/mcp',
-    notes: 'Official Notion remote MCP — OAuth grants page/database access.',
+    notes: 'Official Notion remote MCP — paste an integration token (tenant-scoped). Env MCP_NOTION_TOKEN is a fallback.',
     tools: tools(
       [
         ['notion_search', 'Search workspace'],
@@ -154,10 +154,10 @@ export const MCP_PROVIDERS: McpProviderDef[] = [
     serviceId: 'github',
     serverId: 'github',
     availability: 'official_remote',
-    authMode: 'oauth',
+    authMode: 'pat',
     connectable: true,
     permissionLevels: LEVELS,
-    notes: 'GitHub MCP — permissions follow the installing GitHub App / OAuth scopes.',
+    notes: 'GitHub MCP — connect with a Personal Access Token (tenant-scoped). Env MCP_GITHUB_TOKEN is a fallback.',
     tools: tools(
       [
         ['github_get_file', 'Read repository file'],
@@ -216,10 +216,13 @@ export const MCP_PROVIDERS: McpProviderDef[] = [
   {
     serviceId: 'linear',
     serverId: 'linear',
-    availability: 'community',
-    authMode: 'oauth',
+    availability: 'official_remote',
+    authMode: 'api_token',
     connectable: true,
     permissionLevels: ['read', 'write'],
+    docsUrl: 'https://linear.app/docs/mcp',
+    notes:
+      'Linear remote MCP (https://mcp.linear.app/mcp) — API key in Connections; OAuth scaffolding via MCP_LINEAR_CLIENT_ID when preferred.',
     tools: tools(
       [
         ['linear_get_issue', 'Read issue'],
@@ -234,10 +237,12 @@ export const MCP_PROVIDERS: McpProviderDef[] = [
   {
     serviceId: 'gitlab',
     serverId: 'gitlab',
-    availability: 'community',
+    availability: 'official_remote',
     authMode: 'oauth',
     connectable: true,
     permissionLevels: LEVELS,
+    docsUrl: 'https://docs.gitlab.com/user/model_context_protocol/mcp_server/',
+    notes: 'GitLab.com remote MCP (https://gitlab.com/api/v4/mcp) — OAuth via MCP_GITLAB_CLIENT_* or PAT fallback.',
     tools: tools(
       [
         ['gitlab_get_file', 'Read file'],
@@ -273,7 +278,8 @@ export const MCP_PROVIDERS: McpProviderDef[] = [
     authMode: 'oauth',
     connectable: true,
     permissionLevels: ['read', 'write'],
-    notes: 'Channel allowlist required; Slack ACLs still apply per workspace.',
+    notes:
+      'Channel allowlist required. Authorize via Slack OAuth (MCP_SLACK_CLIENT_*) once a community/vendor MCP URL is set (MCP_SLACK_URL).',
     tools: tools(
       [
         ['slack_list_channels', 'List allowed channels'],
@@ -305,10 +311,13 @@ export const MCP_PROVIDERS: McpProviderDef[] = [
   {
     serviceId: 'azure_devops',
     serverId: 'azure_devops',
-    availability: 'community',
+    availability: 'bridge',
     authMode: 'pat',
     connectable: true,
     permissionLevels: ['read', 'write'],
+    docsUrl: 'https://github.com/microsoft/azure-devops-mcp',
+    notes:
+      'Host microsoft/azure-devops-mcp as a private bridge (stdio/HTTP); set MCP_AZURE_DEVOPS_URL + PAT. Not a public SaaS MCP URL.',
     tools: tools(
       [
         ['ado_get_work_item', 'Read work item'],
@@ -353,10 +362,12 @@ export const MCP_PROVIDERS: McpProviderDef[] = [
   {
     serviceId: 'azure_repos',
     serverId: 'azure_repos',
-    availability: 'community',
+    availability: 'bridge',
     authMode: 'pat',
     connectable: true,
     permissionLevels: ['read', 'write'],
+    docsUrl: 'https://github.com/microsoft/azure-devops-mcp',
+    notes: 'Same Azure DevOps MCP bridge as Boards — PAT + MCP_AZURE_DEVOPS_URL.',
     tools: tools(
       [
         ['azrepos_read_file', 'Read file'],
@@ -417,7 +428,8 @@ export const MCP_PROVIDERS: McpProviderDef[] = [
     authMode: 'pat',
     connectable: true,
     permissionLevels: ['read', 'write'],
-    notes: 'Agent-kit bridge — sandbox + repo allowlist; Cursor is primarily an MCP client.',
+    notes:
+      'Cursor is primarily an MCP client — AplifyAI will not fake Connected. Set MCP_CURSOR_BRIDGE_URL only for a real agent-kit bridge.',
     tools: tools(
       [
         ['cursor_list_kits', 'List allowed agent kits'],
@@ -432,10 +444,10 @@ export const MCP_PROVIDERS: McpProviderDef[] = [
     serviceId: 'github_projects',
     serverId: 'github_projects',
     availability: 'official_remote',
-    authMode: 'oauth',
+    authMode: 'pat',
     connectable: true,
     permissionLevels: ['read', 'write'],
-    notes: 'Uses GitHub MCP project/issue tools under a projects-focused allowlist.',
+    notes: 'Uses GitHub MCP project/issue tools under a projects-focused allowlist (same PAT as GitHub).',
     tools: tools(
       [
         ['gh_projects_list', 'List projects'],
@@ -458,6 +470,110 @@ export const MCP_PROVIDERS: McpProviderDef[] = [
         ['gl_boards_list_issues', 'List board issues'],
       ],
       [['gl_boards_move_issue', 'Move issue on board']],
+    ),
+  },
+
+  // —— Observability / logging ——
+  {
+    serviceId: 'datadog',
+    serverId: 'datadog',
+    availability: 'community',
+    authMode: 'api_token',
+    connectable: true,
+    permissionLevels: ['read', 'write'],
+    docsUrl: 'https://docs.datadoghq.com/',
+    notes: 'Datadog logs/metrics MCP bridge — set MCP_DATADOG_URL or MCP_DATADOG_API_KEY.',
+    tools: tools(
+      [
+        ['datadog_search_logs', 'Search recent logs'],
+        ['datadog_query_metrics', 'Query metrics'],
+        ['datadog_list_monitors', 'List monitors'],
+      ],
+      [['datadog_create_event', 'Create a Datadog event']],
+    ),
+  },
+  {
+    serviceId: 'aws_cloudwatch',
+    serverId: 'aws_cloudwatch',
+    availability: 'community',
+    authMode: 'iam_role',
+    connectable: true,
+    permissionLevels: ['read', 'write'],
+    docsUrl: 'https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html',
+    notes: 'CloudWatch Logs via AWS MCP / role — MCP_CLOUDWATCH_URL or AWS_ROLE_ARN.',
+    tools: tools(
+      [
+        ['cw_list_log_groups', 'List log groups'],
+        ['cw_filter_log_events', 'Filter log events'],
+        ['cw_get_metric_stats', 'Get metric statistics'],
+      ],
+      [['cw_put_metric_alarm', 'Create/update a metric alarm']],
+    ),
+  },
+  {
+    serviceId: 'splunk',
+    serverId: 'splunk',
+    availability: 'community',
+    authMode: 'api_token',
+    connectable: true,
+    permissionLevels: ['read', 'write'],
+    notes: 'Splunk Enterprise / Cloud search MCP — MCP_SPLUNK_URL or MCP_SPLUNK_TOKEN.',
+    tools: tools(
+      [
+        ['splunk_search', 'Run a SPL search'],
+        ['splunk_list_indexes', 'List indexes'],
+      ],
+      [['splunk_create_alert', 'Create a saved search alert']],
+    ),
+  },
+  {
+    serviceId: 'elasticsearch',
+    serverId: 'elasticsearch',
+    availability: 'community',
+    authMode: 'api_token',
+    connectable: true,
+    permissionLevels: ['read', 'write'],
+    notes: 'Elasticsearch / OpenSearch log search MCP — MCP_ELASTICSEARCH_URL or MCP_OPENSEARCH_URL.',
+    tools: tools(
+      [
+        ['es_search', 'Search an index'],
+        ['es_list_indices', 'List indices'],
+        ['es_get_mapping', 'Read index mapping'],
+      ],
+      [['es_index_doc', 'Index a document (allowlisted)']],
+    ),
+  },
+  {
+    serviceId: 'new_relic',
+    serverId: 'new_relic',
+    availability: 'community',
+    authMode: 'api_token',
+    connectable: true,
+    permissionLevels: ['read', 'write'],
+    notes: 'New Relic NRQL / logs MCP — MCP_NEW_RELIC_URL or MCP_NEW_RELIC_API_KEY.',
+    tools: tools(
+      [
+        ['nr_nrql_query', 'Run an NRQL query'],
+        ['nr_search_logs', 'Search logs'],
+        ['nr_list_entities', 'List entities'],
+      ],
+      [['nr_create_alert', 'Create an alert condition']],
+    ),
+  },
+  {
+    serviceId: 'grafana_loki',
+    serverId: 'grafana_loki',
+    availability: 'community',
+    authMode: 'api_token',
+    connectable: true,
+    permissionLevels: ['read', 'write'],
+    notes: 'Grafana Loki LogQL MCP — MCP_GRAFANA_LOKI_URL / MCP_LOKI_URL or token.',
+    tools: tools(
+      [
+        ['loki_query_range', 'Run a LogQL range query'],
+        ['loki_label_values', 'List label values'],
+      ],
+      [['loki_push_labels', 'Push allowlisted label metadata']],
     ),
   },
 ];

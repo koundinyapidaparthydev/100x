@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { AplifyLogo } from '../AplifyLogo';
 import { MarketingWidth } from './MarketingWidth';
 
 const PRODUCT = [
@@ -35,8 +36,8 @@ export function MarketingFooter() {
     >
       <MarketingWidth className="flex flex-col gap-10 py-12 sm:py-14 lg:flex-row lg:justify-between lg:gap-16">
         <div className="max-w-sm">
-          <Link to="/" className="font-serif text-lg tracking-tight text-on-surface">
-            AplifyAI
+          <Link to="/" className="inline-flex items-center" aria-label="AplifyAI home">
+            <AplifyLogo size={28} withWordmark wordmarkClassName="font-serif text-lg font-normal tracking-tight" />
           </Link>
           <p className="mt-3 text-sm leading-6 text-on-surface-variant">
             Connect your board, decide AI vs human, review drafts behind a PII firewall, then train

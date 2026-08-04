@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AplifyAI">
+  <title>AplifyAI</title>
+  <defs>
+    <linearGradient id="aplify-mark-bg" x1="10" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5B6FBF"/>
+      <stop offset="1" stop-color="#3A4D96"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#aplify-mark-bg)"/>
+  <!-- Clean A monogram -->
+  <path
+    fill="#FFFFFF"
+    fill-rule="evenodd"
+    d="M32 14.5 48.5 50h-7.2l-3.2-7.4H25.9L22.7 50h-7.2L32 14.5Zm0 12.8 4.4 10.2h-8.8L32 27.3Z"
+  />
+  <!-- Subtle amplify bar -->
+  <rect x="23.5" y="35.2" width="17" height="3.2" rx="1.6" fill="#FFFFFF" opacity="0.92"/>
+</svg>

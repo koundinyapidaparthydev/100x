@@ -79,7 +79,11 @@ They cannot disable PII firewall or lower security level below org minimum.
 
 ## UX surfaces
 
-- Web: full policy editor, catalogs, locks
-- Mobile: quick model profile picker only if unlocked; otherwise read-only display
+- Web: full policy editor, catalogs, locks  
+- Mobile: quick model profile picker only if unlocked; otherwise read-only display  
+
+## Custom models & skills (learning layer)
+
+Runtime model selection (this doc) is separate from **training** custom models and publishing skills. Those products consume **Solutions** (approved + merged call sets) only — see [SOLUTIONS.md](SOLUTIONS.md) and [MODELS_AND_SKILLS.md](MODELS_AND_SKILLS.md).
 
 Related: [AI_DELEGATION.md](AI_DELEGATION.md), [../security/SECURITY.md](../security/SECURITY.md).

@@ -32,7 +32,7 @@ const TICKET_STEPS: TrackStep[] = [
     id: 'triage',
     label: 'Triage',
     title: 'Decide AI vs human',
-    body: 'Swipe or click: send to AI, or assign a person. Nothing runs until someone chooses.',
+    body: 'Swipe or click: send to AI, or assign a person. Nothing runs until someone chooses — drafts still get reviewed before ship.',
     icon: <Split size={16} strokeWidth={1.75} aria-hidden="true" />,
   },
   {
@@ -112,7 +112,7 @@ const MODEL_STEPS: TrackStep[] = [
 
 const GATE = {
   id: 'human-gate',
-  label: 'Human gate',
+  label: 'Draft review',
   title: 'Human reviews the draft',
   body: 'Ticket drafts and model MRs share one draft review: a person reviews the draft and evidence, approves or rejects, and the audit trail records the decision before ship or skills.',
 };

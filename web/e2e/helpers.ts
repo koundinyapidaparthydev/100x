@@ -4,12 +4,13 @@ import { emptyOnboardingProfile, markOnboardingComplete } from '../src/lib/onboa
 export const DEMO_SESSION_KEY = 'aplifyai-demo-session';
 export const ONBOARDING_STORAGE_KEY = 'aplifyai-onboarding';
 
-export type DemoIdentity = 'manager' | 'root' | 'engineer';
+/** Demo seat identities — prefer root for privileged flows; engineer/member for negative RBAC. */
+export type DemoIdentity = 'manager' | 'root' | 'engineer' | 'member';
 
 type LoginResponse = {
   session: {
     token: string;
-    user: { id: string; role: string };
+    user: { id: string; roleId: string | null; isWorkspaceOwner?: boolean };
     expiresAt: string;
   };
 };
@@ -35,6 +36,13 @@ function completedTestOnboarding() {
   });
 }
 
+function seatFromLogin(user: LoginResponse['session']['user'], identity: DemoIdentity): string {
+  if (user.isWorkspaceOwner || identity === 'root') return 'root';
+  if (identity === 'manager') return 'manager';
+  if (identity === 'auditor' as string) return 'auditor';
+  return 'member';
+}
+
 /** Mark workspace onboarding complete so RequireOnboarding allows the app shell. */
 export async function injectCompletedOnboarding(page: Page): Promise<void> {
   const profile = completedTestOnboarding();
@@ -46,19 +54,22 @@ export async function injectCompletedOnboarding(page: Page): Promise<void> {
   );
 }
 
-/** Login via Workspace owner / Team member UI (maps to root|manager|engineer). */
-export async function loginAs(page: Page, identity: DemoIdentity = 'manager'): Promise<void> {
+/**
+ * Login via UI for owner, or API inject for limited members.
+ * Privileged product walks use root (workspace owner).
+ */
+export async function loginAs(page: Page, identity: DemoIdentity = 'root'): Promise<void> {
   await injectCompletedOnboarding(page);
   await page.goto('/login');
   await expect(page.getByTestId('login-page')).toBeVisible();
-  // One-click demo path (full founder access) — preferred for building-stage walkthroughs.
-  if (identity === 'root') {
+  if (identity === 'root' || identity === 'manager') {
+    // Manager no longer has built-in privileges — privileged e2e use owner.
     await page.getByTestId('login-continue-demo').click();
   } else {
     await page.getByTestId('login-toggle-seats').click();
     await page.getByTestId('login-mode-member').click();
-    await page.getByTestId(`login-member-${identity}`).click();
-    await page.getByTestId(`login-${identity}`).click();
+    await page.getByTestId('login-member-member').click();
+    await page.getByTestId('login-member').click();
   }
   await expect(page).toHaveURL(/\/projects$/, { timeout: 20_000 });
   await expect(page.getByTestId('boards-page')).toBeVisible();
@@ -86,7 +97,7 @@ export async function injectSession(
       session: {
         token: body.session.token,
         id: body.session.user.id,
-        role: body.session.user.role,
+        role: seatFromLogin(body.session.user, identity),
         surface: 'web',
       },
       onboardingKey: ONBOARDING_STORAGE_KEY,

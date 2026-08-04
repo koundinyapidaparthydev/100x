@@ -68,7 +68,7 @@ describe('production auth posture', () => {
     expect(demoAuthEnabled()).toBe(true);
     const session = issueSession({ identity: 'manager' });
     expect(session?.token).toMatch(/^oh1\./);
-    expect(session?.user.role).toBe('manager');
+    expect(session?.user.roleId).toBeNull();
 
     const res = await supertest(app()).post('/api/v1/auth/login').send({ identity: 'manager' }).expect(200);
     expect(res.body.session.token).toMatch(/^oh1\./);

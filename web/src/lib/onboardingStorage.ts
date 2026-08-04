@@ -129,9 +129,26 @@ export function isOnboardingComplete(profile?: OnboardingProfile | null): boolea
   return typeof p?.completedAt === 'string' && p.completedAt.length > 0;
 }
 
-/** Where to send the user after a successful sign-in. */
+/** Where to send the user after a successful sign-in (sync fallback). */
 export function postAuthPath(): '/onboarding' | '/console' | '/auth/workspace' {
   return isOnboardingComplete() ? '/console' : '/onboarding';
+}
+
+/**
+ * Connection-aware landing: onboarding if incomplete, otherwise `/home` when the
+ * active environment has ≥1 MCP connection, else `/console`.
+ */
+export async function resolvePostAuthLanding(): Promise<
+  '/onboarding' | '/console' | '/home' | '/auth/workspace'
+> {
+  if (!isOnboardingComplete()) return '/onboarding';
+  try {
+    const { connections } = await api.listMcpConnections();
+    const connected = connections.some((c) => c.status === 'connected');
+    return connected ? '/home' : '/console';
+  } catch {
+    return '/console';
+  }
 }
 
 /**

@@ -78,8 +78,87 @@ metadata: object   # never store secrets or raw PII
 createdAt: datetime
 ```
 
+## SolutionCallSet
+
+In-flight learning candidate. See [ai/SOLUTIONS.md](ai/SOLUTIONS.md).
+
+```yaml
+id: string
+tenantId: string
+workItemId: string
+aiJobId: string | null
+inputSummary: string          # PII-cleared
+solutionSummary: string       # PII-cleared reviewed answer
+turns: [{ role, content, at? }]
+artifactIds: [string]
+approvalId: string | null
+approvedAt: datetime | null
+approvedBy: string | null
+mergeRef: string | null
+mergedAt: datetime | null
+status: open | approved | merged | promoted | rejected
+categoryHint: string | null
+solutionId: string | null
+```
+
+## Solution
+
+Immutable training record — created only when a call set is **approved and merged**, then promoted.
+
+```yaml
+id: string
+tenantId: string
+callSetId: string
+workItemId: string
+category: string
+inputSummary: string
+solutionSummary: string
+turns: [{ role, content, at? }]
+artifactIds: [string]
+mergeRef: string
+mergedAt: datetime
+approvedBy: string
+approvedAt: datetime
+status: active | archived | superseded
+usedByModelIds: [string]
+usedBySkillIds: [string]
+```
+
+## CustomModel
+
+```yaml
+id: string
+tenantId: string
+name: string
+status: collecting | queued | training | ready | failed | archived
+solutionIds: [string]
+matchThreshold: number   # default 0.9
+baseProvider: string
+baseModelId: string
+artifactUri: string | null
+error: string | null
+```
+
+## SkillPack
+
+```yaml
+id: string
+tenantId: string
+name: string
+category: string
+status: draft | review | published | archived
+solutionIds: [string]
+targetKits: [cursor | claude_code | codex | chatgpt | custom]
+instructions: string
+publishedAt: datetime | null
+publishedBy: string | null
+```
+
 ## Hard rules
 
 - Every `AiJob` transition emits `AuditEvent`  
 - `AiJob` cannot enter `running` without a successful sanitizing step  
 - Storage URIs must respect tenant cloud policy  
+- A `Solution` cannot be created without prior approval **and** merge on its call set  
+- Custom model training and skill publish use `Solution` ids only — never open call sets  
+- Learning payloads are PII-cleared only; no shadow exports  

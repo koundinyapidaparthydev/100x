@@ -12,7 +12,7 @@ import {
   randomBytes,
   verify as cryptoVerify,
 } from 'node:crypto';
-import type { AuthUser, FederatedAuthProvider, UserRole } from '../../shared/types';
+import type { AuthUser, FederatedAuthProvider } from '../../shared/types';
 import { issueFederatedSession } from './auth';
 import { TENANT_ID } from './store';
 
@@ -55,8 +55,8 @@ interface ProviderRuntimeConfig {
   redirectUri: string;
   webAppOrigin: string;
   mobileAppOrigin: string;
-  defaultRole: UserRole;
-  groupRoleMap: Record<string, UserRole>;
+  defaultRoleId: string | null;
+  groupRoleMap: Record<string, string>;
   scope: string;
   /** Extra authorize query params (e.g. Google hd=). */
   authorizeExtras?: Record<string, string>;
@@ -118,21 +118,24 @@ function trimEnv(name: string): string | undefined {
   return v || undefined;
 }
 
-function parseRole(value: string): UserRole | null {
-  if (value === 'founder') return 'root'; // legacy IdP / env maps
-  if (value === 'root' || value === 'manager' || value === 'engineer' || value === 'auditor') {
-    return value;
+/** Custom role id from IdP claim / env — not validated against tenant here (may not exist yet). */
+function parseRoleId(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  // Legacy built-in names are ignored; map via invite or explicit custom role id.
+  if (trimmed === 'founder' || trimmed === 'root' || trimmed === 'manager' || trimmed === 'engineer' || trimmed === 'auditor') {
+    return null;
   }
-  return null;
+  return trimmed;
 }
 
-function parseGroupRoleMap(raw: string | undefined): Record<string, UserRole> {
+function parseGroupRoleMap(raw: string | undefined): Record<string, string> {
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw) as Record<string, string>;
-    const out: Record<string, UserRole> = {};
+    const out: Record<string, string> = {};
     for (const [group, role] of Object.entries(parsed)) {
-      const r = parseRole(role);
+      const r = parseRoleId(role);
       if (r) out[group] = r;
     }
     return out;
@@ -241,7 +244,7 @@ function loadProviderConfig(provider: FederatedAuthProvider): ProviderRuntimeCon
         redirectUri,
         webAppOrigin: webOrigin(),
         mobileAppOrigin: mobileOrigin(),
-        defaultRole: parseRole(trimEnv('OKTA_DEFAULT_ROLE') ?? 'manager') ?? 'manager',
+        defaultRoleId: parseRoleId(trimEnv('OKTA_DEFAULT_ROLE') ?? '') ?? null,
         groupRoleMap: parseGroupRoleMap(trimEnv('OKTA_GROUP_ROLE_MAP')),
         scope: trimEnv('OKTA_AUTHORIZE_SCOPE') ?? 'openid profile email',
         tokenAuth: 'client_secret_post',
@@ -266,7 +269,7 @@ function loadProviderConfig(provider: FederatedAuthProvider): ProviderRuntimeCon
         redirectUri,
         webAppOrigin: webOrigin(),
         mobileAppOrigin: mobileOrigin(),
-        defaultRole: parseRole(trimEnv('ENTRA_DEFAULT_ROLE') ?? 'manager') ?? 'manager',
+        defaultRoleId: parseRoleId(trimEnv('ENTRA_DEFAULT_ROLE') ?? '') ?? null,
         groupRoleMap: parseGroupRoleMap(trimEnv('ENTRA_GROUP_ROLE_MAP')),
         scope: trimEnv('ENTRA_AUTHORIZE_SCOPE') ?? 'openid profile email',
         tokenAuth: 'client_secret_post',
@@ -296,7 +299,7 @@ function loadProviderConfig(provider: FederatedAuthProvider): ProviderRuntimeCon
         redirectUri,
         webAppOrigin: webOrigin(),
         mobileAppOrigin: mobileOrigin(),
-        defaultRole: parseRole(trimEnv('GOOGLE_WORKSPACE_DEFAULT_ROLE') ?? 'manager') ?? 'manager',
+        defaultRoleId: parseRoleId(trimEnv('GOOGLE_WORKSPACE_DEFAULT_ROLE') ?? '') ?? null,
         groupRoleMap: parseGroupRoleMap(trimEnv('GOOGLE_WORKSPACE_GROUP_ROLE_MAP')),
         scope: trimEnv('GOOGLE_WORKSPACE_AUTHORIZE_SCOPE') ?? 'openid profile email',
         authorizeExtras: hd ? { hd, prompt: 'select_account' } : { prompt: 'select_account' },
@@ -321,7 +324,7 @@ function loadProviderConfig(provider: FederatedAuthProvider): ProviderRuntimeCon
         webAppOrigin: webOrigin(),
         mobileAppOrigin: mobileOrigin(),
         // Workspace creators / social Google default to root; invites still override on login.
-        defaultRole: parseRole(trimEnv('GOOGLE_DEFAULT_ROLE') ?? 'root') ?? 'root',
+        defaultRoleId: parseRoleId(trimEnv('GOOGLE_DEFAULT_ROLE') ?? '') ?? null,
         groupRoleMap: {},
         scope: trimEnv('GOOGLE_AUTHORIZE_SCOPE') ?? 'openid profile email',
         authorizeExtras: { prompt: 'select_account' },
@@ -347,7 +350,7 @@ function loadProviderConfig(provider: FederatedAuthProvider): ProviderRuntimeCon
         redirectUri,
         webAppOrigin: webOrigin(),
         mobileAppOrigin: mobileOrigin(),
-        defaultRole: parseRole(trimEnv('APPLE_DEFAULT_ROLE') ?? 'engineer') ?? 'engineer',
+        defaultRoleId: parseRoleId(trimEnv('APPLE_DEFAULT_ROLE') ?? '') ?? null,
         groupRoleMap: {},
         scope: trimEnv('APPLE_AUTHORIZE_SCOPE') ?? 'openid name email',
         authorizeExtras: { response_mode: 'query' },
@@ -517,16 +520,16 @@ export function mapClaimsToUser(
     // Apple may nest name only on first authorization in the form POST user field — id_token often has none
     resolvedEmail;
 
-  let role = cfg.defaultRole;
+  let roleId = cfg.defaultRoleId;
   for (const group of extractGroups(claims)) {
     const mapped = cfg.groupRoleMap[group];
     if (mapped) {
-      role = mapped;
+      roleId = mapped;
       break;
     }
   }
-  const claimRole = parseRole(typeof claims.aplifyai_role === 'string' ? claims.aplifyai_role : '');
-  if (claimRole) role = claimRole;
+  const claimRole = parseRoleId(typeof claims.aplifyai_role === 'string' ? claims.aplifyai_role : '');
+  if (claimRole) roleId = claimRole;
 
   // Google Workspace hosted-domain soft check when hd claim present
   if (cfg.provider === 'google_workspace' && cfg.authorizeExtras?.hd) {
@@ -540,9 +543,10 @@ export function mapClaimsToUser(
     id: `${cfg.provider}:${sub}`,
     email: resolvedEmail,
     displayName,
-    role,
+    roleId,
     tenantId: TENANT_ID,
     surface,
+    isWorkspaceOwner: false,
   };
 }
 
@@ -640,7 +644,7 @@ export async function completeCallback(
   if (opts?.adjustUser) {
     user = opts.adjustUser(user, pending.intent);
   } else if (pending.intent === 'signup' && Object.keys(cfg.groupRoleMap).length === 0) {
-    user = { ...user, role: 'root' };
+    user = { ...user, roleId: null, isWorkspaceOwner: true };
   }
 
   const session = issueFederatedSession(user, provider);

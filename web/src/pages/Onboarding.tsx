@@ -35,6 +35,7 @@ import {
   ServicePicker,
   SlideShell,
 } from '../components/onboarding';
+import { AplifyLogo } from '../components/AplifyLogo';
 import { Chip, Field } from '../components/ui';
 import { FREE_CATALOG_CATEGORIES, getService } from '../lib/serviceCatalog';
 import {
@@ -47,6 +48,7 @@ import {
   isRuntimeComplete,
   markOnboardingComplete,
   readOnboardingProfile,
+  resolvePostAuthLanding,
   writeOnboardingProfile,
 } from '../lib/onboardingStorage';
 import { readDemoSession } from '../lib/session';
@@ -249,6 +251,7 @@ export default function Onboarding() {
   const [gateReady, setGateReady] = useState(false);
   // Only bounce away after server hydrate — never trust a stale local completedAt alone.
   const [alreadyComplete, setAlreadyComplete] = useState(false);
+  const [envKeys, setEnvKeys] = useState<string[]>(['prod', 'stage', 'dev']);
 
   useEffect(() => {
     let cancelled = false;
@@ -348,6 +351,10 @@ export default function Onboarding() {
   };
 
   const finish = async () => {
+    if (envKeys.length === 0) {
+      setSaveError('Select at least one environment to create.');
+      return;
+    }
     setBusy(true);
     setSaveError(null);
     const boardIds = profile.selectedServices.filter((id) => getService(id)?.category === 'boards');
@@ -358,10 +365,11 @@ export default function Onboarding() {
     const completed = markOnboardingComplete(withBoards);
     writeOnboardingProfile(completed);
     try {
+      await api.ensureEnvironments({ keys: envKeys });
       const { profile: saved } = await api.putOnboarding({ profile: completed });
       writeOnboardingProfile(saved);
       setBusy(false);
-      navigate('/console');
+      navigate(await resolvePostAuthLanding());
     } catch (e) {
       console.warn('onboarding persist failed', e);
       setSaveError(
@@ -395,7 +403,7 @@ export default function Onboarding() {
     plan === 'free'
       ? step === 1
         ? !isLiteAnswersComplete(profile.lite)
-        : !hasSelectedServices(profile)
+        : !hasSelectedServices(profile) || envKeys.length === 0
       : plan === 'enterprise'
         ? step === 1
           ? !isEnterpriseMoveComplete(profile.enterprise?.move)
@@ -403,8 +411,52 @@ export default function Onboarding() {
             ? !hasSelectedServices(profile)
             : step === 3
               ? !isExpectationsComplete(profile.enterprise?.expectations)
-              : !isRuntimeComplete(profile.enterprise?.runtime)
+              : !isRuntimeComplete(profile.enterprise?.runtime) || envKeys.length === 0
         : true;
+
+  const toggleEnvKey = (key: string) => {
+    setEnvKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  };
+
+  const environmentConfirm = (
+    <section className="rounded-xl border border-outline-variant bg-surface-container-low/60 p-4" data-testid="onboarding-environments">
+      <h3 className="text-sm font-semibold text-on-surface">Environments to create</h3>
+      <p className="mt-1 text-xs text-on-surface-variant">
+        Production, Staging, and Development are recommended. Keep at least one — you can add more later under Environments.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {(
+          [
+            { key: 'prod', name: 'Production' },
+            { key: 'stage', name: 'Staging' },
+            { key: 'dev', name: 'Development' },
+          ] as const
+        ).map((env) => {
+          const checked = envKeys.includes(env.key);
+          return (
+            <label
+              key={env.key}
+              className={cn(
+                'inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                checked
+                  ? 'border-primary bg-primary-container/50 text-on-primary-container'
+                  : 'border-outline-variant bg-surface text-on-surface-variant',
+              )}
+            >
+              <input
+                type="checkbox"
+                className="size-4 accent-primary"
+                checked={checked}
+                onChange={() => toggleEnvKey(env.key)}
+                data-testid={`onboarding-env-${env.key}`}
+              />
+              {env.name}
+            </label>
+          );
+        })}
+      </div>
+    </section>
+  );
 
   return (
     <div
@@ -415,7 +467,9 @@ export default function Onboarding() {
       data-testid="onboarding-page"
     >
       <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-4 py-3 sm:px-6 lg:px-8">
-        <p className="mb-2 shrink-0 text-sm font-semibold tracking-tight text-on-surface">AplifyAI</p>
+        <div className="mb-2 shrink-0">
+          <AplifyLogo size={24} withWordmark wordmarkClassName="text-sm" />
+        </div>
         {saveError ? (
           <p
             className="mb-2 shrink-0 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-error"
@@ -514,14 +568,17 @@ export default function Onboarding() {
             continueDisabled={continueDisabled}
             busy={busy}
           >
-            <ServicePicker
-              categories={FREE_CATALOG_CATEGORIES}
-              selected={profile.selectedServices}
-              otherByCategory={profile.otherByCategory}
-              onToggle={toggleService}
-              onOtherChange={setOther}
-              showIdentityDisplayOnly={false}
-            />
+            <div className="flex flex-col gap-6">
+              <ServicePicker
+                categories={FREE_CATALOG_CATEGORIES}
+                selected={profile.selectedServices}
+                otherByCategory={profile.otherByCategory}
+                onToggle={toggleService}
+                onOtherChange={setOther}
+                showIdentityDisplayOnly={false}
+              />
+              {environmentConfirm}
+            </div>
           </SlideShell>
         )}
 
@@ -670,11 +727,14 @@ export default function Onboarding() {
             continueDisabled={continueDisabled}
             busy={busy}
           >
-            <RuntimeSlide
-              value={profile.enterprise?.runtime ?? {}}
-              onChange={patchRuntime}
-              selectedServices={profile.selectedServices}
-            />
+            <div className="flex flex-col gap-6">
+              <RuntimeSlide
+                value={profile.enterprise?.runtime ?? {}}
+                onChange={patchRuntime}
+                selectedServices={profile.selectedServices}
+              />
+              {environmentConfirm}
+            </div>
           </SlideShell>
         )}
 

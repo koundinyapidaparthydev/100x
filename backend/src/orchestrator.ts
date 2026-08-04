@@ -165,7 +165,10 @@ export async function runJobPipeline(
   }
 
   const mcpConnections = store.mcpConnectionsByTenant[TENANT_ID] ?? [];
-  const enrichment = await enrichFromConnections(mcpConnections, workItem.board.issueKey);
+  const enrichment = await enrichFromConnections(mcpConnections, workItem.board.issueKey, {
+    store,
+    tenantId: job.tenantId,
+  });
   transition(
     store,
     job,

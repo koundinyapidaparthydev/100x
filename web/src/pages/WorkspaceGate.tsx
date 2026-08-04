@@ -1,8 +1,8 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@shared/api';
-import { writeDemoSession } from '../lib/session';
-import { hydrateOnboardingFromServer } from '../lib/onboardingStorage';
+import { demoSeatFromUser, writeDemoSession } from '../lib/session';
+import { hydrateOnboardingFromServer, resolvePostAuthLanding } from '../lib/onboardingStorage';
 import { Button, Field } from '../components/ui';
 
 /**
@@ -36,11 +36,15 @@ export default function WorkspaceGate() {
       writeDemoSession({
         token: session.token,
         id: session.user.id,
-        role: session.user.role,
+        role: demoSeatFromUser(session.user),
         surface: session.user.surface,
       });
       const done = await hydrateOnboardingFromServer();
-      navigate(done ? '/console' : '/onboarding', { replace: true });
+      if (!done) {
+        navigate('/onboarding', { replace: true });
+        return;
+      }
+      navigate(await resolvePostAuthLanding(), { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save workspace setup');
     } finally {
@@ -81,36 +85,33 @@ export default function WorkspaceGate() {
           </span>
         </label>
 
-        <Field label="Company domain" hint="Optional for solo workspaces — e.g. acme.com">
-          <input
-            value={companyDomain}
-            onChange={(e) => setCompanyDomain(e.target.value)}
-            placeholder="acme.com"
-            data-testid="workspace-company-domain"
-            className="h-10 w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-        </Field>
+        <Field
+          label="Company domain"
+          hint="Optional for solo workspaces — e.g. acme.com"
+          value={companyDomain}
+          onChange={(e) => setCompanyDomain(e.target.value)}
+          placeholder="acme.com"
+          data-testid="workspace-company-domain"
+        />
 
-        <Field label="Company website" hint="Optional">
-          <input
-            value={companyWebsite}
-            onChange={(e) => setCompanyWebsite(e.target.value)}
-            placeholder="https://acme.com"
-            data-testid="workspace-company-website"
-            className="h-10 w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-        </Field>
+        <Field
+          label="Company website"
+          hint="Optional"
+          value={companyWebsite}
+          onChange={(e) => setCompanyWebsite(e.target.value)}
+          placeholder="https://acme.com"
+          data-testid="workspace-company-website"
+        />
 
-        <Field label="Work email" hint="Optional — linked if different from Google">
-          <input
-            type="email"
-            value={workEmail}
-            onChange={(e) => setWorkEmail(e.target.value)}
-            placeholder="you@acme.com"
-            data-testid="workspace-work-email"
-            className="h-10 w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-        </Field>
+        <Field
+          label="Work email"
+          hint="Optional — linked if different from Google"
+          type="email"
+          value={workEmail}
+          onChange={(e) => setWorkEmail(e.target.value)}
+          placeholder="you@acme.com"
+          data-testid="workspace-work-email"
+        />
 
         <label className="flex items-start gap-3 text-sm opacity-90">
           <input type="checkbox" checked disabled className="mt-1" data-testid="workspace-root-locked" />
@@ -139,16 +140,15 @@ export default function WorkspaceGate() {
         </label>
 
         {belongsToParent && (
-          <Field label="Parent company domain" hint="Required when joining a parent org">
-            <input
-              value={parentDomain}
-              onChange={(e) => setParentDomain(e.target.value)}
-              placeholder="parent.com"
-              required
-              data-testid="workspace-parent-domain"
-              className="h-10 w-full rounded-lg border border-outline-variant bg-surface-container-low px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            />
-          </Field>
+          <Field
+            label="Parent company domain"
+            hint="Required when joining a parent org"
+            value={parentDomain}
+            onChange={(e) => setParentDomain(e.target.value)}
+            placeholder="parent.com"
+            required
+            data-testid="workspace-parent-domain"
+          />
         )}
 
         {error && (
@@ -157,7 +157,7 @@ export default function WorkspaceGate() {
           </p>
         )}
 
-        <Button type="submit" variant="primary" loading={busy} data-testid="workspace-gate-continue">
+        <Button type="submit" loading={busy} data-testid="workspace-gate-continue">
           Continue
         </Button>
       </form>

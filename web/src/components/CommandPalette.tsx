@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
+import {
+  CONSOLE_NAV_ITEMS,
+  CONSOLE_SEARCH_PLACEHOLDER,
+  OPEN_COMMAND_PALETTE_EVENT,
+} from '../lib/consoleNav';
 import { cn } from '../lib/utils';
 
 type PaletteItem = {
@@ -11,17 +16,40 @@ type PaletteItem = {
   keywords: string[];
 };
 
+const EXTRA_ITEMS: PaletteItem[] = [
+  {
+    id: 'home',
+    label: 'Workspace home',
+    hint: 'Tickets & channels',
+    path: '/home',
+    keywords: ['home', 'widgets', 'tickets', 'slack'],
+  },
+  {
+    id: 'console',
+    label: 'Console home',
+    hint: 'Identity & services',
+    path: '/console',
+    keywords: ['console', 'search', 'admin'],
+  },
+  {
+    id: 'approvals',
+    label: 'Approvals',
+    hint: 'Governance',
+    path: '/approvals',
+    keywords: ['review', 'approvals'],
+  },
+];
+
 const ITEMS: PaletteItem[] = [
-  { id: 'console', label: 'Console home', hint: 'Search-first shell', path: '/console', keywords: ['home', 'search'] },
-  { id: 'users', label: 'Users', hint: 'Identity', path: '/console/users', keywords: ['people', 'invite', 'members'] },
-  { id: 'roles', label: 'Roles', hint: 'Identity', path: '/console/roles', keywords: ['rbac', 'permissions', 'root'] },
-  { id: 'groups', label: 'Groups', hint: 'Identity', path: '/console/groups', keywords: ['teams'] },
-  { id: 'services', label: 'Services', hint: 'Catalog', path: '/console/services', keywords: ['mcp', 'integrations'] },
-  { id: 'iam-import', label: 'Import IAM', hint: 'AWS / GCP stub', path: '/console/iam-import', keywords: ['aws', 'gcp', 'import'] },
-  { id: 'projects', label: 'Projects', hint: 'Delivery', path: '/projects', keywords: ['boards', 'work'] },
-  { id: 'connections', label: 'Connections', hint: 'Integrations', path: '/connections', keywords: ['connect', 'oauth'] },
-  { id: 'approvals', label: 'Approvals', hint: 'Governance', path: '/approvals', keywords: ['review'] },
-  { id: 'admin', label: 'Settings', hint: 'Workspace', path: '/admin', keywords: ['admin', 'settings'] },
+  ...EXTRA_ITEMS.slice(0, 2),
+  ...CONSOLE_NAV_ITEMS.map((item) => ({
+    id: item.id,
+    label: item.name,
+    hint: item.hint,
+    path: item.path,
+    keywords: item.keywords,
+  })),
+  ...EXTRA_ITEMS.slice(1),
 ];
 
 export default function CommandPalette() {
@@ -52,8 +80,18 @@ export default function CommandPalette() {
       }
       if (event.key === 'Escape') setOpen(false);
     };
+    const onOpen = (event: Event) => {
+      const detail = (event as CustomEvent<{ query?: string }>).detail;
+      setQuery(detail?.query ?? '');
+      setActive(0);
+      setOpen(true);
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpen);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpen);
+    };
   }, []);
 
   useEffect(() => {
@@ -72,7 +110,7 @@ export default function CommandPalette() {
       className="fixed inset-0 z-[80] flex items-start justify-center bg-on-surface/30 px-4 pt-[12vh] backdrop-blur-[2px]"
       role="dialog"
       aria-modal="true"
-      aria-label="Command palette"
+      aria-label="Search services"
       data-testid="command-palette"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) setOpen(false);
@@ -101,7 +139,7 @@ export default function CommandPalette() {
                 go(results[active]!.path);
               }
             }}
-            placeholder="Search users, roles, groups, services, projects…"
+            placeholder={CONSOLE_SEARCH_PLACEHOLDER}
             data-testid="command-palette-input"
             className="h-12 w-full bg-transparent pl-10 pr-3 text-sm outline-none placeholder:text-on-surface-variant"
           />

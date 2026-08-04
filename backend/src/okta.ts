@@ -34,7 +34,7 @@ export function getOktaConfig() {
     clientSecret: cfg.resolveClientSecret(),
     redirectUri: cfg.redirectUri,
     webAppOrigin: cfg.webAppOrigin,
-    defaultRole: cfg.defaultRole,
+    defaultRoleId: cfg.defaultRoleId,
     groupRoleMap: cfg.groupRoleMap,
   };
 }
@@ -73,7 +73,7 @@ export function mapOktaClaimsToUser(
     claims,
     {
       ...runtime,
-      defaultRole: cfg.defaultRole,
+      defaultRoleId: cfg.defaultRoleId,
       groupRoleMap: cfg.groupRoleMap,
     },
     surface,

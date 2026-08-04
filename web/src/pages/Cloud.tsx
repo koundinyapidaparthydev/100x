@@ -45,7 +45,7 @@ const selectClass =
   'mt-1.5 min-h-10 w-full rounded-lg border border-outline-variant bg-surface px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:bg-surface-container disabled:text-on-surface-variant';
 
 export default function Cloud() {
-  const canManage = ['root', 'manager'].includes(readDemoSession()?.role ?? '');
+  const canManage = ['root', 'owner'].includes(readDemoSession()?.role ?? '');
   const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), []);
   const { data: mcp } = useAsync(() => api.listMcpConnections(), []);
   const { data: onboarding } = useAsync(() => api.getOnboarding(), []);

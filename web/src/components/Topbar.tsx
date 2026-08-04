@@ -1,45 +1,73 @@
-import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Bell, ChevronDown, ClipboardCheck, LogOut, Menu, Search, Settings } from 'lucide-react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Bell, ChevronDown, LogOut, Menu, Search, ShieldCheck } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '@shared/api';
 import type { AuthUser } from '@shared/types';
-import { clearDemoSession, readDemoSession, writeDemoSession } from '../lib/session';
+import { AplifyLogo } from './AplifyLogo';
+import EnvironmentSwitcher from './EnvironmentSwitcher';
+import {
+  CONSOLE_CONTEXT_ITEMS,
+  CONSOLE_SEARCH_PLACEHOLDER,
+  openCommandPalette,
+} from '../lib/consoleNav';
+import { clearDemoSession, readDemoSession, demoSeatFromUser, writeDemoSession } from '../lib/session';
 import { getProjectRouteContext } from '../lib/projectRoutes';
 import { isDemoSeatSession, roleDisplay } from '../lib/format';
 import { cn } from '../lib/utils';
 import {
   ADMIN_ITEM,
   isNavItemActive,
-  ORGANIZATION_ITEMS,
   projectNavItems,
   type NavItem,
 } from './navItems';
 
 const DEMO_SEATS: { id: string; label: string; hint: string }[] = [
-  { id: 'root', label: 'Root', hint: 'Org owner — policies, invites, full access' },
-  { id: 'manager', label: 'Delivery lead', hint: 'Triage & approvals' },
-  { id: 'engineer', label: 'Contributor', hint: 'Read-only' },
-  { id: 'auditor', label: 'Auditor', hint: 'Approvals visibility' },
+  { id: 'root', label: 'Workspace owner', hint: 'Full platform + MCP access' },
+  { id: 'member', label: 'Member', hint: 'Limited until a custom role is assigned' },
 ];
 
-function OrgLink({ item, withTestId }: { item: NavItem; withTestId: boolean }) {
+function isConsoleRoute(pathname: string): boolean {
+  return pathname === '/console' || pathname.startsWith('/console/');
+}
+
+function ConsoleContextRow({ withTestId }: { withTestId: boolean }) {
   const location = useLocation();
-  const active = isNavItemActive(location.pathname, item);
+
   return (
-    <Link
-      to={item.path}
-      data-testid={withTestId ? item.testId : undefined}
-      aria-current={active ? 'page' : undefined}
-      className={cn(
-        'inline-flex min-h-9 items-center rounded-md px-2.5 text-sm font-medium transition-colors',
-        active
-          ? 'bg-primary-container text-on-primary-container'
-          : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface',
-      )}
+    <div
+      className="border-b border-outline-variant/80 bg-surface-container-low/80"
+      data-testid="console-context-row"
     >
-      {item.name}
-    </Link>
+      <div className="mx-auto flex max-w-[1400px] items-center gap-2 overflow-x-auto px-3 py-2 sm:px-5">
+        <span className="hidden shrink-0 text-xs font-semibold uppercase tracking-[0.06em] text-on-surface-variant sm:inline">
+          Console
+        </span>
+        <span className="hidden h-4 w-px shrink-0 bg-outline-variant sm:block" aria-hidden="true" />
+        <nav aria-label="Console sections" className="flex min-w-0 items-center gap-1">
+          {CONSOLE_CONTEXT_ITEMS.map((item) => {
+            const active = item.exact
+              ? location.pathname === item.path
+              : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                data-testid={withTestId ? item.testId : undefined}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'inline-flex min-h-8 shrink-0 items-center rounded-chip px-3 text-sm font-medium transition-colors',
+                  active
+                    ? 'bg-surface text-on-surface shadow-xs'
+                    : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface',
+                )}
+              >
+                {item.name}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+    </div>
   );
 }
 
@@ -100,21 +128,16 @@ export default function Topbar({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
   const [busy, setBusy] = useState(false);
   const [seatOpen, setSeatOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [me, setMe] = useState<AuthUser | null>(null);
-  const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
   const seatMenuRef = useRef<HTMLDivElement>(null);
   const session = readDemoSession();
   const projectContext = getProjectRouteContext(location.pathname);
+  const consoleRoute = isConsoleRoute(location.pathname);
   const settingsActive = isNavItemActive(location.pathname, ADMIN_ITEM);
   const canSwitchDemoSeat = isDemoSeatSession(session?.id);
-
-  useEffect(() => {
-    setQuery(searchParams.get('q') ?? '');
-  }, [searchParams]);
 
   useEffect(() => {
     if (!session) {
@@ -175,7 +198,7 @@ export default function Topbar({
       writeDemoSession({
         token: next.token,
         id: next.user.id,
-        role: next.user.role,
+        role: demoSeatFromUser(next.user),
         surface: 'web',
       });
       window.location.reload();
@@ -184,22 +207,23 @@ export default function Topbar({
     }
   };
 
-  const submitSearch = (event: FormEvent) => {
-    event.preventDefault();
-    const q = query.trim();
-    const next = q ? `/console?q=${encodeURIComponent(q)}` : '/console';
-    navigate(next);
+  const openSearch = () => {
+    openCommandPalette();
   };
 
   const displayName = me?.displayName || me?.email || session?.id || 'Signed in';
-  const displayRole = roleDisplay(me?.role ?? session?.role ?? '');
+  const displayRole = (() => {
+    if (me?.isWorkspaceOwner) return 'Workspace owner';
+    if (me?.roleId) return roleDisplay(me.roleId);
+    return roleDisplay(session?.role ?? 'member');
+  })();
   const subtitle = canSwitchDemoSeat ? `${displayRole} · Demo` : displayRole;
 
   return (
     <div className="sticky top-0 z-30">
       <header className="border-b border-outline-variant bg-surface/95 backdrop-blur-sm" data-testid="topbar">
         <div className="mx-auto grid h-14 max-w-[1400px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 sm:gap-4 sm:px-5">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
             <button
               type="button"
               aria-label="Open navigation"
@@ -211,90 +235,83 @@ export default function Topbar({
             </button>
 
             <Link to="/console" className="flex min-w-0 items-center gap-2.5" aria-label="AplifyAI home">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
-                <ClipboardCheck size={16} aria-hidden="true" />
-              </span>
-              <span className="hidden truncate text-sm font-semibold tracking-tight text-on-surface sm:inline sm:text-base">
-                AplifyAI
-              </span>
+              <AplifyLogo
+                size={28}
+                withWordmark
+                wordmarkClassName="hidden text-[15px] font-semibold tracking-tight sm:inline"
+              />
             </Link>
 
-            <nav aria-label="Organization" className="hidden items-center gap-0.5 md:flex">
-              {ORGANIZATION_ITEMS.map((item) => (
-                <OrgLink key={item.path} item={item} withTestId={desktopNav} />
-              ))}
-            </nav>
+            <span className="hidden h-5 w-px shrink-0 bg-outline-variant md:block" aria-hidden="true" />
+
+            <div className="hidden md:block">
+              <EnvironmentSwitcher variant="header" />
+            </div>
           </div>
 
-          <form
-            onSubmit={submitSearch}
-            className="mx-auto hidden w-full max-w-xl md:block"
-            role="search"
-            data-testid="global-search"
-          >
-            <label className="relative block">
-              <span className="sr-only">Search users, roles, groups, services, and projects</span>
+          <div className="mx-auto hidden w-full max-w-xl md:block" data-testid="global-search">
+            <button
+              type="button"
+              onClick={openSearch}
+              className="relative flex h-9 w-full items-center rounded-lg border border-outline-variant bg-surface-container-low pl-9 pr-3 text-left text-sm text-on-surface-variant transition-colors hover:border-primary/40 hover:bg-surface"
+              data-testid="global-search-input"
+              aria-label={CONSOLE_SEARCH_PLACEHOLDER}
+            >
               <Search
                 size={16}
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
                 aria-hidden="true"
               />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onFocus={() => {
-                  // Prefer the command palette for cross-entity search.
-                }}
-                placeholder="Search console… (⌘K)"
-                data-testid="global-search-input"
-                className="h-9 w-full rounded-lg border border-outline-variant bg-surface-container-low pl-9 pr-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20"
-              />
-            </label>
-          </form>
+              <span className="truncate">{CONSOLE_SEARCH_PLACEHOLDER}</span>
+              <kbd className="ml-auto hidden shrink-0 rounded border border-outline-variant px-1.5 py-0.5 font-mono text-[10px] text-on-surface-variant lg:inline">
+                ⌘K
+              </kbd>
+            </button>
+          </div>
 
           <div className="flex shrink-0 items-center justify-end gap-0.5 sm:gap-1">
             <Link
               to="/admin"
               data-testid={desktopNav ? ADMIN_ITEM.testId : undefined}
               aria-current={settingsActive ? 'page' : undefined}
-              title="Workspace settings"
+              aria-label="Security"
+              title="Security"
               className={cn(
-                'hidden min-h-9 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium md:inline-flex',
+                'flex size-9 items-center justify-center rounded-md transition-colors',
                 settingsActive
                   ? 'bg-primary-container text-on-primary-container'
                   : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface',
               )}
             >
-              <Settings size={16} aria-hidden="true" />
-              <span>Settings</span>
+              <ShieldCheck size={18} aria-hidden="true" />
             </Link>
             <Link
               to="/approvals"
               className="flex size-9 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
               data-testid="nav-notifications"
-              aria-label="View approvals"
-              title="View approvals"
+              aria-label="Notifications"
+              title="Notifications"
             >
               <Bell size={18} aria-hidden="true" />
             </Link>
-            <div className="mx-0.5 hidden h-7 w-px bg-outline-variant sm:block" />
+            <div className="mx-0.5 hidden h-7 w-px bg-outline-variant sm:block" aria-hidden="true" />
             <div className="relative" ref={seatMenuRef}>
               <button
                 type="button"
                 disabled={!session || switching}
-                onClick={() => {
-                  if (canSwitchDemoSeat) setSeatOpen((open) => !open);
-                }}
-                className={cn(
-                  'flex items-center gap-2 rounded-lg px-1.5 py-1 text-left transition-colors',
-                  canSwitchDemoSeat ? 'hover:bg-surface-container cursor-pointer' : 'cursor-default',
-                )}
-                title={canSwitchDemoSeat ? `${displayName} — switch demo seat` : displayName}
+                onClick={() => setSeatOpen((open) => !open)}
+                className="flex items-center gap-2 rounded-lg border border-transparent px-1.5 py-1 text-left transition-colors hover:border-outline-variant hover:bg-surface-container disabled:opacity-50"
+                title={displayName}
                 data-testid="session-avatar"
-                data-role={session?.role ?? ''}
-                aria-haspopup={canSwitchDemoSeat ? 'menu' : undefined}
-                aria-expanded={canSwitchDemoSeat ? seatOpen : undefined}
+                data-role={
+                  me?.isWorkspaceOwner
+                    ? 'owner'
+                    : me?.roleId
+                      ? me.roleId
+                      : (session?.role ?? '')
+                }
+                aria-haspopup="menu"
+                aria-expanded={seatOpen}
               >
                 <span className="flex size-8 items-center justify-center rounded-full bg-primary-container text-xs font-semibold text-on-primary-container">
                   {initialsFrom(me, session?.id ?? '??')}
@@ -305,84 +322,90 @@ export default function Topbar({
                     {switching ? 'Switching…' : subtitle}
                   </span>
                 </span>
-                {canSwitchDemoSeat && (
-                  <ChevronDown size={14} className="hidden text-on-surface-variant sm:block" aria-hidden="true" />
-                )}
+                <ChevronDown size={14} className="hidden text-on-surface-variant sm:block" aria-hidden="true" />
               </button>
-              {seatOpen && canSwitchDemoSeat && (
+              {seatOpen && session && (
                 <div
                   role="menu"
-                  data-testid="demo-seat-menu"
+                  data-testid="profile-menu"
                   className="absolute right-0 top-full z-40 mt-1 w-64 rounded-xl border border-outline-variant bg-surface p-1.5 shadow-md"
                 >
-                  <p className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-on-surface-variant">
-                    Switch demo seat
-                  </p>
-                  {DEMO_SEATS.map((seat) => {
-                    const active = session?.role === seat.id;
-                    return (
-                      <button
-                        key={seat.id}
-                        type="button"
-                        role="menuitem"
-                        data-testid={`demo-seat-${seat.id}`}
-                        disabled={active || switching}
-                        onClick={() => void switchDemoSeat(seat.id)}
-                        className={cn(
-                          'flex w-full flex-col rounded-lg px-2.5 py-2 text-left transition-colors',
-                          active
-                            ? 'bg-primary-container/70 text-on-primary-container'
-                            : 'hover:bg-surface-container',
-                        )}
-                      >
-                        <span className="text-sm font-semibold text-on-surface">{seat.label}</span>
-                        <span className="text-xs text-on-surface-variant">{seat.hint}</span>
-                      </button>
-                    );
-                  })}
+                  <div className="border-b border-outline-variant px-2.5 py-2.5">
+                    <p className="truncate text-sm font-semibold text-on-surface">{displayName}</p>
+                    <p className="truncate text-xs text-on-surface-variant">{subtitle}</p>
+                  </div>
+
+                  {canSwitchDemoSeat && (
+                    <div className="py-1.5" data-testid="demo-seat-menu">
+                      <p className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-on-surface-variant">
+                        Switch demo seat
+                      </p>
+                      {DEMO_SEATS.map((seat) => {
+                        const active = session.role === seat.id;
+                        return (
+                          <button
+                            key={seat.id}
+                            type="button"
+                            role="menuitem"
+                            data-testid={`demo-seat-${seat.id}`}
+                            disabled={active || switching}
+                            onClick={() => void switchDemoSeat(seat.id)}
+                            className={cn(
+                              'flex w-full flex-col rounded-lg px-2.5 py-2 text-left transition-colors',
+                              active
+                                ? 'bg-primary-container/70 text-on-primary-container'
+                                : 'hover:bg-surface-container',
+                            )}
+                          >
+                            <span className="text-sm font-semibold text-on-surface">{seat.label}</span>
+                            <span className="text-xs text-on-surface-variant">{seat.hint}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className={cn(canSwitchDemoSeat && 'border-t border-outline-variant pt-1.5')}>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={busy}
+                      onClick={() => void logout()}
+                      data-testid="logout-button"
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container disabled:opacity-50"
+                    >
+                      <LogOut size={16} aria-hidden="true" />
+                      {busy ? 'Signing out…' : 'Log out'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void logout()}
-              className="ml-0.5 flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-on-surface-variant hover:bg-surface-container hover:text-on-surface disabled:opacity-50"
-              data-testid="logout-button"
-            >
-              <LogOut size={14} />
-              <span className="hidden xl:inline">{busy ? 'Signing out…' : 'Log out'}</span>
-            </button>
           </div>
         </div>
       </header>
+
+      {consoleRoute && !projectContext && <ConsoleContextRow withTestId={desktopNav} />}
 
       {projectContext && (
         <ProjectContextRow projectId={projectContext.projectId} withTestId={desktopNav} />
       )}
 
-      <form
-        onSubmit={submitSearch}
-        className="border-b border-outline-variant bg-surface px-3 py-2 md:hidden"
-        role="search"
-        data-testid="global-search-mobile"
-      >
-        <label className="relative block">
-          <span className="sr-only">Search projects</span>
+      <div className="border-b border-outline-variant bg-surface px-3 py-2 md:hidden" data-testid="global-search-mobile">
+        <button
+          type="button"
+          onClick={openSearch}
+          className="relative flex h-9 w-full items-center rounded-lg border border-outline-variant bg-surface-container-low pl-9 pr-3 text-left text-sm text-on-surface-variant"
+          aria-label={CONSOLE_SEARCH_PLACEHOLDER}
+        >
           <Search
             size={16}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
             aria-hidden="true"
           />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search projects…"
-            className="h-9 w-full rounded-lg border border-outline-variant bg-surface-container-low pl-9 pr-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-        </label>
-      </form>
+          <span className="truncate">{CONSOLE_SEARCH_PLACEHOLDER}</span>
+        </button>
+      </div>
     </div>
   );
 }

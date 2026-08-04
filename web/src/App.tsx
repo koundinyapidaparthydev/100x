@@ -32,7 +32,9 @@ import ConsoleUsers from './pages/ConsoleUsers';
 import ConsoleRoles from './pages/ConsoleRoles';
 import ConsoleGroups from './pages/ConsoleGroups';
 import ConsoleServices from './pages/ConsoleServices';
+import ConsoleEnvironments from './pages/ConsoleEnvironments';
 import IamImportWizard from './pages/IamImportWizard';
+import WorkspaceHome from './pages/WorkspaceHome';
 
 function RuntimeRoute() {
   return useLocation().hash === '#cloud' ? <Cloud /> : <Models />;
@@ -49,7 +51,6 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/home" element={<Navigate to="/" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
@@ -84,11 +85,13 @@ export default function App() {
             </RequireAuth>
           }
         >
+          <Route path="home" element={<WorkspaceHome />} />
           <Route path="console" element={<ConsoleHome />} />
           <Route path="console/users" element={<ConsoleUsers />} />
           <Route path="console/roles" element={<ConsoleRoles />} />
           <Route path="console/groups" element={<ConsoleGroups />} />
           <Route path="console/services" element={<ConsoleServices />} />
+          <Route path="console/environments" element={<ConsoleEnvironments />} />
           <Route path="console/iam-import" element={<IamImportWizard />} />
           <Route path="projects" element={<Projects />} />
           <Route path="connections" element={<Connections />} />

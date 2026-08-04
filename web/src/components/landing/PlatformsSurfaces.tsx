@@ -114,8 +114,8 @@ export function PlatformsSurfaces({ teaser = false, showIntro = true }: Platform
             </div>
             <h3 className="mt-1 text-xl font-semibold tracking-tight">Mobile swipe triage</h3>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              Try it — right sends to AI, left assigns a person. Same decision as web, built for the
-              phone.
+              Try it — right sends to AI, left assigns a person. Same triage as web; drafts still get
+              reviewed before ship.
             </p>
           </div>
         </motion.article>

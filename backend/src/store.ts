@@ -20,14 +20,24 @@ import type {
   ApprovalItem,
   AuditActor,
   AuditEvent,
+  CustomModel,
+  CustomRole,
+  HomeLayoutPrefs,
   IdentityGroup,
   IamImportJob,
   NotificationItem,
   OnboardingProfile,
   Policy,
   ServiceMcpConnection,
+  SkillPack,
+  Solution,
+  SolutionCallSet,
+  TenantMcpCredentials,
   TenantUser,
+  UserEnvironmentGrant,
+  UserSecuritySettings,
   WorkItem,
+  WorkspaceEnvironment,
   WorkspaceInvite,
 } from '../../shared/types';
 
@@ -58,17 +68,46 @@ export interface Store {
   onboardingByUser: Record<string, OnboardingProfile>;
   /** @deprecated Kept for snapshot migration only; prefer onboardingByUser. */
   onboardingByTenant?: Record<string, OnboardingProfile>;
-  /** Per-tenant MCP connections (service → permission + granted tools). */
+  /** Per-tenant MCP connections (service → permission + granted tools), scoped by environmentId. */
   mcpConnectionsByTenant: Record<string, ServiceMcpConnection[]>;
+  /**
+   * Per-tenant MCP credentials (Atlassian OAuth / GitHub PAT).
+   * Never serialize into API responses — only used by transports.
+   * Shared across environments for the same provider account; connection records are per-env.
+   */
+  mcpCredentialsByTenant: Record<string, TenantMcpCredentials>;
   /** Pending / accepted workspace invites keyed by tenant. */
   invitesByTenant: Record<string, WorkspaceInvite[]>;
   /** Workspace members (federated + demo) keyed by tenant. */
   usersByTenant: Record<string, TenantUser[]>;
+  /** Tenant-defined custom roles (empty by default). */
+  rolesByTenant: Record<string, CustomRole[]>;
   /** Identity groups keyed by tenant. */
   groupsByTenant: Record<string, IdentityGroup[]>;
+  /** Workspace environments (Production/Staging/Development + custom) keyed by tenant. */
+  environmentsByTenant: Record<string, WorkspaceEnvironment[]>;
+  /** Active environment id keyed by tenant. */
+  activeEnvironmentByTenant: Record<string, string>;
+  /**
+   * Per-user environment memberships (user × env × role).
+   * Keyed by tenant; each grant ties a user to one environment with a roleId.
+   */
+  environmentGrantsByTenant: Record<string, UserEnvironmentGrant[]>;
+  /** Per-user Home layout preferences keyed by `${tenantId}:${userId}`. */
+  homeLayoutByUser: Record<string, HomeLayoutPrefs>;
+  /** Learning candidates (call sets) keyed by tenant. */
+  callSetsByTenant: Record<string, SolutionCallSet[]>;
+  /** Promoted Solutions keyed by tenant. */
+  solutionsByTenant: Record<string, Solution[]>;
+  /** Custom models trained from Solutions. */
+  customModelsByTenant: Record<string, CustomModel[]>;
+  /** Skill packs built from Solution categories. */
+  skillPacksByTenant: Record<string, SkillPack[]>;
+  /** Per-user security settings (2FA / passkeys / access keys). */
+  securityByUser: Record<string, UserSecuritySettings>;
   /** Sandbox stub IAM import jobs. */
   iamImportJobs: IamImportJob[];
-  /** Sandbox stub email outbox (invite mail is recorded here, not SMTP). */
+  /** Invite email outbox (stub when SendGrid unset; also audited after SendGrid sends). */
   emailOutbox: Array<{
     id: string;
     to: string;
@@ -404,7 +443,12 @@ export function createSeedStore(): Store {
     attachmentCounter: 0,
     onboardingByUser: {},
     mcpConnectionsByTenant: {},
+    mcpCredentialsByTenant: {},
     invitesByTenant: {},
+    environmentGrantsByTenant: {
+      [TENANT_ID]: [],
+    },
+    homeLayoutByUser: {},
     usersByTenant: {
       [TENANT_ID]: [
         {
@@ -412,7 +456,7 @@ export function createSeedStore(): Store {
           tenantId: TENANT_ID,
           email: 'root@acme.demo',
           displayName: 'Asha Root',
-          role: 'root',
+          roleId: null,
           linkedEmails: [],
           companyDomain: 'acme.demo',
           isWorkspaceOwner: true,
@@ -427,7 +471,7 @@ export function createSeedStore(): Store {
           tenantId: TENANT_ID,
           email: 'manager@acme.demo',
           displayName: 'Marcus Manager',
-          role: 'manager',
+          roleId: null,
           linkedEmails: [],
           companyDomain: 'acme.demo',
           isWorkspaceOwner: false,
@@ -442,7 +486,7 @@ export function createSeedStore(): Store {
           tenantId: TENANT_ID,
           email: 'engineer@acme.demo',
           displayName: 'Dev Engineer',
-          role: 'engineer',
+          roleId: null,
           linkedEmails: [],
           companyDomain: 'acme.demo',
           isWorkspaceOwner: false,
@@ -457,7 +501,7 @@ export function createSeedStore(): Store {
           tenantId: TENANT_ID,
           email: 'auditor@acme.demo',
           displayName: 'Audit Viewer',
-          role: 'auditor',
+          roleId: null,
           linkedEmails: [],
           companyDomain: 'acme.demo',
           isWorkspaceOwner: false,
@@ -469,30 +513,54 @@ export function createSeedStore(): Store {
         },
       ],
     },
+    rolesByTenant: {
+      [TENANT_ID]: [],
+    },
+    // Groups start empty — create real ones in Identity → Groups (no demo seeds).
     groupsByTenant: {
+      [TENANT_ID]: [],
+    },
+    environmentsByTenant: {
       [TENANT_ID]: [
         {
-          id: 'grp-owners',
+          id: 'env-prod',
           tenantId: TENANT_ID,
-          name: 'Owners',
-          description: 'Workspace owners and roots',
-          roleIds: ['root'],
-          memberIds: ['usr-root-1'],
+          key: 'prod',
+          name: 'Production',
           createdAt: hoursAgo(48),
-          updatedAt: hoursAgo(48),
         },
         {
-          id: 'grp-delivery',
+          id: 'env-stage',
           tenantId: TENANT_ID,
-          name: 'Delivery',
-          description: 'Delivery leads and contributors',
-          roleIds: ['manager', 'engineer'],
-          memberIds: ['usr-manager-1', 'usr-engineer-1'],
+          key: 'stage',
+          name: 'Staging',
           createdAt: hoursAgo(48),
-          updatedAt: hoursAgo(48),
+        },
+        {
+          id: 'env-dev',
+          tenantId: TENANT_ID,
+          key: 'dev',
+          name: 'Development',
+          createdAt: hoursAgo(48),
         },
       ],
     },
+    activeEnvironmentByTenant: {
+      [TENANT_ID]: 'env-prod',
+    },
+    callSetsByTenant: {
+      [TENANT_ID]: [],
+    },
+    solutionsByTenant: {
+      [TENANT_ID]: [],
+    },
+    customModelsByTenant: {
+      [TENANT_ID]: [],
+    },
+    skillPacksByTenant: {
+      [TENANT_ID]: [],
+    },
+    securityByUser: {},
     iamImportJobs: [],
     emailOutbox: [],
   };

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@shared/api';
-import { applyDemoSessionToApi, readDemoSession, writeDemoSession } from '../lib/session';
-import { hydrateOnboardingFromServer, postAuthPath } from '../lib/onboardingStorage';
+import { applyDemoSessionToApi, readDemoSession, demoSeatFromUser, writeDemoSession } from '../lib/session';
+import { hydrateOnboardingFromServer, resolvePostAuthLanding } from '../lib/onboardingStorage';
 import { AuthSplit, WorkspaceAuthForm, type DemoRoleId } from '../components/landing';
 
 export default function Login() {
@@ -29,8 +29,9 @@ export default function Login() {
     let cancelled = false;
     void (async () => {
       await hydrateOnboardingFromServer();
+      const dest = await resolvePostAuthLanding();
       if (!cancelled) {
-        navigate(postAuthPath(), { replace: true });
+        navigate(dest, { replace: true });
       }
     })();
     return () => {
@@ -46,11 +47,15 @@ export default function Login() {
       writeDemoSession({
         token: session.token,
         id: session.user.id,
-        role: session.user.role,
+        role: demoSeatFromUser(session.user),
         surface: 'web',
       });
       const done = await hydrateOnboardingFromServer();
-      navigate(done ? '/console' : '/onboarding');
+      if (!done) {
+        navigate('/onboarding');
+        return;
+      }
+      navigate(await resolvePostAuthLanding());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Login failed');
     } finally {

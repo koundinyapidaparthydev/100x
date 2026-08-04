@@ -29,7 +29,7 @@ async function loadProjectOverview(projectId: string): Promise<{
 
 export default function ProjectOverview() {
   const { projectId = '' } = useParams<{ projectId: string }>();
-  const canManage = ['root', 'manager'].includes(readDemoSession()?.role ?? '');
+  const canManage = ['root', 'owner'].includes(readDemoSession()?.role ?? '');
   const { data, loading, error, reload } = useAsync(() => loadProjectOverview(projectId), [projectId]);
   const [syncing, setSyncing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);

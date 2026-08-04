@@ -80,7 +80,7 @@ function previewFor(category: PiiCategory, rule: PiiCategoryRule): string {
 }
 
 export default function PiiRules() {
-  const canManage = ['root', 'manager'].includes(readDemoSession()?.role ?? '');
+  const canManage = ['root', 'owner'].includes(readDemoSession()?.role ?? '');
   const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), []);
   const policy = policies?.find((item) => item.scope === 'org') ?? policies?.[0] ?? null;
   const [draft, setDraft] = useState<DraftState | null>(null);

@@ -28,7 +28,7 @@ export default function Projects() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchQuery = (searchParams.get('q') ?? '').trim().toLowerCase();
-  const canManage = ['root', 'manager'].includes(readDemoSession()?.role ?? '');
+  const canManage = ['root', 'owner'].includes(readDemoSession()?.role ?? '');
   const { data, loading, error, reload } = useAsync(() => loadProjectsIndex(), []);
   const [connectOpen, setConnectOpen] = useState(false);
   const [projectId, setProjectId] = useState('');

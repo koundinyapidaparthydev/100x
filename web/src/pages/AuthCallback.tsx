@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@shared/api';
 import type { FederatedExchangeResponse } from '@shared/types';
-import { writeDemoSession } from '../lib/session';
-import { hydrateOnboardingFromServer } from '../lib/onboardingStorage';
+import { demoSeatFromUser, writeDemoSession } from '../lib/session';
+import { hydrateOnboardingFromServer, resolvePostAuthLanding } from '../lib/onboardingStorage';
 import { Button } from '../components/ui';
 
 /** Dedupes Strict Mode double-mount so the one-time exchange isn't raced twice. */
@@ -46,7 +46,7 @@ export default function AuthCallback() {
         writeDemoSession({
           token: session.token,
           id: session.user.id,
-          role: session.user.role,
+          role: demoSeatFromUser(session.user),
           surface: session.user.surface,
         });
         const done = await hydrateOnboardingFromServer();
@@ -64,7 +64,11 @@ export default function AuthCallback() {
           return;
         }
         // Signup always onboards; login only skips when THIS user completed on the server.
-        navigate(intent === 'signup' || !done ? '/onboarding' : '/console', { replace: true });
+        if (intent === 'signup' || !done) {
+          navigate('/onboarding', { replace: true });
+          return;
+        }
+        navigate(await resolvePostAuthLanding(), { replace: true });
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Sign-in failed');

@@ -6,7 +6,15 @@
  * without crashing the job pipeline.
  */
 
+import type { ServiceId } from '../../../shared/types';
+import type { Store } from '../store';
 import { getAtlassianAccessToken } from './atlassianOAuth';
+import {
+  getIamCredentials,
+  getServiceAccessToken,
+  OAUTH_PROVIDER_BY_SERVICE,
+} from './credentials';
+import { getProviderOAuthAccessToken } from './providerOAuth';
 import { parseMcpResponseBody } from './sse';
 
 export type RemoteMcpCallInput = {
@@ -107,20 +115,48 @@ export async function callRemoteMcpTool(input: RemoteMcpCallInput): Promise<Remo
   }
 }
 
-export function bearerForService(serviceId: string): string | undefined {
-  switch (serviceId) {
+/**
+ * Resolve Bearer for a service: tenant credentials first, then env.
+ * OAuth families fall back to oauthByProvider when no PAT is stored.
+ */
+export function bearerForService(
+  serviceId: string,
+  opts?: { store?: Store; tenantId?: string },
+): string | undefined {
+  const id = serviceId as ServiceId;
+
+  switch (id) {
     case 'jira':
     case 'confluence':
     case 'bitbucket':
-    case 'gitlab_boards':
-      return getAtlassianAccessToken();
-    case 'github':
-    case 'github_enterprise':
-    case 'github_projects':
-      return process.env.MCP_GITHUB_TOKEN?.trim() || undefined;
-    case 'notion':
-      return process.env.MCP_NOTION_TOKEN?.trim() || undefined;
+      return getAtlassianAccessToken(
+        opts?.store && opts.tenantId ? { store: opts.store, tenantId: opts.tenantId } : undefined,
+      );
     default:
-      return undefined;
+      break;
   }
+
+  const tenantToken = getServiceAccessToken(opts?.store, opts?.tenantId, id);
+  if (tenantToken) return tenantToken;
+
+  const oauthFamily = OAUTH_PROVIDER_BY_SERVICE[id];
+  if (oauthFamily && oauthFamily !== 'atlassian') {
+    const oauth = getProviderOAuthAccessToken(opts?.store, opts?.tenantId, oauthFamily);
+    if (oauth) return oauth;
+  }
+
+  // IAM services typically use SigV4 / workload identity — no bearer. Optional bridge tokens:
+  if (id === 'aws' || id === 'aws_cloudwatch' || id === 'gcp' || id === 'azure') {
+    const iam = getIamCredentials(opts?.store, opts?.tenantId, id);
+    void iam; // identifiers only; bearer comes from env bridge tokens when present
+    return (
+      process.env.MCP_AWS_TOKEN?.trim() ||
+      process.env.MCP_CLOUDWATCH_TOKEN?.trim() ||
+      process.env.MCP_GCP_TOKEN?.trim() ||
+      process.env.MCP_AZURE_TOKEN?.trim() ||
+      undefined
+    );
+  }
+
+  return undefined;
 }

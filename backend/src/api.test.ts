@@ -26,7 +26,8 @@ beforeEach(async () => {
   store = createSeedStore();
   app = createApp(store);
   req = supertest(app);
-  const login = await req.post('/api/v1/auth/login').send({ identity: 'manager' });
+  // Privileged demo seat is workspace owner (custom roles start empty).
+  const login = await req.post('/api/v1/auth/login').send({ identity: 'root' });
   managerToken = login.body.session.token as string;
 });
 
@@ -276,7 +277,7 @@ describe('jobs / policies / boards / audit / notifications', () => {
   });
 
   it('patches org policy and audits the change', async () => {
-    const login = await req.post('/api/v1/auth/login').send({ identity: 'manager', surface: 'web' }).expect(200);
+    const login = await req.post('/api/v1/auth/login').send({ identity: 'root', surface: 'web' }).expect(200);
     const token = login.body.session.token as string;
     const list = await req.get('/api/v1/policies').expect(200);
     const id = list.body[0].id as string;
@@ -338,7 +339,8 @@ describe('auth', () => {
   it('logs in a demo manager and returns /auth/me', async () => {
     const login = await req.post('/api/v1/auth/login').send({ identity: 'manager', surface: 'mobile' }).expect(200);
     expect(login.body.session.token).toMatch(/^oh1\./);
-    expect(login.body.session.user.role).toBe('manager');
+    expect(login.body.session.user.roleId).toBeNull();
+    expect(login.body.session.user.isWorkspaceOwner).toBe(false);
     const me = await req
       .get('/api/v1/auth/me')
       .set('Authorization', `Bearer ${login.body.session.token}`)
@@ -582,17 +584,27 @@ describe('onboarding', () => {
 });
 
 describe('workspace invites', () => {
-  it('lets root invite by email with stub delivery; manager cannot', async () => {
+  it('lets owner invite by email with stub delivery when SendGrid unset; member cannot', async () => {
     const rootLogin = await req.post('/api/v1/auth/login').send({ identity: 'root' });
     const rootToken = rootLogin.body.session.token as string;
+
+    const roleRes = await req
+      .post('/api/v1/identity/roles')
+      .set('Authorization', `Bearer ${rootToken}`)
+      .send({
+        name: 'Contributor',
+        rules: [{ kind: 'platform', capability: 'approvals.read' }],
+      })
+      .expect(201);
+    const roleId = roleRes.body.role.id as string;
 
     const created = await req
       .post('/api/v1/invites')
       .set('Authorization', `Bearer ${rootToken}`)
-      .send({ email: 'alex@contoso.com', role: 'engineer' })
+      .send({ email: 'alex@contoso.com', roleId })
       .expect(201);
     expect(created.body.invite.email).toBe('alex@contoso.com');
-    expect(created.body.invite.role).toBe('engineer');
+    expect(created.body.invite.roleId).toBe(roleId);
     expect(created.body.emailDelivery.channel).toBe('stub');
     expect(created.body.emailDelivery.preview).toContain('alex@contoso.com');
 
@@ -602,20 +614,31 @@ describe('workspace invites', () => {
       .expect(200);
     expect(listed.body.invites).toHaveLength(1);
 
+    const memberLogin = await req.post('/api/v1/auth/login').send({ identity: 'engineer' });
+    const memberToken = memberLogin.body.session.token as string;
     await req
       .post('/api/v1/invites')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({ email: 'other@contoso.com', role: 'manager' })
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ email: 'other@contoso.com', roleId })
       .expect(403);
   });
 
   it('applies pending invite role when federated access is resolved', async () => {
     const rootLogin = await req.post('/api/v1/auth/login').send({ identity: 'root' });
     const rootToken = rootLogin.body.session.token as string;
+    const roleRes = await req
+      .post('/api/v1/identity/roles')
+      .set('Authorization', `Bearer ${rootToken}`)
+      .send({
+        name: 'Auditor',
+        rules: [{ kind: 'platform', capability: 'approvals.read' }],
+      })
+      .expect(201);
+    const roleId = roleRes.body.role.id as string;
     await req
       .post('/api/v1/invites')
       .set('Authorization', `Bearer ${rootToken}`)
-      .send({ email: 'invited@gmail.com', role: 'auditor' })
+      .send({ email: 'invited@gmail.com', roleId })
       .expect(201);
 
     const { resolveAccessForFederatedUser } = await import('./invites');
@@ -625,22 +648,90 @@ describe('workspace invites', () => {
         id: 'google:abc',
         email: 'invited@gmail.com',
         displayName: 'Invited',
-        role: 'engineer',
+        roleId: null,
         tenantId: 'acme',
         surface: 'web',
       },
       'login',
     );
-    expect(applied.role).toBe('auditor');
+    expect(applied.roleId).toBe(roleId);
     expect(store.invitesByTenant.acme?.[0]?.status).toBe('accepted');
+  });
+
+  it('lists empty custom roles and creates one with MCP + platform rules', async () => {
+    const listed = await req
+      .get('/api/v1/identity/roles')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(listed.body.roles).toEqual([]);
+
+    const created = await req
+      .post('/api/v1/identity/roles')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({
+        name: 'Delivery',
+        description: 'Triage and Jira read',
+        rules: [
+          { kind: 'platform', capability: 'work_items.triage' },
+          { kind: 'mcp_access', serverId: 'jira', permissionLevel: 'read' },
+        ],
+      })
+      .expect(201);
+    expect(created.body.role.name).toBe('Delivery');
+    expect(created.body.role.rules).toHaveLength(2);
+  });
+});
+
+describe('workspace environments', () => {
+  it('lists seeded Production/Staging/Development and sets active', async () => {
+    const listed = await req
+      .get('/api/v1/environments')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(listed.body.environments.map((e: { key: string }) => e.key).sort()).toEqual([
+      'dev',
+      'prod',
+      'stage',
+    ]);
+    expect(listed.body.activeEnvironmentId).toBeTruthy();
+
+    const stage = listed.body.environments.find((e: { key: string }) => e.key === 'stage');
+    expect(stage).toBeTruthy();
+
+    const updated = await req
+      .put('/api/v1/environments/active')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ environmentId: stage.id })
+      .expect(200);
+    expect(updated.body.activeEnvironmentId).toBe(stage.id);
+  });
+
+  it('lets manager create a custom environment; engineer cannot', async () => {
+    const created = await req
+      .post('/api/v1/environments')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ key: 'qa', name: 'QA' })
+      .expect(201);
+    expect(created.body.environments.some((e: { key: string }) => e.key === 'qa')).toBe(true);
+
+    const engineerLogin = await req.post('/api/v1/auth/login').send({ identity: 'engineer' });
+    const engineerToken = engineerLogin.body.session.token as string;
+    await req
+      .post('/api/v1/environments')
+      .set('Authorization', `Bearer ${engineerToken}`)
+      .send({ key: 'lab', name: 'Lab' })
+      .expect(403);
   });
 });
 
 describe('mcp connections', () => {
-  it('lists providers and connects / disconnects Jira with a permission level', async () => {
+  it('lists providers and requires auth before connecting Jira', async () => {
     const providers = await req.get('/api/v1/mcp/providers').expect(200);
     expect(providers.body.providers.length).toBeGreaterThan(10);
     expect(providers.body.providers.some((p: { serviceId: string }) => p.serviceId === 'jira')).toBe(
+      true,
+    );
+    expect(providers.body.providers.some((p: { serviceId: string }) => p.serviceId === 'datadog')).toBe(
       true,
     );
 
@@ -650,12 +741,24 @@ describe('mcp connections', () => {
       .expect(200);
     expect(empty.body.connections).toEqual([]);
 
+    const blocked = await req
+      .post('/api/v1/mcp/connections/jira')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(409);
+    expect(blocked.body.code).toBe('oauth_required');
+    expect(blocked.body.authorizePath).toContain('/mcp/oauth/atlassian/start');
+
+    process.env.MCP_ATLASSIAN_ACCESS_TOKEN = 'test-atl-token';
+    process.env.MCP_ATLASSIAN_CLIENT_ID = 'client-demo';
+
     const connected = await req
       .post('/api/v1/mcp/connections/jira')
       .set('Authorization', `Bearer ${managerToken}`)
       .send({ permissionLevel: 'read' })
       .expect(201);
     expect(connected.body.connection.status).toBe('connected');
+    expect(connected.body.connection.live).toBe(true);
     expect(connected.body.connection.grantedTools).toContain('jira_get_issue');
 
     const listed = await req
@@ -680,6 +783,166 @@ describe('mcp connections', () => {
       .delete('/api/v1/mcp/connections/jira')
       .set('Authorization', `Bearer ${managerToken}`)
       .expect(200);
+
+    delete process.env.MCP_ATLASSIAN_ACCESS_TOKEN;
+    delete process.env.MCP_ATLASSIAN_CLIENT_ID;
+  });
+
+  it('requires a GitHub PAT and token/oauth for other providers', async () => {
+    const githubBlocked = await req
+      .post('/api/v1/mcp/connections/github')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(409);
+    expect(githubBlocked.body.code).toBe('token_required');
+
+    await req
+      .put('/api/v1/mcp/credentials/github')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ token: 'ghp_test_token' })
+      .expect(200);
+
+    const githubConnected = await req
+      .post('/api/v1/mcp/connections/github')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(201);
+    expect(githubConnected.body.connection.live).toBe(true);
+
+    const status = await req
+      .get('/api/v1/mcp/credentials/status')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(status.body.github.hasToken).toBe(true);
+    expect(status.body.tokens.github.hasToken).toBe(true);
+    expect(status.body).not.toHaveProperty('github.token');
+    expect(status.body).not.toHaveProperty('tokens.github.token');
+
+    const notionBlocked = await req
+      .post('/api/v1/mcp/connections/notion')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(409);
+    expect(notionBlocked.body.code).toBe('token_required');
+
+    await req
+      .put('/api/v1/mcp/credentials/notion')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ token: 'ntn_test' })
+      .expect(200);
+
+    const notionConnected = await req
+      .post('/api/v1/mcp/connections/notion')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(201);
+    expect(notionConnected.body.connection.live).toBe(true);
+
+    const linearBlocked = await req
+      .post('/api/v1/mcp/connections/linear')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(409);
+    expect(linearBlocked.body.code).toBe('token_required');
+
+    await req
+      .put('/api/v1/mcp/credentials/linear')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ token: 'lin_api_test' })
+      .expect(200);
+
+    const linearConnected = await req
+      .post('/api/v1/mcp/connections/linear')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(201);
+    expect(linearConnected.body.connection.live).toBe(true);
+
+    const slackBlocked = await req
+      .post('/api/v1/mcp/connections/slack')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(409);
+    expect(slackBlocked.body.code).toBe('oauth_required');
+    expect(slackBlocked.body.authorizePath).toContain('/mcp/oauth/slack/start');
+
+    const datadogBlocked = await req
+      .post('/api/v1/mcp/connections/datadog')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(409);
+    expect(datadogBlocked.body.code).toBe('token_required');
+
+    // Token alone is not enough without MCP_DATADOG_URL
+    await req
+      .put('/api/v1/mcp/credentials/datadog')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ token: 'dd_key' })
+      .expect(200);
+    const datadogNoUrl = await req
+      .post('/api/v1/mcp/connections/datadog')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(400);
+    expect(datadogNoUrl.body.code).toBe('transport_unavailable');
+
+    const awsBlocked = await req
+      .post('/api/v1/mcp/connections/aws')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(409);
+    expect(awsBlocked.body.code).toBe('token_required');
+
+    await req
+      .put('/api/v1/mcp/credentials/aws')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ roleArn: 'arn:aws:iam::123456789012:role/AplifyMcp' })
+      .expect(200);
+
+    const awsConnected = await req
+      .post('/api/v1/mcp/connections/aws')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(201);
+    expect(awsConnected.body.connection.live).toBe(true);
+
+    const cursorBlocked = await req
+      .post('/api/v1/mcp/connections/cursor')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ permissionLevel: 'read' })
+      .expect(400);
+    expect(cursorBlocked.body.code).toBe('transport_unavailable');
+
+    const oauthStatus = await req
+      .get('/api/v1/mcp/oauth/status')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(oauthStatus.body.providers.length).toBeGreaterThanOrEqual(5);
+
+    const transports = await req
+      .get('/api/v1/mcp/transports')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    const notionTransport = transports.body.transports.find(
+      (t: { serviceId: string }) => t.serviceId === 'notion',
+    );
+    expect(notionTransport.endpoint).toContain('notion');
+    const linearTransport = transports.body.transports.find(
+      (t: { serviceId: string }) => t.serviceId === 'linear',
+    );
+    expect(linearTransport.endpoint).toContain('linear.app');
+    const loggingIds = [
+      'datadog',
+      'aws_cloudwatch',
+      'splunk',
+      'elasticsearch',
+      'new_relic',
+      'grafana_loki',
+    ];
+    for (const id of loggingIds) {
+      const row = transports.body.transports.find((t: { serviceId: string }) => t.serviceId === id);
+      expect(row, id).toBeTruthy();
+    }
   });
 
   it('rejects connect for services without MCP', async () => {
