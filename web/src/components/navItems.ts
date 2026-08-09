@@ -3,6 +3,7 @@ import {
   CheckSquare,
   FileCheck,
   FolderKanban,
+  GitBranch,
   History,
   Home,
   Inbox,
@@ -25,6 +26,7 @@ export type NavItem = {
 export const ORGANIZATION_ITEMS: NavItem[] = [
   { name: 'Home', path: '/home', icon: Home, testId: 'nav-home', exact: true },
   { name: 'Triage', path: '/triage', icon: Inbox, testId: 'nav-triage' },
+  { name: 'Flows', path: '/flows', icon: GitBranch, testId: 'nav-flows' },
   { name: 'Console', path: '/console', icon: LayoutGrid, testId: 'nav-console' },
   { name: 'Projects', path: '/projects', icon: FolderKanban, testId: 'nav-projects', exact: true },
   { name: 'Connections', path: '/connections', icon: Link2, testId: 'nav-connections' },
