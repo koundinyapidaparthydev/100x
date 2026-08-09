@@ -55,6 +55,10 @@ export default defineConfig({
         DATA_DIR: '',
         DATABASE_URL: '',
         NODE_ENV: 'development',
+        // Deterministic MCP connect without real Atlassian OAuth redirects
+        // (override host env so local CLIENT_ID alone cannot force a browser OAuth bounce).
+        MCP_ATLASSIAN_ACCESS_TOKEN: 'e2e-atlassian-token',
+        MCP_ATLASSIAN_CLIENT_ID: process.env.MCP_ATLASSIAN_CLIENT_ID || 'e2e-atlassian-client',
       },
     },
     {

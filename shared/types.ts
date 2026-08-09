@@ -595,6 +595,8 @@ export interface AuthUser {
   roleId: string | null;
   tenantId: string;
   surface: 'web' | 'mobile';
+  /** How this session was minted — demo seats vs federated IdP. */
+  authProvider?: 'demo' | FederatedAuthProvider;
   /** Company / workspace domain captured after Google signup (e.g. acme.com). */
   companyDomain?: string;
   /** Additional emails linked to this identity (work email ≠ Google email). */

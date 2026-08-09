@@ -48,7 +48,6 @@ import {
   isRuntimeComplete,
   markOnboardingComplete,
   readOnboardingProfile,
-  resolvePostAuthLanding,
   writeOnboardingProfile,
 } from '../lib/onboardingStorage';
 import { readDemoSession } from '../lib/session';
@@ -369,7 +368,8 @@ export default function Onboarding() {
       const { profile: saved } = await api.putOnboarding({ profile: completed });
       writeOnboardingProfile(saved);
       setBusy(false);
-      navigate(await resolvePostAuthLanding());
+      // Stack selections land on Connections (Available / Upcoming) before Home/Console.
+      navigate('/connections');
     } catch (e) {
       console.warn('onboarding persist failed', e);
       setSaveError(

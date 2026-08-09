@@ -37,6 +37,7 @@ describe('health', () => {
     expect(res.body.status).toBe('ok');
     expect(res.body.version).toEqual(expect.any(String));
     expect(res.body.modelRunner).toBe('sandbox');
+    expect(res.body.modelProviders).toEqual([]);
     expect(res.body.boardConnector).toBe('sandbox');
   });
 });
@@ -45,8 +46,10 @@ describe('work items', () => {
   it('lists all seeded work items', async () => {
     const res = await req.get('/api/v1/work-items').expect(200);
     const items = res.body as WorkItem[];
-    expect(items).toHaveLength(8);
+    expect(items).toHaveLength(21);
     expect(new Set(items.map((w) => w.board.projectId))).toEqual(new Set(['APLIFYAI', 'INFRA', 'FE']));
+    const triagePending = items.filter((w) => w.lastTriageDecision === null && w.aiStatus === 'none');
+    expect(triagePending).toHaveLength(18);
   });
 
   it('filters by aiStatus and aiFirst', async () => {

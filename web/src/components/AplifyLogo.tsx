@@ -1,6 +1,7 @@
 import { cn } from '../lib/utils';
 
-const MARK_SRC = '/brand/aplifyai-mark.svg';
+/** AAI mark — logo-only monogram. Company name remains AplifyAI. */
+const MARK_SRC = '/brand/aai-mark.svg';
 
 type AplifyLogoProps = {
   className?: string;
@@ -11,7 +12,7 @@ type AplifyLogoProps = {
   wordmarkClassName?: string;
 };
 
-/** Official AplifyAI mark (+ optional wordmark). */
+/** Official AplifyAI logo: AAI mark (+ optional AplifyAI wordmark). */
 export function AplifyLogo({
   className,
   size = 32,

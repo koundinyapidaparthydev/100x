@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiError, api } from '@shared/api';
 import {
@@ -48,6 +48,18 @@ type TransportRow = { serviceId: ServiceId; ready: boolean; note: string; endpoi
 type ConnectionRow = ServiceCatalogEntry & { selected: true };
 
 const PENDING_CONNECT_KEY = 'aplifyai.mcp.pendingConnect';
+
+/** Connections we surface as connectable now; everything else is Upcoming in the layout. */
+const LIVE_CONNECTION_ORDER: ServiceId[] = [
+  'jira',
+  'slack',
+  'github',
+  'aws',
+  'gcp',
+  'azure',
+  'nvidia',
+];
+const LIVE_CONNECTION_IDS = new Set<ServiceId>(LIVE_CONNECTION_ORDER);
 
 const ATLASSIAN_IDS = new Set<ServiceId>(['jira', 'confluence', 'bitbucket']);
 const GITHUB_IDS = new Set<ServiceId>(['github', 'github_enterprise', 'github_projects']);
@@ -257,6 +269,11 @@ function badgeFor(opts: {
     if (hasOAuthToken(creds, atlassianOAuth, oauthByProvider, serviceId)) {
       return { label: 'Ready', tone: 'info', status: 'available' };
     }
+    // Env-backed tokens (e.g. MCP_LINEAR_TOKEN) make the transport ready even before
+    // credentials/status is loaded — don't keep showing "Needs token" in that case.
+    if (transport?.ready) {
+      return { label: 'Ready', tone: 'info', status: 'available' };
+    }
     return { label: 'Needs token', tone: 'warning', status: 'needs_secure_setup' };
   }
 
@@ -302,6 +319,8 @@ function canConnectService(
   creds: CredStatus | null,
   oauthByProvider: Record<string, OAuthStatus>,
 ): boolean {
+  // Upcoming / non-live catalog picks are Details-only — never primary Connect.
+  if (!LIVE_CONNECTION_IDS.has(serviceId)) return false;
   const provider = getMcpProvider(serviceId);
   if (!provider?.connectable) return false;
   if (serviceId === 'cursor') return false;
@@ -377,15 +396,21 @@ export default function Connections() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  /** False until env + connection list match — hides Connected/Connect badges during settle. */
+  const [envSettled, setEnvSettled] = useState(false);
   const [activeEnv, setActiveEnv] = useState<WorkspaceEnvironment | null>(null);
   const [activeEnvId, setActiveEnvId] = useState<string | null>(() =>
     readCachedActiveEnvironmentId(),
   );
+  const envReloadGen = useRef(0);
+  const activeEnvIdRef = useRef(activeEnvId);
+  activeEnvIdRef.current = activeEnvId;
 
   const refreshEnvironments = async () => {
     try {
       const state = await api.listEnvironments();
-      writeCachedActiveEnvironmentId(state.activeEnvironmentId);
+      // Echo server truth without notifying listeners (Connections owns reload gating).
+      writeCachedActiveEnvironmentId(state.activeEnvironmentId, { emit: false });
       setActiveEnvId(state.activeEnvironmentId);
       setActiveEnv(
         state.environments.find((e) => e.id === state.activeEnvironmentId) ??
@@ -403,7 +428,7 @@ export default function Connections() {
       setConnections(res.connections);
       if (res.environmentId) {
         setActiveEnvId(res.environmentId);
-        writeCachedActiveEnvironmentId(res.environmentId);
+        writeCachedActiveEnvironmentId(res.environmentId, { emit: false });
       }
     } catch {
       /* unauthenticated / offline — keep local empty */
@@ -485,6 +510,11 @@ export default function Connections() {
   };
 
   const onConnect = async (serviceId: ServiceId, permissionLevel: McpPermissionLevel) => {
+    if (!LIVE_CONNECTION_IDS.has(serviceId)) {
+      setConnectFor(null);
+      setError('This connector is upcoming — connect support is not available yet.');
+      return;
+    }
     setBusyId(serviceId);
     setError(null);
     try {
@@ -658,25 +688,34 @@ export default function Connections() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Onboarding hydrate is best-effort. Failure must not block OAuth / MCP
+      // connection / transport / credential status used by Available badges.
       try {
         const res = await api.getOnboarding();
         if (!cancelled && res.profile) {
           writeOnboardingProfile(res.profile);
           setProfile(res.profile);
         }
-        if (!cancelled) {
-          await Promise.all([
-            refreshEnvironments(),
-            refreshConnections(),
-            refreshOAuthPacks(),
-            refreshCreds(),
-            refreshTransports(),
-          ]);
-        }
       } catch {
         /* keep local draft */
+      }
+      if (cancelled) return;
+      setEnvSettled(false);
+      try {
+        await Promise.all([
+          refreshEnvironments(),
+          refreshConnections(),
+          refreshOAuthPacks(),
+          refreshCreds(),
+          refreshTransports(),
+        ]);
+      } catch {
+        /* individual refresh helpers already swallow errors */
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setEnvSettled(true);
+        }
       }
     })();
     return () => {
@@ -684,31 +723,47 @@ export default function Connections() {
     };
   }, []);
 
-  // Reload connections when the workspace environment switcher changes.
+  // Reload connections only when the active environment id actually changes.
   useEffect(() => {
-    const reload = () => {
-      const next = readCachedActiveEnvironmentId();
-      if (next && next !== activeEnvId) {
-        setActiveEnvId(next);
-      }
-      void refreshEnvironments().then(() => refreshConnections());
+    const reloadForEnv = (environmentId?: string | null) => {
+      const next = environmentId ?? readCachedActiveEnvironmentId();
+      if (!next || next === activeEnvIdRef.current) return;
+      const gen = ++envReloadGen.current;
+      setActiveEnvId(next);
+      setEnvSettled(false);
+      // Drop stale badges so we never flash Connected for the prior env.
+      setConnections([]);
+      void (async () => {
+        try {
+          await refreshEnvironments();
+          if (envReloadGen.current !== gen) return;
+          await refreshConnections();
+        } finally {
+          if (envReloadGen.current === gen) setEnvSettled(true);
+        }
+      })();
+    };
+    const onEnvChanged = (event: Event) => {
+      const id = (event as CustomEvent<{ environmentId?: string }>).detail?.environmentId;
+      reloadForEnv(id);
     };
     const onStorage = (event: StorageEvent) => {
-      if (event.key === 'aplifyai-active-environment') reload();
+      if (event.key === 'aplifyai-active-environment') {
+        reloadForEnv(readCachedActiveEnvironmentId());
+      }
     };
     window.addEventListener('storage', onStorage);
-    window.addEventListener(ACTIVE_ENV_CHANGED_EVENT, reload);
+    window.addEventListener(ACTIVE_ENV_CHANGED_EVENT, onEnvChanged);
     return () => {
       window.removeEventListener('storage', onStorage);
-      window.removeEventListener(ACTIVE_ENV_CHANGED_EVENT, reload);
+      window.removeEventListener(ACTIVE_ENV_CHANGED_EVENT, onEnvChanged);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeEnvId]);
+  }, []);
 
   const rows = rowsFromProfile(profile, connections);
   const secureEntry = secureFor ? getService(secureFor) : null;
   const connectProvider = connectFor ? getMcpProvider(connectFor) : null;
-  const connectedCount = connections.filter((c) => c.status === 'connected').length;
   const selectedIds = new Set(profile?.selectedServices ?? []);
   const addable = connectableCatalog().filter((s) => {
     if (selectedIds.has(s.id)) return false;
@@ -722,6 +777,18 @@ export default function Connections() {
   });
 
   const connectionFor = (id: ServiceId) => connections.find((c) => c.serviceId === id);
+  const availableRows: ConnectionRow[] = LIVE_CONNECTION_ORDER.map((id) => getService(id))
+    .filter((entry): entry is ServiceCatalogEntry => Boolean(entry))
+    .map((entry) => ({ ...entry, selected: true as const }));
+  const upcomingRows = rows
+    .filter(
+      (row) =>
+        !LIVE_CONNECTION_IDS.has(row.id) && connectionFor(row.id)?.status !== 'connected',
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const connectedCount = availableRows.filter(
+    (row) => connectionFor(row.id)?.status === 'connected',
+  ).length;
   const patMeta = patFor
     ? TOKEN_LABELS[patFor] ?? {
         title: `${getService(patFor)?.name ?? patFor} API token`,
@@ -767,11 +834,13 @@ export default function Connections() {
         . Switch environments in the header to link a different stage (Prod ≠ Stage Slack).
       </div>
 
-      {rows.length > 0 && (
-        <p className="mt-4 text-sm text-on-surface-variant" data-testid="connections-progress">
-          {connectedCount} of {rows.length} selected services connected via MCP
-        </p>
-      )}
+      <p className="mt-4 text-sm text-on-surface-variant" data-testid="connections-progress">
+        {!envSettled
+          ? 'Updating connections for the new environment…'
+          : `${connectedCount} of ${availableRows.length} available services connected via MCP${
+              upcomingRows.length > 0 ? ` · ${upcomingRows.length} upcoming` : ''
+            }`}
+      </p>
 
       {notice && (
         <p className="mt-3 text-sm text-success" role="status" data-testid="atlassian-oauth-notice">
@@ -806,30 +875,37 @@ export default function Connections() {
             data-testid="connections-add-search"
           />
           <ul className="mt-3 max-h-64 space-y-2 overflow-auto">
-            {addable.map((entry) => (
-              <li
-                key={entry.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-outline-variant px-3 py-2"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <img src={entry.logo} alt="" width={28} height={28} className="size-7 rounded-md" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-on-surface">{entry.name}</p>
-                    <p className="truncate text-xs text-on-surface-variant">
-                      {SERVICE_CATEGORY_LABELS[entry.category]}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  data-testid={`add-service-${entry.id}`}
-                  onClick={() => void addServiceToProfile(entry.id)}
+            {addable.map((entry) => {
+              const live = LIVE_CONNECTION_IDS.has(entry.id);
+              return (
+                <li
+                  key={entry.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-outline-variant px-3 py-2"
                 >
-                  Add
-                </Button>
-              </li>
-            ))}
+                  <div className="flex min-w-0 items-center gap-2">
+                    <img src={entry.logo} alt="" width={28} height={28} className="size-7 rounded-md" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-on-surface">{entry.name}</p>
+                      <p className="truncate text-xs text-on-surface-variant">
+                        {SERVICE_CATEGORY_LABELS[entry.category]}
+                        {!live ? ' · Upcoming' : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {!live && <StatusBadge status="planned" label="Upcoming" tone="neutral" />}
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      data-testid={`add-service-${entry.id}`}
+                      onClick={() => void addServiceToProfile(entry.id)}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
             {addable.length === 0 && (
               <li className="text-sm text-on-surface-variant">No matching connectable providers.</li>
             )}
@@ -837,210 +913,243 @@ export default function Connections() {
         </Card>
       )}
 
-      {loading && rows.length === 0 && (
-        <p className="mt-8 text-sm text-on-surface-variant">Loading connection preferences…</p>
+      {(loading || !envSettled) && (
+        <p className="mt-4 text-sm text-on-surface-variant" data-testid="connections-env-settling">
+          {loading ? 'Loading connection status…' : 'Updating connections for environment…'}
+        </p>
       )}
 
-      {!loading && rows.length === 0 && (
-        <Card className="mt-8" title="No services selected yet" hierarchy="secondary">
-          <p className="text-sm text-on-surface-variant">
-            Pick boards, chat, code, or logging tools in onboarding — or add from the catalog here.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={() => setShowAdd(true)}>
-              Add connection
-            </Button>
-            <Button type="button" onClick={() => navigate('/onboarding?edit=1')} variant="secondary">
-              Open onboarding
-            </Button>
-            <Button onClick={() => navigate('/console')}>Continue to console</Button>
+      {/* Gate list until env + connections settle — avoids Connected↔Connect flash. */}
+      <div
+        className="mt-6 space-y-8"
+        data-testid="connections-list"
+        aria-busy={loading || !envSettled}
+        data-env-settled={envSettled ? 'true' : 'false'}
+      >
+        <section aria-labelledby="connections-available">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h2
+              id="connections-available"
+              className="text-[11px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant"
+            >
+              Available
+            </h2>
+            <StatusBadge status="available" label="Ready to connect" tone="info" />
           </div>
-        </Card>
-      )}
+          <div className="space-y-3">
+            {(loading || !envSettled ? [] : availableRows).map((row) => {
+              const provider = getMcpProvider(row.id);
+              const live = connectionFor(row.id);
+              const connected = live?.status === 'connected';
+              const allowConnect = canConnectService(
+                row.id,
+                transports,
+                atlassianOAuth,
+                creds,
+                oauthByProvider,
+              );
+              const badge = badgeFor({
+                serviceId: row.id,
+                live,
+                creds,
+                transports,
+                atlassianOAuth,
+                oauthByProvider,
+              });
+              const family = OAUTH_FAMILY[row.id];
+              const needsAuthorize =
+                Boolean(family) &&
+                !hasOAuthToken(creds, atlassianOAuth, oauthByProvider, row.id) &&
+                oauthReady(atlassianOAuth, oauthByProvider, row.id) &&
+                !hasServiceToken(creds, row.id);
 
-      {rows.length > 0 && (
-        <div className="mt-6 space-y-8" data-testid="connections-list">
-          {(
-            Object.entries(
-              rows.reduce<Record<string, ConnectionRow[]>>((acc, row) => {
-                const key = row.category;
-                (acc[key] ??= []).push(row);
-                return acc;
-              }, {}),
-            ) as [ConnectionRow['category'], ConnectionRow[]][]
-          ).map(([category, categoryRows]) => (
-            <section key={category} aria-labelledby={`connections-${category}`}>
-              <h2
-                id={`connections-${category}`}
-                className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant"
-              >
-                {SERVICE_CATEGORY_LABELS[category]}
-              </h2>
-              <div className="space-y-3">
-                {categoryRows.map((row) => {
-                  const provider = getMcpProvider(row.id);
-                  const live = connectionFor(row.id);
-                  const connected = live?.status === 'connected';
-                  const allowConnect = canConnectService(
-                    row.id,
-                    transports,
-                    atlassianOAuth,
-                    creds,
-                    oauthByProvider,
-                  );
-                  const badge = badgeFor({
-                    serviceId: row.id,
-                    live,
-                    creds,
-                    transports,
-                    atlassianOAuth,
-                    oauthByProvider,
-                  });
-                  const family = OAUTH_FAMILY[row.id];
-                  const needsAuthorize =
-                    Boolean(family) &&
-                    !hasOAuthToken(creds, atlassianOAuth, oauthByProvider, row.id) &&
-                    oauthReady(atlassianOAuth, oauthByProvider, row.id) &&
-                    !hasServiceToken(creds, row.id);
-
-                  return (
-                    <Card
-                      key={row.id}
-                      hierarchy="primary"
-                      className="!p-4"
-                      data-testid={`connection-${row.id}`}
-                    >
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex min-w-0 items-start gap-3">
-                          <img
-                            src={row.logo}
-                            alt=""
-                            width={36}
-                            height={36}
-                            className="size-9 rounded-md"
-                          />
-                          <div className="min-w-0">
-                            <p className="text-base font-semibold text-on-surface">{row.name}</p>
-                            <p className="text-sm text-on-surface-variant">
-                              {provider
-                                ? mcpAvailabilityLabel(provider.availability)
-                                : 'No MCP option yet'}
-                            </p>
-                            {connected && live && (
-                              <p className="mt-1 text-xs text-success">
-                                Connected · {live.permissionLevel} · {live.grantedTools.length} tools
-                                {live.live ? ' · live' : ''}
-                              </p>
-                            )}
-                            {provider?.notes && (
-                              <p className="mt-1 text-xs text-on-surface-variant">{provider.notes}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                          <StatusBadge
-                            status={badge.status}
-                            label={badge.label}
-                            tone={badge.tone}
-                          />
-                          {connected ? (
+              return (
+                <Card
+                  key={row.id}
+                  hierarchy="primary"
+                  className="!p-4"
+                  data-testid={`connection-${row.id}`}
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <img
+                        src={row.logo}
+                        alt=""
+                        width={36}
+                        height={36}
+                        className="size-9 rounded-md"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-base font-semibold text-on-surface">{row.name}</p>
+                        <p className="text-sm text-on-surface-variant">
+                          {provider
+                            ? mcpAvailabilityLabel(provider.availability)
+                            : 'No MCP option yet'}
+                        </p>
+                        {connected && live && (
+                          <p className="mt-1 text-xs text-success">
+                            Connected · {live.permissionLevel} · {live.grantedTools.length} tools
+                            {live.live ? ' · live' : ''}
+                          </p>
+                        )}
+                        {provider?.notes && (
+                          <p className="mt-1 text-xs text-on-surface-variant">{provider.notes}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                      <StatusBadge
+                        status={badge.status}
+                        label={badge.label}
+                        tone={badge.tone}
+                      />
+                      {connected ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          loading={busyId === row.id}
+                          data-testid={`disconnect-${row.id}`}
+                          onClick={() => void onDisconnect(row.id)}
+                        >
+                          Disconnect
+                        </Button>
+                      ) : (
+                        <>
+                          {needsAuthorize && family && (
                             <Button
                               type="button"
                               variant="secondary"
-                              loading={busyId === row.id}
-                              data-testid={`disconnect-${row.id}`}
-                              onClick={() => void onDisconnect(row.id)}
+                              loading={oauthBusy}
+                              data-testid={`authorize-${row.id}`}
+                              onClick={() =>
+                                void startProviderOAuth(family, {
+                                  serviceId: row.id,
+                                  permissionLevel: provider?.permissionLevels[0] ?? 'read',
+                                })
+                              }
                             >
-                              Disconnect
+                              {authorizeButtonLabel(family)}
                             </Button>
-                          ) : (
-                            <>
-                              {needsAuthorize && family && (
-                                <Button
-                                  type="button"
-                                  variant="secondary"
-                                  loading={oauthBusy}
-                                  data-testid={`authorize-${row.id}`}
-                                  onClick={() =>
-                                    void startProviderOAuth(family, {
-                                      serviceId: row.id,
-                                      permissionLevel: provider?.permissionLevels[0] ?? 'read',
-                                    })
-                                  }
-                                >
-                                  {authorizeButtonLabel(family)}
-                                </Button>
-                              )}
-                              <Button
-                                type="button"
-                                variant="primary"
-                                disabled={!allowConnect}
-                                data-testid={`connect-${row.id}`}
-                                title={
-                                  allowConnect
-                                    ? undefined
-                                    : row.id === 'cursor'
-                                      ? 'Cursor bridge is not configured'
-                                      : ATLASSIAN_IDS.has(row.id) && !atlassianOAuth?.authorizeReady
-                                        ? 'Atlassian OAuth is not configured on this environment'
-                                        : 'MCP OAuth / transport not configured for this provider'
-                                }
-                                onClick={() => {
-                                  setConnectFor(row.id);
-                                  setLevel(provider?.permissionLevels[0] ?? 'read');
-                                  setSecureFor(null);
-                                  setPatFor(null);
-                                  setIamFor(null);
-                                }}
-                              >
-                                Connect MCP
-                              </Button>
-                            </>
                           )}
                           <Button
                             type="button"
-                            variant="quiet"
-                            data-testid={`secure-${row.id}`}
+                            variant="primary"
+                            disabled={!allowConnect}
+                            data-testid={`connect-${row.id}`}
+                            title={
+                              allowConnect
+                                ? undefined
+                                : ATLASSIAN_IDS.has(row.id) && !atlassianOAuth?.authorizeReady
+                                  ? 'Atlassian OAuth is not configured on this environment'
+                                  : 'MCP OAuth / transport not configured for this provider'
+                            }
                             onClick={() => {
-                              setSecureFor(row.id);
-                              setConnectFor(null);
+                              setConnectFor(row.id);
+                              setLevel(provider?.permissionLevels[0] ?? 'read');
+                              setSecureFor(null);
+                              setPatFor(null);
+                              setIamFor(null);
                             }}
                           >
-                            Details
+                            Connect MCP
                           </Button>
-                        </div>
-                      </div>
-
-                      {connected && live && (
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {live.grantedTools.slice(0, 8).map((tool) => (
-                            <Chip
-                              key={tool}
-                              tone="mint"
-                              selected={false}
-                              tabIndex={-1}
-                              className="pointer-events-none"
-                            >
-                              {tool}
-                            </Chip>
-                          ))}
-                          {live.grantedTools.length > 8 && (
-                            <span className="text-xs text-on-surface-variant">
-                              +{live.grantedTools.length > 8 ? live.grantedTools.length - 8 : 0} more
-                            </span>
-                          )}
-                        </div>
+                        </>
                       )}
-                    </Card>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+                      <Button
+                        type="button"
+                        variant="quiet"
+                        data-testid={`secure-${row.id}`}
+                        onClick={() => {
+                          setSecureFor(row.id);
+                          setConnectFor(null);
+                        }}
+                      >
+                        Details
+                      </Button>
+                    </div>
+                  </div>
 
-      {connectProvider && connectFor && (
+                  {connected && live && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {live.grantedTools.slice(0, 8).map((tool) => (
+                        <Chip
+                          key={tool}
+                          tone="mint"
+                          selected={false}
+                          tabIndex={-1}
+                          className="pointer-events-none"
+                        >
+                          {tool}
+                        </Chip>
+                      ))}
+                      {live.grantedTools.length > 8 && (
+                        <span className="text-xs text-on-surface-variant">
+                          +{live.grantedTools.length - 8} more
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+
+        {envSettled && !loading && upcomingRows.length > 0 && (
+          <section aria-labelledby="connections-upcoming">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <h2
+                id="connections-upcoming"
+                className="text-[11px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant"
+              >
+                Upcoming
+              </h2>
+              <StatusBadge status="planned" label="Upcoming" tone="neutral" />
+            </div>
+            <p className="mb-4 text-sm text-on-surface-variant">
+              These connectors are on the roadmap — connect support coming later.
+            </p>
+            <ul
+              className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+              data-testid="connections-upcoming-grid"
+            >
+              {(loading || !envSettled ? [] : upcomingRows).map((row) => (
+                <li key={row.id}>
+                  <button
+                    type="button"
+                    data-testid={`connection-${row.id}`}
+                    title={`${row.name} — Upcoming (details only)`}
+                    onClick={() => {
+                      // Details / secure panel only — no Connect MCP or OAuth authorize.
+                      setSecureFor(row.id);
+                      setConnectFor(null);
+                      setPatFor(null);
+                      setIamFor(null);
+                    }}
+                    className="flex w-full flex-col items-center gap-2 rounded-lg border border-outline-variant bg-surface px-2 py-3 text-center transition hover:border-primary/35 hover:bg-surface-container"
+                  >
+                    <img
+                      src={row.logo}
+                      alt=""
+                      width={36}
+                      height={36}
+                      className="size-9 rounded-md opacity-80"
+                    />
+                    <span className="w-full truncate text-xs font-medium text-on-surface">
+                      {row.name}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-on-surface-variant">
+                      Upcoming
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
+
+      {connectProvider && connectFor && LIVE_CONNECTION_IDS.has(connectFor) && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-on-surface/40 p-4 backdrop-blur-[2px]"
           role="dialog"

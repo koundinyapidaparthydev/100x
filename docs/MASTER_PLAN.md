@@ -95,7 +95,7 @@ Build adapters and spine so sandbox can be swapped for production without rewrit
 
 ### WS-H1-D — ModelRunner
 - Interface: `run({ sanitized, workItem, policy, targetPercent })`
-- Sandbox runner (default / CI); OpenAI Chat Completions when `OPENAI_API_KEY` is set
+- Sandbox runner (default / CI); live multi-provider when `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` are set (`auto` picks first configured)
 
 ### WS-H1-E — GCP staging (infra)
 - Dedicated GCP project design (do not reuse personal cloud accounts)

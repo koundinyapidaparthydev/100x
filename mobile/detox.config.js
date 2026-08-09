@@ -1,4 +1,4 @@
-const iosDevice = process.env.DETOX_IOS_DEVICE || 'iPhone 16';
+const iosDevice = process.env.DETOX_IOS_DEVICE || 'iPhone 16 Pro';
 
 /** @type {Detox.DetoxConfig} */
 module.exports = {
@@ -27,7 +27,9 @@ module.exports = {
       type: 'ios.app',
       binaryPath: 'ios/build/Build/Products/Release-iphonesimulator/AplifyAI.app',
       build:
-        'LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 npx expo prebuild --platform ios --clean && ' +
+        'export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 ' +
+        'EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:4000/api/v1 && ' +
+        'npx expo prebuild --platform ios --clean && ' +
         'xcodebuild -workspace ios/AplifyAI.xcworkspace -scheme AplifyAI ' +
         '-configuration Release -sdk iphonesimulator -derivedDataPath ios/build ' +
         'CODE_SIGNING_ALLOWED=NO',

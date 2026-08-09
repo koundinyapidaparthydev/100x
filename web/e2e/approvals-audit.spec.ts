@@ -25,7 +25,8 @@ test.describe('Approvals & audit', () => {
   test('admin stays concise; notifications bell reaches approvals', async ({ page }) => {
     await page.goto('/admin');
     await expect(page.getByTestId('admin-page')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Organization information' })).toBeVisible();
+    // Admin is account Security (2FA/passkeys/keys) — not an org info dashboard.
+    await expect(page.getByRole('heading', { name: 'Security' })).toBeVisible();
     await expect(page.getByTestId('admin-pending-approvals')).toHaveCount(0);
 
     await page.getByTestId('nav-notifications').click();

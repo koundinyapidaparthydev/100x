@@ -44,14 +44,17 @@ export default function Layout() {
         onOpenNavigation={() => setNavigationOpen(true)}
         desktopNav={desktopNav}
       />
-      <Sidebar
-        open={navigationOpen}
-        onClose={() => setNavigationOpen(false)}
-        ownTestIds={!desktopNav}
-      />
-      <main className="min-w-0 flex-1 overflow-x-hidden">
-        <Outlet />
-      </main>
+      <div className="flex min-h-0 min-w-0 flex-1">
+        <Sidebar
+          open={navigationOpen}
+          onClose={() => setNavigationOpen(false)}
+          ownTestIds={!desktopNav}
+          desktopRail={desktopNav}
+        />
+        <main className="min-w-0 flex-1 overflow-x-hidden">
+          <Outlet />
+        </main>
+      </div>
       <CommandPalette />
     </div>
   );

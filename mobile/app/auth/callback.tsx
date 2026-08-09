@@ -1,29 +1,38 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { AplifyLogo } from '@/src/AplifyLogo';
 import { useSession } from '@/src/session';
 import { colors, commonStyles, PrimaryButton } from '@/src/ui';
 
-const exchangeInflight = new Map<string, Promise<void>>();
+function first(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 /**
  * Deep-link landing for aplifyai://auth/callback?exchange=…&provider=…
  * Also opened if the OS delivers the redirect outside openAuthSessionAsync.
  */
 export default function AuthCallbackScreen() {
-  const params = useLocalSearchParams<{
-    exchange?: string;
-    provider?: string;
-    sso_error?: string;
-    error?: string;
-  }>();
+  const params = useLocalSearchParams();
   const { completeFederatedExchange, session } = useSession();
   const router = useRouter();
   const [asyncError, setAsyncError] = useState<string | null>(null);
-  const exchange = Array.isArray(params.exchange) ? params.exchange[0] : params.exchange;
-  const ssoError = Array.isArray(params.sso_error) ? params.sso_error[0] : params.sso_error;
-  const paramError = Array.isArray(params.error) ? params.error[0] : params.error;
-  const syncError = ssoError || paramError || (!exchange ? 'Missing exchange code. Try signing in again.' : null);
+
+  const exchange = first(params.exchange as string | string[] | undefined);
+  const provider = first(params.provider as string | string[] | undefined);
+  const syncError =
+    first(params.sso_error as string | string[] | undefined) ||
+    first(params.error as string | string[] | undefined) ||
+    first(params.google_error as string | string[] | undefined) ||
+    first(params.apple_error as string | string[] | undefined) ||
+    first(params.okta_error as string | string[] | undefined) ||
+    first(params.entra_error as string | string[] | undefined) ||
+    first(params.google_workspace_error as string | string[] | undefined) ||
+    (provider
+      ? first(params[`${provider}_error`] as string | string[] | undefined)
+      : undefined) ||
+    (!exchange ? 'Missing exchange code. Try signing in again.' : null);
   const error = syncError || asyncError;
 
   useEffect(() => {
@@ -34,17 +43,9 @@ export default function AuthCallbackScreen() {
     if (syncError || !exchange) return;
 
     let cancelled = false;
-    let pending = exchangeInflight.get(exchange);
-    if (!pending) {
-      pending = completeFederatedExchange(exchange).catch((reason) => {
-        exchangeInflight.delete(exchange);
-        throw reason;
-      });
-      exchangeInflight.set(exchange, pending);
-    }
     void (async () => {
       try {
-        await pending;
+        await completeFederatedExchange(exchange);
         if (!cancelled) router.replace('/(tabs)/triage');
       } catch (reason) {
         if (!cancelled) {
@@ -59,7 +60,8 @@ export default function AuthCallbackScreen() {
 
   if (error) {
     return (
-      <View style={styles.screen}>
+      <View style={styles.screen} testID="sso-callback-error">
+        <AplifyLogo size={56} />
         <Text style={commonStyles.heading}>Couldn’t finish sign-in</Text>
         <Text style={styles.error}>{error}</Text>
         <PrimaryButton label="Back to login" onPress={() => router.replace('/login')} />
@@ -69,6 +71,8 @@ export default function AuthCallbackScreen() {
 
   return (
     <View style={styles.screen} testID="sso-callback-pending">
+      <AplifyLogo size={56} withWordmark stacked />
+      <ActivityIndicator color={colors.primary} style={styles.spinner} />
       <Text style={commonStyles.heading}>Completing sign-in…</Text>
       <Text style={commonStyles.meta}>Exchanging your secure session</Text>
     </View>
@@ -84,5 +88,6 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 12,
   },
+  spinner: { marginTop: 8 },
   error: { ...commonStyles.body, color: colors.danger, textAlign: 'center' },
 });

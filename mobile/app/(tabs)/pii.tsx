@@ -55,11 +55,17 @@ export default function PiiScreen() {
 
   return (
     <AsyncState loading={query.loading} error={query.error} onRetry={query.retry}>
-      <ScrollView style={commonStyles.screen} contentContainerStyle={commonStyles.content}>
+      <ScrollView
+        style={commonStyles.screen}
+        contentContainerStyle={commonStyles.content}
+        showsVerticalScrollIndicator={false}
+        decelerationRate="fast"
+        keyboardShouldPersistTaps="handled"
+      >
         <PageHeader
           eyebrow="Governance"
           title="Sensitive data"
-          description="Review the next work item stopped by a configured PII rule."
+          description="Work stopped by a configured PII rule."
         />
 
         {!query.data?.workItemId ? (
@@ -107,12 +113,14 @@ export default function PiiScreen() {
 
             <View style={commonStyles.buttonRow}>
               <PrimaryButton
+                grow
                 testID="pii-request-access-button"
                 label={busy ? 'Requesting…' : 'Request policy review'}
                 disabled={busy}
                 onPress={() => void requestAccess()}
               />
               <SecondaryButton
+                grow
                 testID="pii-open-ticket-button"
                 label="Open ticket"
                 onPress={() => router.push(`/ticket/${query.data!.workItemId}`)}

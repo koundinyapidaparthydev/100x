@@ -30,12 +30,18 @@ export default function Approvals() {
   const { data, loading, error, reload } = useAsync(() => loadApprovalsWorkspace(projectId), [projectId]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [localStatus, setLocalStatus] = useState<Record<string, ApprovalItem['status']>>({});
   const canDecide = ['root', 'owner'].includes(readDemoSession()?.role ?? '');
 
   const enriched = useMemo(() => {
     if (!data) return [];
-    return filterApprovalsForProject(enrichApprovals(data.approvals, data.workItems), projectId);
-  }, [data, projectId]);
+    const rows = filterApprovalsForProject(enrichApprovals(data.approvals, data.workItems), projectId);
+    if (!Object.keys(localStatus).length) return rows;
+    return rows.map((item) => {
+      const status = localStatus[item.id];
+      return status && status !== item.status ? { ...item, status } : item;
+    });
+  }, [data, localStatus, projectId]);
 
   const boardName = useMemo(() => {
     if (!projectId || !data) return null;
@@ -45,10 +51,16 @@ export default function Approvals() {
   const decide = async (item: ApprovalItem, decision: 'approved' | 'rejected') => {
     setActionError(null);
     setBusyId(item.id);
+    setLocalStatus((prev) => ({ ...prev, [item.id]: decision }));
     try {
       await api.decideApproval(item.id, decision);
       reload();
     } catch (e) {
+      setLocalStatus((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
       setActionError(e instanceof Error ? e.message : 'Decision failed');
     } finally {
       setBusyId(null);
@@ -77,9 +89,9 @@ export default function Approvals() {
         </p>
       )}
 
-      {loading && <LoadingState label="Loading approvals…" />}
-      {!loading && error && <ErrorState message={error} onRetry={reload} />}
-      {!loading && !error && enriched.length === 0 && (
+      {loading && !data && <LoadingState label="Loading approvals…" />}
+      {error && !data && <ErrorState message={error} onRetry={reload} />}
+      {data && !error && enriched.length === 0 && (
         <EmptyState
           icon={<CheckSquare size={22} />}
           title="Nothing to approve"
@@ -91,7 +103,7 @@ export default function Approvals() {
         />
       )}
 
-      {!loading && !error && pending.length > 0 && (
+      {data && pending.length > 0 && (
         <div className="flex flex-col gap-md" data-testid="approvals-pending-list">
           {pending.map((item) => (
             <ApprovalCard
@@ -106,7 +118,7 @@ export default function Approvals() {
         </div>
       )}
 
-      {!loading && !error && decided.length > 0 && (
+      {data && decided.length > 0 && (
         <div className="flex flex-col gap-md" data-testid="approvals-decided-list">
           <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">Decided</h3>
           {decided.map((item) => (

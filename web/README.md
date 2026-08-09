@@ -25,6 +25,38 @@ Primary control plane for AplifyAI — boards, policies, models, cloud, PII rule
 
    The app runs on **http://localhost:3000**.
 
+## Demo queue
+
+Fresh backends seed **18 triage-pending** tickets (manager decision loop) plus several pending approvals.
+
+**Get 18 pending.** Start with in-memory seed and restart anytime to reseed:
+
+```bash
+AUTH_ALLOW_DEMO_LOGIN=1 \
+AUTH_SESSION_SECRET='local-dev-session-secret-at-least-32-chars' \
+PERSIST=0 \
+npm run dev:backend
+```
+
+**Reset.** `PERSIST=0`: kill the backend and restart. `PERSIST=1`: delete `backend/data/store.json` (or your `DATA_DIR`), then restart — otherwise an old thin seed sticks.
+
+**API top-up.** If the queue is thin at runtime, from the repo root:
+
+```bash
+npm run seed:demo-queue
+```
+
+**Connections tokens.** Obtain secrets here on web (Connections page). Condensed Tier 1 checklist:
+
+| Goal | Obtain | Env / UI |
+| --- | --- | --- |
+| Live Jira board sync | Atlassian API token + site URL + email | `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` |
+| Jira/Confluence MCP tools | Atlassian OAuth app → Authorize in UI | `MCP_ATLASSIAN_CLIENT_ID/SECRET`, `MCP_ATLASSIAN_REDIRECT_URI` |
+| GitHub tools | Classic/fine-grained PAT (repo scope) | Connections paste or `MCP_GITHUB_TOKEN` |
+| Slack tools | Slack OAuth client **and** MCP bridge URL | `MCP_SLACK_CLIENT_ID/SECRET`, `MCP_SLACK_REDIRECT_URI`, **`MCP_SLACK_URL`** |
+
+See [`backend/.env.example`](../backend/.env.example) and [`docs/integrations/MCP_INTEGRATIONS.md`](../docs/integrations/MCP_INTEGRATIONS.md). Sandbox (no vendor tokens) is enough for triage and approvals; add Tier 1 when you want Connections to show **Connected (live)**.
+
 ## Scripts
 
 | Command | Description |

@@ -214,6 +214,16 @@ function syncPolicyAllowlistFromConnections(
 
 const MS_24H = 24 * 3_600_000;
 
+/** Built-in seed tickets + seed-demo-queue DEMO board — not real user work. */
+function isSandboxDemoWorkItem(item: WorkItem): boolean {
+  const projectId = item.board.projectId.toUpperCase();
+  const issueKey = item.board.issueKey.toUpperCase();
+  if (projectId === 'DEMO' || issueKey.startsWith('DEMO-')) return true;
+  if (/^wi-(aplifyai|infra|fe)-\d+$/i.test(item.id)) return true;
+  if (/^demo queue top-up/i.test(item.title)) return true;
+  return false;
+}
+
 function mcpStubsFromServices(services: ServiceId[]): McpAllowlistEntry[] {
   const seen = new Set<string>();
   const entries: McpAllowlistEntry[] = [];
@@ -551,14 +561,21 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       status: 'ok',
       version: '0.2.0',
       modelRunner: deps.modelRunner.kind,
+      modelProviders: deps.modelRunner.configuredProviders ?? [],
       boardConnector: deps.boardConnector.kind,
     });
   });
 
   // -- work items --------------------------------------------------------------
-  router.get('/work-items', (req, res) => {
+  router.get('/work-items', (req: AuthedRequest, res) => {
     const { aiStatus, aiFirst, projectId, triagePending } = req.query;
     let items = store.workItems;
+    // Hide sandbox DEMO / built-in seed cards for every session (demo + SSO).
+    // Real boards still show after connect/sync. Opt back into the seed deck with
+    // INCLUDE_SANDBOX_WORK_ITEMS=1 (e2e / local swipe demos).
+    if (process.env.INCLUDE_SANDBOX_WORK_ITEMS !== '1') {
+      items = items.filter((w) => !isSandboxDemoWorkItem(w));
+    }
     if (typeof aiStatus === 'string' && aiStatus.length > 0) {
       items = items.filter((w) => w.aiStatus === (aiStatus as AiStatus));
     }
@@ -1057,7 +1074,9 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       selectedServices: [...body.profile.selectedServices],
       otherByCategory: { ...body.profile.otherByCategory },
       updatedAt: now,
-      completedAt: body.profile.completedAt ?? now,
+      // Honor explicit null so clients/e2e can reset completion; only default when omitted.
+      completedAt:
+        body.profile.completedAt === undefined ? now : body.profile.completedAt,
     };
     store.onboardingByUser[req.auth.id] = profile;
 

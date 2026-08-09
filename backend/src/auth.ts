@@ -196,7 +196,10 @@ function mintSession(
   const token = `${unsigned}.${sign(unsigned)}`;
   return {
     token,
-    user,
+    user: {
+      ...user,
+      authProvider: opts?.authProvider ?? (federated ? 'okta' : 'demo'),
+    },
     expiresAt: new Date(expiresAt).toISOString(),
   };
 }
@@ -263,6 +266,8 @@ export function getSession(token: string): SessionRecord | null {
         tenantId: claims.tenantId,
         surface: claims.surface,
         isWorkspaceOwner: claims.isWorkspaceOwner === true,
+        authProvider:
+          claims.authProvider && claims.authProvider !== 'demo' ? claims.authProvider : 'okta',
       };
       return { token, user, expiresAt: claims.exp };
     }
@@ -271,7 +276,7 @@ export function getSession(token: string): SessionRecord | null {
       SEEDED_USERS.find((candidate) => candidate.id === claims.sub) ??
       (claims.sub === 'usr-founder-1' ? SEEDED_USERS.find((u) => u.id === 'usr-root-1') : undefined);
     if (!seeded) return null;
-    const user = { ...seeded, surface: claims.surface };
+    const user = { ...seeded, surface: claims.surface, authProvider: 'demo' as const };
     return { token, user, expiresAt: claims.exp };
   } catch {
     return null;

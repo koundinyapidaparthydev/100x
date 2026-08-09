@@ -4,7 +4,10 @@ import { api } from '@shared/api';
 import { hasPlatformCapability } from '../lib/rbac';
 import type { WorkspaceEnvironment } from '@shared/types';
 import { useAsync } from '../lib/useAsync';
-import { writeCachedActiveEnvironmentId } from '../lib/environmentStorage';
+import {
+  commitActiveEnvironmentId,
+  writeCachedActiveEnvironmentId,
+} from '../lib/environmentStorage';
 import { AsyncBoundary, Button, Card, Field, PageContainer, PageHeader, StatusBadge } from '../components/ui';
 
 export default function ConsoleEnvironments() {
@@ -25,7 +28,7 @@ export default function ConsoleEnvironments() {
       const res = await api.listEnvironments();
       setEnvironments(res.environments);
       setActiveEnvironmentId(res.activeEnvironmentId);
-      writeCachedActiveEnvironmentId(res.activeEnvironmentId);
+      writeCachedActiveEnvironmentId(res.activeEnvironmentId, { emit: false });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load environments');
     } finally {
@@ -62,7 +65,7 @@ export default function ConsoleEnvironments() {
       const res = await api.setActiveEnvironment({ environmentId });
       setEnvironments(res.environments);
       setActiveEnvironmentId(res.activeEnvironmentId);
-      writeCachedActiveEnvironmentId(res.activeEnvironmentId);
+      commitActiveEnvironmentId(res.activeEnvironmentId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not set active environment');
     } finally {

@@ -76,35 +76,35 @@ const CHIP_SELECTED_STYLES: Record<ChipTone, { backgroundColor: string; color: s
 
 export const commonStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16, paddingBottom: 28, gap: 14 },
+  content: { padding: 14, paddingBottom: 28, gap: 10 },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 20,
-    padding: 16,
-    gap: 10,
-    // Light elevation (iOS / Android)
+    borderRadius: 14,
+    padding: 12,
+    gap: 8,
     shadowColor: '#262522',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
-  title: { color: colors.text, fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
-  heading: { color: colors.text, fontSize: 18, fontWeight: '600' },
-  body: { color: colors.muted, fontSize: 15, lineHeight: 21 },
+  title: { color: colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+  heading: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  body: { color: colors.muted, fontSize: 13, lineHeight: 17 },
   meta: {
     color: colors.muted,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
-    letterSpacing: 0.4,
+    letterSpacing: 0.35,
     textTransform: 'uppercase',
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  buttonRow: { flexDirection: 'row', gap: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  buttonRow: { flexDirection: 'row', gap: 8 },
+  /** Apply to PrimaryButton / SecondaryButton children of `buttonRow` for equal stretch. */
+  buttonGrow: { flex: 1 },
 });
-
 export function Card({
   children,
   style,
@@ -206,7 +206,7 @@ export function SearchField({
   ...props
 }: TextInputProps & { testID?: string }) {
   return (
-    <View style={[styles.searchShell, style]}>
+    <View style={[styles.searchShell, style as StyleProp<ViewStyle>]}>
       <TextInput
         {...props}
         testID={testID}
@@ -249,7 +249,12 @@ type StatusTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 const statusRegistry: Record<string, { label: string; tone: StatusTone }> = {
   pending: { label: 'Pending', tone: 'neutral' },
   queued: { label: 'Queued', tone: 'neutral' },
+  sanitizing: { label: 'Sanitizing', tone: 'info' },
+  enriching_mcp: { label: 'Enriching context', tone: 'info' },
   running: { label: 'In progress', tone: 'info' },
+  packaging: { label: 'Packaging', tone: 'info' },
+  attaching: { label: 'Attaching', tone: 'info' },
+  ready_for_human: { label: 'Ready for review', tone: 'warning' },
   completed: { label: 'Ready for review', tone: 'success' },
   completed_pending_review: { label: 'Needs review', tone: 'warning' },
   approved: { label: 'Approved', tone: 'success' },
@@ -326,11 +331,11 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <View style={styles.emptyState}>
+    <Card tone="mint" style={styles.emptyState}>
       <Text style={commonStyles.heading}>{title}</Text>
-      {body ? <Text style={[commonStyles.body, styles.centerText]}>{body}</Text> : null}
+      {body ? <Text style={commonStyles.body}>{body}</Text> : null}
       {action}
-    </View>
+    </Card>
   );
 }
 
@@ -340,12 +345,15 @@ export function PrimaryButton({
   disabled,
   testID,
   danger,
+  grow = false,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   testID?: string;
   danger?: boolean;
+  /** Stretch equally inside a horizontal `buttonRow`. Off by default so column layouts stay content-sized. */
+  grow?: boolean;
 }) {
   return (
     <Pressable
@@ -355,6 +363,7 @@ export function PrimaryButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
+        grow && styles.buttonGrow,
         { backgroundColor: danger ? colors.danger : colors.primary },
         pressed && !disabled && styles.pressed,
         disabled && styles.dimmed,
@@ -369,11 +378,14 @@ export function SecondaryButton({
   onPress,
   disabled,
   testID,
+  grow = false,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   testID?: string;
+  /** Stretch equally inside a horizontal `buttonRow`. Off by default so column layouts stay content-sized. */
+  grow?: boolean;
 }) {
   return (
     <Pressable
@@ -383,6 +395,7 @@ export function SecondaryButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.secondary,
+        grow && styles.buttonGrow,
         pressed && !disabled && styles.secondaryPressed,
         disabled && styles.dimmed,
       ]}>
@@ -406,23 +419,45 @@ export function AsyncState({
 }) {
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.primary} />
-        <Text style={commonStyles.body}>Loading…</Text>
+      <View style={styles.asyncStateWrap} testID="async-loading">
+        <Card style={styles.asyncStateCard}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={commonStyles.heading}>Loading…</Text>
+          <Text style={commonStyles.body}>Pulling the latest workspace data.</Text>
+        </Card>
       </View>
     );
   }
   if (error) {
+    const capability = /requires capability/i.test(error.message);
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error.message}</Text>
-        <SecondaryButton label="Try again" onPress={onRetry} />
+      <View style={styles.asyncStateWrap} testID="async-error">
+        <Card style={styles.asyncStateCard} tone={capability ? 'butter' : 'default'}>
+          <Text style={commonStyles.heading}>
+            {capability ? 'Limited access' : 'Couldn’t load this screen'}
+          </Text>
+          <Text style={[commonStyles.body, styles.asyncStateMessage]}>
+            {capability
+              ? 'Your seat doesn’t include this capability yet. Ask a workspace owner to grant access, or switch seats from Account.'
+              : error.message}
+          </Text>
+          <View style={styles.asyncStateAction}>
+            <SecondaryButton label="Try again" onPress={onRetry} />
+          </View>
+        </Card>
       </View>
     );
   }
   if (empty) {
     return (
-      <EmptyState title="All clear" body="There is nothing waiting for a decision." />
+      <View style={styles.asyncStateWrap} testID="async-empty">
+        <Card style={styles.asyncStateCard} tone="mint">
+          <Text style={commonStyles.heading}>All clear</Text>
+          <Text style={[commonStyles.body, styles.asyncStateMessage]}>
+            There is nothing waiting for a decision.
+          </Text>
+        </Card>
+      </View>
     );
   }
   return children;
@@ -468,65 +503,84 @@ export function formatTokens(value: number) {
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 48,
-    flex: 1,
-    borderRadius: 12,
+    minHeight: 36,
+    alignSelf: 'stretch',
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
   },
-  buttonLabel: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  buttonGrow: { flex: 1, alignSelf: 'auto' },
+  buttonLabel: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
   secondary: {
-    minHeight: 48,
-    flex: 1,
-    borderRadius: 12,
+    minHeight: 36,
+    alignSelf: 'stretch',
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
   },
-  secondaryLabel: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  secondaryLabel: { color: colors.text, fontSize: 13, fontWeight: '600' },
   pressed: { backgroundColor: colors.primaryPressed },
   secondaryPressed: { backgroundColor: colors.surfaceMuted },
   dimmed: { opacity: 0.55 },
-  center: { flex: 1, minHeight: 240, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
+  center: { flex: 1, minHeight: 180, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16 },
+  asyncStateWrap: {
+    flex: 1,
+    minHeight: 160,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
+  asyncStateCard: {
+    width: '100%',
+    alignItems: 'stretch',
+    gap: 8,
+  },
+  asyncStateMessage: { textAlign: 'left' },
+  asyncStateAction: {
+    alignSelf: 'stretch',
+    marginTop: 2,
+  },
   error: { color: colors.danger, textAlign: 'center' },
-  pageHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
-  pageHeaderCopy: { flex: 1, gap: 5 },
-  badge: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
-  badgeLabel: { fontSize: 12, lineHeight: 16, fontWeight: '600' },
+  pageHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
+  pageHeaderCopy: { flex: 1, gap: 3 },
+  badge: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  badgeLabel: { fontSize: 11, lineHeight: 14, fontWeight: '600' },
   chip: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    minHeight: 32,
+    gap: 5,
+    minHeight: 28,
     borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  chipLabel: { fontSize: 13, fontWeight: '600' },
-  chipCount: {
-    minWidth: 20,
-    borderRadius: 999,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    alignItems: 'center',
-  },
-  chipCountLabel: { fontSize: 11, fontWeight: '700' },
-  tag: {
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  tagLabel: { fontSize: 12, lineHeight: 16, fontWeight: '600' },
+  chipLabel: { fontSize: 12, fontWeight: '600' },
+  chipCount: {
+    minWidth: 18,
+    borderRadius: 999,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    alignItems: 'center',
+  },
+  chipCountLabel: { fontSize: 10, fontWeight: '700' },
+  tag: {
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  tagLabel: { fontSize: 11, lineHeight: 14, fontWeight: '600' },
   searchShell: {
-    minHeight: 46,
+    minHeight: 40,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 999,
@@ -541,24 +595,24 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     color: colors.text,
-    fontSize: 15,
-    paddingVertical: 10,
+    fontSize: 14,
+    paddingVertical: 8,
   },
-  field: { gap: 6 },
-  fieldLabel: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  field: { gap: 4 },
+  fieldLabel: { color: colors.text, fontSize: 13, fontWeight: '600' },
   input: {
-    minHeight: 46,
+    minHeight: 40,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: colors.surface,
     color: colors.text,
-    fontSize: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    fontSize: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   inputError: { borderColor: colors.danger },
-  fieldHint: { color: colors.muted, fontSize: 12, lineHeight: 16 },
-  emptyState: { minHeight: 220, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
-  centerText: { textAlign: 'center' },
+  fieldHint: { color: colors.muted, fontSize: 12 },
+  emptyState: { alignItems: 'flex-start', gap: 6 },
+  centerText: { textAlign: 'left' },
 });

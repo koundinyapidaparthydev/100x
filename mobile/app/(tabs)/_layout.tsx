@@ -1,7 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { colors } from '@/src/ui';
+
+const MARK = require('../../assets/brand/aai-mark.png');
 
 export default function TabsLayout() {
   const router = useRouter();
@@ -12,24 +14,31 @@ export default function TabsLayout() {
           backgroundColor: colors.surface,
           shadowColor: 'transparent',
           elevation: 0,
-          borderBottomWidth: 1,
+          borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.border,
         },
         headerTintColor: colors.text,
-        headerTitleStyle: { fontWeight: '700', fontSize: 17 },
+        headerTitleStyle: { fontWeight: '600', fontSize: 15 },
+        headerLeft: () => (
+          <View style={styles.brandMark} accessibilityLabel="AplifyAI">
+            <Image source={MARK} style={styles.brandImage} resizeMode="contain" />
+          </View>
+        ),
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 2 },
+        tabBarLabelStyle: { fontSize: 9, fontWeight: '600', marginBottom: 0 },
+        tabBarIconStyle: { marginTop: 0 },
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 62,
-          paddingTop: 6,
-          paddingBottom: 8,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          paddingTop: 2,
+          paddingBottom: 2,
+          minHeight: 48,
         },
-        tabBarItemStyle: { borderRadius: 14, marginHorizontal: 4 },
+        tabBarItemStyle: { borderRadius: 8, marginHorizontal: 1, paddingVertical: 1 },
         tabBarActiveBackgroundColor: colors.primarySoft,
+        animation: 'shift',
         headerRight: () => (
           <Pressable
             testID="notifications-button"
@@ -37,7 +46,7 @@ export default function TabsLayout() {
             onPress={() => router.push('/notifications')}
             style={styles.bell}>
             <View style={styles.bellShell}>
-              <MaterialCommunityIcons name="bell-outline" size={22} color={colors.primary} />
+              <MaterialCommunityIcons name="bell-outline" size={18} color={colors.primary} />
             </View>
           </Pressable>
         ),
@@ -47,9 +56,7 @@ export default function TabsLayout() {
         options={{
           title: 'Triage',
           tabBarButtonTestID: 'tab-triage',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="cards-outline" color={color} size={size} />
-          ),
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="cards-outline" color={color} size={20} />,
         }}
       />
       <Tabs.Screen
@@ -57,9 +64,7 @@ export default function TabsLayout() {
         options={{
           title: 'AI Jobs',
           tabBarButtonTestID: 'tab-jobs',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="progress-clock" color={color} size={size} />
-          ),
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="progress-clock" color={color} size={20} />,
         }}
       />
       <Tabs.Screen
@@ -67,18 +72,28 @@ export default function TabsLayout() {
         options={{
           title: 'Approvals',
           tabBarButtonTestID: 'tab-approvals',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="check-decagram-outline" color={color} size={size} />
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="check-decagram-outline" color={color} size={20} />
           ),
         }}
       />
       <Tabs.Screen
         name="pii"
         options={{
-          title: 'PII Firewall',
+          title: 'PII',
           tabBarButtonTestID: 'tab-pii',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="shield-alert-outline" color={color} size={size} />
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="shield-alert-outline" color={color} size={20} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="account"
+        options={{
+          title: 'Account',
+          tabBarButtonTestID: 'tab-account',
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="account-circle-outline" color={color} size={20} />
           ),
         }}
       />
@@ -87,11 +102,13 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  bell: { paddingHorizontal: 12, paddingVertical: 8 },
+  brandMark: { paddingLeft: 12, paddingVertical: 4 },
+  brandImage: { width: 22, height: 22, borderRadius: 5 },
+  bell: { paddingHorizontal: 10, paddingVertical: 6 },
   bellShell: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',

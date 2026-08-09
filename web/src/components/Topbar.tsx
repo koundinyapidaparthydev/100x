@@ -5,11 +5,7 @@ import { api } from '@shared/api';
 import type { AuthUser } from '@shared/types';
 import { AplifyLogo } from './AplifyLogo';
 import EnvironmentSwitcher from './EnvironmentSwitcher';
-import {
-  CONSOLE_CONTEXT_ITEMS,
-  CONSOLE_SEARCH_PLACEHOLDER,
-  openCommandPalette,
-} from '../lib/consoleNav';
+import { CONSOLE_SEARCH_PLACEHOLDER, openCommandPalette } from '../lib/consoleNav';
 import { clearDemoSession, readDemoSession, demoSeatFromUser, writeDemoSession } from '../lib/session';
 import { getProjectRouteContext } from '../lib/projectRoutes';
 import { isDemoSeatSession, roleDisplay } from '../lib/format';
@@ -25,51 +21,6 @@ const DEMO_SEATS: { id: string; label: string; hint: string }[] = [
   { id: 'root', label: 'Workspace owner', hint: 'Full platform + MCP access' },
   { id: 'member', label: 'Member', hint: 'Limited until a custom role is assigned' },
 ];
-
-function isConsoleRoute(pathname: string): boolean {
-  return pathname === '/console' || pathname.startsWith('/console/');
-}
-
-function ConsoleContextRow({ withTestId }: { withTestId: boolean }) {
-  const location = useLocation();
-
-  return (
-    <div
-      className="border-b border-outline-variant/80 bg-surface-container-low/80"
-      data-testid="console-context-row"
-    >
-      <div className="mx-auto flex max-w-[1400px] items-center gap-2 overflow-x-auto px-3 py-2 sm:px-5">
-        <span className="hidden shrink-0 text-xs font-semibold uppercase tracking-[0.06em] text-on-surface-variant sm:inline">
-          Console
-        </span>
-        <span className="hidden h-4 w-px shrink-0 bg-outline-variant sm:block" aria-hidden="true" />
-        <nav aria-label="Console sections" className="flex min-w-0 items-center gap-1">
-          {CONSOLE_CONTEXT_ITEMS.map((item) => {
-            const active = item.exact
-              ? location.pathname === item.path
-              : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                data-testid={withTestId ? item.testId : undefined}
-                aria-current={active ? 'page' : undefined}
-                className={cn(
-                  'inline-flex min-h-8 shrink-0 items-center rounded-chip px-3 text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-surface text-on-surface shadow-xs'
-                    : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface',
-                )}
-              >
-                {item.name}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-    </div>
-  );
-}
 
 function ProjectContextRow({ projectId, withTestId }: { projectId: string; withTestId: boolean }) {
   const location = useLocation();
@@ -135,7 +86,6 @@ export default function Topbar({
   const seatMenuRef = useRef<HTMLDivElement>(null);
   const session = readDemoSession();
   const projectContext = getProjectRouteContext(location.pathname);
-  const consoleRoute = isConsoleRoute(location.pathname);
   const settingsActive = isNavItemActive(location.pathname, ADMIN_ITEM);
   const canSwitchDemoSeat = isDemoSeatSession(session?.id);
 
@@ -244,9 +194,12 @@ export default function Topbar({
 
             <span className="hidden h-5 w-px shrink-0 bg-outline-variant md:block" aria-hidden="true" />
 
-            <div className="hidden md:block">
-              <EnvironmentSwitcher variant="header" />
-            </div>
+            {/* Mount only on desktop — mobile drawer owns the switcher (single writer). */}
+            {desktopNav ? (
+              <div className="hidden md:block">
+                <EnvironmentSwitcher variant="header" />
+              </div>
+            ) : null}
           </div>
 
           <div className="mx-auto hidden w-full max-w-xl md:block" data-testid="global-search">
@@ -385,8 +338,7 @@ export default function Topbar({
         </div>
       </header>
 
-      {consoleRoute && !projectContext && <ConsoleContextRow withTestId={desktopNav} />}
-
+      {/* Project context strip — Console sections live in the left rail / drawer. */}
       {projectContext && (
         <ProjectContextRow projectId={projectContext.projectId} withTestId={desktopNav} />
       )}

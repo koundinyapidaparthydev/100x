@@ -6,9 +6,24 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/brand/icon.png",
+    "splash": {
+      "image": "./assets/brand/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F6F3EC"
+    },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/brand/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#F6F3EC"
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,
@@ -17,7 +32,8 @@
     "android": {
       "package": "ai.aplify.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#F4F6F8"
+        "foregroundImage": "./assets/brand/icon.png",
+        "backgroundColor": "#F6F3EC"
       }
     },
     "experiments": {

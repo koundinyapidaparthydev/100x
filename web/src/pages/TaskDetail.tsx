@@ -213,8 +213,13 @@ export default function TaskDetail() {
                 </span>
               </div>
               <div>
-                <span className="mb-[2px] block font-label-sm text-label-sm text-on-surface-variant">Target completion</span>
-                <span className="font-body-sm text-body-sm text-on-surface">{wi.targetCompletionPercent}%</span>
+                <span className="mb-[2px] block font-label-sm text-label-sm text-on-surface-variant">
+                  AI progress estimate
+                </span>
+                <span className="font-body-sm text-body-sm text-on-surface" data-testid="task-target-estimate">
+                  ~{wi.targetCompletionPercent}%
+                  <span className="mt-0.5 block text-xs text-on-surface-variant">Estimate, not a guarantee</span>
+                </span>
               </div>
               <div>
                 <span className="mb-[2px] block font-label-sm text-label-sm text-on-surface-variant">Status</span>
@@ -250,6 +255,15 @@ export default function TaskDetail() {
               }
             />
           )}
+          {job?.state === 'ready_for_human' && (
+            <p
+              className="rounded-lg border border-butter/25 bg-butter-container px-3 py-2 text-sm text-on-butter-container"
+              data-testid="task-needs-review"
+            >
+              Needs human review — treat AI output as a draft until you accept or reject it.
+            </p>
+          )}
+
           {job && job.artifacts.length > 0 && (
             <div className="grid grid-cols-1 gap-md">
               {job.artifacts.map((artifact) => (

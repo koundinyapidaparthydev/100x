@@ -6,13 +6,15 @@
  * per `createApp()`).
  *
  * Seed coverage required by the build spec:
- *  - 8 WorkItems across 3 Jira projects (APLIFYAI, INFRA, FE)
+ *  - ~21 WorkItems across 3 Jira projects (APLIFYAI, INFRA, FE)
+ *  - 18 triage-pending (lastTriageDecision=null && aiStatus=none) for swipe demos
  *  - Connected boards start empty — connect via UI / API
  *  - one ticket with an email in its description (→ redact path, succeeds)
  *  - one ticket with an SSN in its description (→ blocked_pii path)
- *  - 1 org policy (azure eastus private_vpc, gpt-4o, 50k token budget)
- *  - a few pre-seeded jobs in 'running' / 'queued'
- *  - audit events, 2 pending approvals, ~5 notifications
+ *  - a few mild PII redact samples (email/phone) among generated tickets — not SSN
+ *  - 1 org policy (azure eastus private_vpc, model auto, 50k token budget)
+ *  - a few pre-seeded jobs in 'running' / 'queued' / 'ready_for_human'
+ *  - audit events, 6 pending approvals, mirrored approval notifications
  */
 
 import type {
@@ -153,6 +155,199 @@ function hoursAgo(h: number): string {
   return new Date(Date.now() - h * 3_600_000).toISOString();
 }
 
+type SeedPriority = WorkItem['priority'];
+
+/** Compact specs for extra triage-pending tickets (beyond the 8 story WIs). */
+const EXTRA_TRIAGE_SPECS: Array<{
+  projectId: 'APLIFYAI' | 'INFRA' | 'FE';
+  issueNum: number;
+  title: string;
+  labels: string[];
+  priority: SeedPriority;
+  status: string;
+  hoursAgo: number;
+  description: string;
+}> = [
+  {
+    projectId: 'APLIFYAI',
+    issueNum: 104,
+    title: 'Cache policy decisions for hot triage paths',
+    labels: ['backend', 'performance'],
+    priority: 'medium',
+    status: 'To Do',
+    hoursAgo: 4,
+    description:
+      'Triage endpoints re-evaluate org policy on every request. Add a short-TTL in-process cache keyed by tenant + policy version, with invalidation on PATCH /policies.',
+  },
+  {
+    projectId: 'APLIFYAI',
+    issueNum: 105,
+    title: 'Surface token-budget warnings before AI start',
+    labels: ['backend', 'ux'],
+    priority: 'high',
+    status: 'To Do',
+    hoursAgo: 7,
+    description:
+      'When estimated tokens exceed 80% of the org budget, return a soft warning in the triage response so managers can approve a budget extension first.',
+  },
+  {
+    projectId: 'APLIFYAI',
+    issueNum: 106,
+    title: 'Normalize webhook signature verification errors',
+    labels: ['integrations', 'security'],
+    priority: 'medium',
+    status: 'To Do',
+    hoursAgo: 9,
+    description:
+      'Signature mismatches currently return 500. Map them to 401 with a stable error code and audit the failure without logging the raw payload.',
+  },
+  {
+    projectId: 'APLIFYAI',
+    issueNum: 107,
+    title: 'Document sandbox AI runner limitations',
+    labels: ['docs'],
+    priority: 'low',
+    status: 'To Do',
+    hoursAgo: 14,
+    description:
+      'When no model API keys are set (OPENAI_API_KEY / ANTHROPIC_API_KEY / OPENROUTER_API_KEY), the sandbox runner returns canned artifacts. Add a short ops note in the README so demos do not look like live model output.',
+  },
+  {
+    projectId: 'APLIFYAI',
+    issueNum: 108,
+    title: 'Trim oversized ticket descriptions before tokenize',
+    labels: ['backend', 'pii'],
+    priority: 'medium',
+    status: 'To Do',
+    hoursAgo: 11,
+    // Mild PII redact sample (email) — must not use SSN/block categories.
+    description:
+      'Descriptions over 32k chars blow the token estimator. Truncate with a clear marker and ping the board owner at ops.lead@acme-corp.com when truncation happens.',
+  },
+  {
+    projectId: 'INFRA',
+    issueNum: 224,
+    title: 'Add canary deploy for AI runner pods',
+    labels: ['infra', 'deploy'],
+    priority: 'high',
+    status: 'To Do',
+    hoursAgo: 3,
+    description:
+      'Roll out runner image changes via 10% canary for 15 minutes, auto-rollback on 5xx spike. Keep the existing blue/green path as a manual escape hatch.',
+  },
+  {
+    projectId: 'INFRA',
+    issueNum: 225,
+    title: 'Alert on private VPC peer flap',
+    labels: ['infra', 'observability'],
+    priority: 'critical',
+    status: 'To Do',
+    hoursAgo: 1.5,
+    description:
+      'Peer connection flaps silence AI jobs without paging. Emit a critical alert after two flaps in 10 minutes and attach the VPC id in the runbook link.',
+  },
+  {
+    projectId: 'INFRA',
+    issueNum: 226,
+    title: 'Rotate artifact-store CMK annually',
+    labels: ['infra', 'security'],
+    priority: 'medium',
+    status: 'To Do',
+    hoursAgo: 16,
+    description:
+      'Schedule annual CMK rotation for the AI artifact bucket. Document dual-key read window and verify checksum validation still passes after re-encrypt.',
+  },
+  {
+    projectId: 'INFRA',
+    issueNum: 227,
+    title: 'Cap concurrent sandbox jobs per tenant',
+    labels: ['infra', 'platform'],
+    priority: 'high',
+    status: 'In Progress',
+    hoursAgo: 5,
+    description:
+      'Uncapped concurrency lets one demo tenant starve others. Enforce a soft limit of 4 running jobs per tenant with a clear queued reason code.',
+  },
+  {
+    projectId: 'FE',
+    issueNum: 120,
+    title: 'Keep triage swipe card height stable',
+    labels: ['frontend', 'mobile'],
+    priority: 'high',
+    status: 'To Do',
+    hoursAgo: 2.5,
+    description:
+      'Long titles and label chips push the card past the fold on small phones. Clamp title to 2 lines and move overflow labels into an "N more" affordance.',
+  },
+  {
+    projectId: 'FE',
+    issueNum: 121,
+    title: 'Approvals empty state after last decide',
+    labels: ['frontend', 'ux'],
+    priority: 'medium',
+    status: 'To Do',
+    hoursAgo: 6,
+    description:
+      'When the last pending approval is decided, the list briefly flashes an error. Prefer an empty-state card until the next poll returns [].',
+  },
+  {
+    projectId: 'FE',
+    issueNum: 122,
+    title: 'Show phone redaction preview in PII panel',
+    labels: ['frontend', 'pii'],
+    priority: 'low',
+    status: 'To Do',
+    hoursAgo: 13,
+    // Mild PII redact sample (phone) — mask_keep_last path, not SSN block.
+    description:
+      'PII settings show email/SSN examples but not phone. Add a preview using mask_keep_last on a sample like +1 (415) 555-0198 so managers see the keep-last-4 behavior.',
+  },
+  {
+    projectId: 'FE',
+    issueNum: 123,
+    title: 'Deep-link from notification to work item',
+    labels: ['frontend', 'notifications'],
+    priority: 'medium',
+    status: 'To Do',
+    hoursAgo: 10,
+    description:
+      'Approval and AI-ready notifications should open the related work item. Fall back to the Approvals or Jobs tab when workItemId is missing.',
+  },
+];
+
+function buildExtraTriageWorkItems(): WorkItem[] {
+  const issueIdBase: Record<'APLIFYAI' | 'INFRA' | 'FE', number> = {
+    APLIFYAI: 10_000,
+    INFRA: 20_000,
+    FE: 30_000,
+  };
+  return EXTRA_TRIAGE_SPECS.map((spec) => {
+    const key = `${spec.projectId}-${spec.issueNum}`;
+    return {
+      id: `wi-${spec.projectId.toLowerCase()}-${spec.issueNum}`,
+      tenantId: TENANT_ID,
+      board: {
+        type: 'jira' as const,
+        projectId: spec.projectId,
+        issueKey: key,
+        issueId: String(issueIdBase[spec.projectId] + spec.issueNum),
+      },
+      title: spec.title,
+      status: spec.status,
+      assigneeExternalId: null,
+      labels: spec.labels,
+      aiFirst: false,
+      targetCompletionPercent: 20,
+      aiStatus: 'none' as const,
+      lastAiJobId: null,
+      lastTriageDecision: null,
+      description: spec.description,
+      priority: spec.priority,
+      updatedAt: hoursAgo(spec.hoursAgo),
+    };
+  });
+}
+
 export function createSeedStore(): Store {
   const policy: Policy = {
     id: ORG_POLICY_ID,
@@ -169,7 +364,7 @@ export function createSeedStore(): Store {
     },
     customerNames: ['Jane Doe', 'John Smith'],
     cloud: { provider: 'azure', mode: 'private_vpc', region: 'eastus' },
-    model: { provider: 'openai', modelId: 'gpt-4o' },
+    model: { provider: 'auto', modelId: 'auto' },
     platform: { runtime: 'node22-sandbox', codeOverrideMode: 'allowed_with_audit' },
     tokenBudget: { maxTotalTokens: 50_000, maxCostUsd: 25, onExhaustion: 'block' },
     mcpAllowlist: [{ server: 'jira', tools: ['read_issue', 'add_comment'] }],
@@ -194,7 +389,8 @@ export function createSeedStore(): Store {
       lastTriageDecision: null,
       description:
         'The Express auth middleware has grown to 400+ lines with mixed JWT and session logic. ' +
-        'Split it into strategy modules, add unit tests for token expiry edge cases, and keep the public API unchanged.',
+        'Split it into strategy modules, add unit tests for token expiry edge cases, and keep the public API unchanged.\n\n' +
+        '![Auth flow sketch](https://picsum.photos/seed/aplify-auth/640/360)',
       priority: 'high',
       updatedAt: hoursAgo(3),
     },
@@ -291,7 +487,8 @@ export function createSeedStore(): Store {
       lastTriageDecision: null,
       description:
         'CI runners currently have unrestricted egress. Restrict to the package registries and the artifact ' +
-        'store; log denied destinations for a week before enforcing.',
+        'store; log denied destinations for a week before enforcing.\n\n' +
+        '![Egress allowlist draft](https://picsum.photos/seed/aplify-egress/640/360)',
       priority: 'high',
       updatedAt: hoursAgo(8),
     },
@@ -300,19 +497,19 @@ export function createSeedStore(): Store {
       tenantId: TENANT_ID,
       board: { type: 'jira', projectId: 'FE', issueKey: 'FE-118', issueId: '30118' },
       title: 'Virtualize the work item list for large boards',
-      status: 'To Do',
+      status: 'In Review',
       assigneeExternalId: null,
       labels: ['frontend', 'performance'],
-      aiFirst: false,
-      targetCompletionPercent: 20,
-      aiStatus: 'none',
-      lastAiJobId: null,
-      lastTriageDecision: null,
+      aiFirst: true,
+      targetCompletionPercent: 35,
+      aiStatus: 'ready_for_human',
+      lastAiJobId: 'job-ready-1',
+      lastTriageDecision: 'ai_first',
       description:
         'Boards with 2k+ work items drop frames on scroll. Window the list with react-window, keep swipe ' +
         'gestures working, and preserve the current filter/sort behavior.',
       priority: 'medium',
-      updatedAt: hoursAgo(4),
+      updatedAt: hoursAgo(0.2),
     },
     {
       id: 'wi-fe-119',
@@ -333,9 +530,11 @@ export function createSeedStore(): Store {
       priority: 'low',
       updatedAt: hoursAgo(12),
     },
+    // Additional triage-pending tickets for a deep mobile/web swipe deck (18 total pending).
+    ...buildExtraTriageWorkItems(),
   ];
 
-  // Pre-seeded jobs: one mid-flight 'running', one 'queued'.
+  // Pre-seeded jobs: running, queued, and one ready-for-human with draft artifacts.
   const jobs: AiJob[] = [
     {
       id: 'job-running-1',
@@ -365,6 +564,52 @@ export function createSeedStore(): Store {
       createdAt: hoursAgo(0.5),
       finishedAt: null,
     },
+    {
+      id: 'job-ready-1',
+      workItemId: 'wi-fe-118',
+      tenantId: TENANT_ID,
+      state: 'ready_for_human',
+      model: { provider: policy.model.provider, modelId: policy.model.modelId },
+      cloudExecution: { provider: 'azure', mode: 'private_vpc', region: 'eastus' },
+      tokenUsage: { input: 910, output: 640, total: 1550 },
+      artifacts: [
+        {
+          id: 'art-fe-118-summary',
+          aiJobId: 'job-ready-1',
+          kind: 'summary',
+          storage: { provider: 'azure', uri: 'azure://eastus/artifacts/art-fe-118-summary.md' },
+          checksum: 'seed-fe-118-summary',
+          boardAttachmentId: 'att-fe-118-summary',
+          preview:
+            'Propose a react-window virtualized list that keeps triage swipe gestures and current filter/sort state.',
+          content:
+            '## Summary\n\n' +
+            'Window the triage queue with `react-window` FixedSizeList, preserve filter/sort via a stable item key, ' +
+            'and keep swipe handlers on the visible row only.\n\n' +
+            '## Risks\n\n' +
+            '- Gesture conflicts on Android when nested ScrollViews are present\n' +
+            '- Need a measured row height for comfortable vs compact density\n',
+        },
+        {
+          id: 'art-fe-118-patch',
+          aiJobId: 'job-ready-1',
+          kind: 'patch',
+          storage: { provider: 'azure', uri: 'azure://eastus/artifacts/art-fe-118-patch.md' },
+          checksum: 'seed-fe-118-patch',
+          boardAttachmentId: 'att-fe-118-patch',
+          preview: 'Draft patch outline: VirtualizedQueue component + density-aware row height.',
+          content:
+            '## Patch outline\n\n' +
+            '1. Extract `VirtualizedQueue` wrapping FixedSizeList\n' +
+            '2. Pass `itemData={{ density, onSwipe }}`\n' +
+            '3. Measure row height once per density mode\n',
+        },
+      ],
+      piiReport: { redactions: 0, blocks: [] },
+      error: null,
+      createdAt: hoursAgo(0.35),
+      finishedAt: hoursAgo(0.05),
+    },
   ];
 
   const store: Store = {
@@ -391,6 +636,46 @@ export function createSeedStore(): Store {
         risk: 'medium',
         status: 'pending',
         requestedAt: hoursAgo(3),
+      },
+      {
+        id: 'app-aplifyai-103',
+        workItemId: 'wi-aplifyai-103',
+        title: 'Grant PII access for APLIFYAI-103 review',
+        reason:
+          'Manager needs a time-boxed view of the redacted email fields to confirm the webhook owner contact before AI re-run.',
+        risk: 'medium',
+        status: 'pending',
+        requestedAt: hoursAgo(4),
+      },
+      {
+        id: 'app-infra-223',
+        workItemId: 'wi-infra-223',
+        title: 'Allow code override on INFRA-223',
+        reason:
+          'Egress hardening change edits CI network policy; codeOverrideMode=allowed_with_audit requires manager sign-off.',
+        risk: 'high',
+        status: 'pending',
+        requestedAt: hoursAgo(5),
+      },
+      {
+        id: 'app-aplifyai-105',
+        workItemId: 'wi-aplifyai-105',
+        title: 'Extend token budget for APLIFYAI-105',
+        reason:
+          'Budget-warning UX spike estimates ~58k tokens against the 50k org cap; approve a one-off extension to finish the draft.',
+        risk: 'low',
+        status: 'pending',
+        requestedAt: hoursAgo(1.5),
+      },
+      {
+        id: 'app-fe-122',
+        workItemId: 'wi-fe-122',
+        title: 'Allow PII-panel screenshot attach on FE-122',
+        reason:
+          'Design review wants a redacted phone-preview screenshot attached to the board; confirm PII-access policy before upload.',
+        risk: 'low',
+        status: 'pending',
+        requestedAt: hoursAgo(6),
       },
     ],
     notifications: [
@@ -434,9 +719,45 @@ export function createSeedStore(): Store {
         id: 'ntf-5',
         kind: 'system',
         title: 'Jira sync completed',
-        body: 'Projects APLIFYAI, INFRA and FE synced. 8 work items mirrored.',
+        body: `Projects APLIFYAI, INFRA and FE synced. ${workItems.length} work items mirrored.`,
         createdAt: hoursAgo(10),
         read: true,
+      },
+      {
+        id: 'ntf-6',
+        kind: 'approval',
+        title: 'Approval needed: APLIFYAI-103',
+        body: 'PII access request for the webhook owner contact review is waiting for your decision.',
+        createdAt: hoursAgo(4),
+        read: false,
+        workItemId: 'wi-aplifyai-103',
+      },
+      {
+        id: 'ntf-7',
+        kind: 'approval',
+        title: 'Approval needed: INFRA-223',
+        body: 'High-risk action "Allow code override on INFRA-223" is waiting for your decision.',
+        createdAt: hoursAgo(5),
+        read: false,
+        workItemId: 'wi-infra-223',
+      },
+      {
+        id: 'ntf-8',
+        kind: 'approval',
+        title: 'Approval needed: APLIFYAI-105',
+        body: 'Token budget extension request is waiting for your decision.',
+        createdAt: hoursAgo(1.5),
+        read: false,
+        workItemId: 'wi-aplifyai-105',
+      },
+      {
+        id: 'ntf-9',
+        kind: 'approval',
+        title: 'Approval needed: FE-122',
+        body: 'PII-panel screenshot attach request is waiting for your decision.',
+        createdAt: hoursAgo(6),
+        read: false,
+        workItemId: 'wi-fe-122',
       },
     ],
     boards: [],
@@ -596,6 +917,30 @@ export function createSeedStore(): Store {
     'job.state.running',
     { type: 'ai_job', id: 'job-running-1' },
     { workItemId: 'wi-aplifyai-102', model: 'gpt-4o', cloud: 'azure/eastus' },
+    [1, 2, 3, 4, 5],
+  );
+  emitAudit(
+    store,
+    { type: 'system', id: 'orchestrator' },
+    'job.state.queued',
+    { type: 'ai_job', id: 'job-ready-1' },
+    { workItemId: 'wi-fe-118' },
+    [1, 2, 3],
+  );
+  emitAudit(
+    store,
+    { type: 'system', id: 'orchestrator' },
+    'job.state.running',
+    { type: 'ai_job', id: 'job-ready-1' },
+    { workItemId: 'wi-fe-118' },
+    [1, 2, 3, 4],
+  );
+  emitAudit(
+    store,
+    { type: 'system', id: 'orchestrator' },
+    'job.state.ready_for_human',
+    { type: 'ai_job', id: 'job-ready-1' },
+    { workItemId: 'wi-fe-118', artifactCount: 2 },
     [1, 2, 3, 4, 5],
   );
 

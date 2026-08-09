@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { clearBrowserSession, DEMO_SESSION_KEY } from './helpers';
+import { clearBrowserSession, DEMO_SESSION_KEY, resetOwnerOnboarding } from './helpers';
 
 /** Add a service if it is not already selected (preselects use the same test ids on chips). */
 async function pickService(page: Page, category: string, id: string, query: string) {
@@ -40,20 +40,22 @@ async function fillRuntime(page: Page) {
     .getByRole('button', { name: /Connected cloud accounts/i })
     .click();
   await expect(page.getByTestId('runtime-cloud-provider')).toBeVisible();
-  await page.getByTestId('runtime-mode').getByRole('button').first().click();
-  await page.getByTestId('runtime-custom-model').getByRole('button').first().click();
-  await page.getByTestId('runtime-code-override').getByRole('button').first().click();
-  await page.getByTestId('runtime-token-budget').getByRole('button').first().click();
-  await page.getByTestId('runtime-mcp-allowlist').getByRole('button').first().click();
+  // Prefer named options — each group also has a "More about this question" button.
+  await page.getByTestId('runtime-mode').getByRole('button', { name: /On demand/i }).click();
+  await page.getByTestId('runtime-custom-model').getByRole('button', { name: /Managed models/i }).click();
+  await page.getByTestId('runtime-code-override').getByRole('button', { name: /No code changes/i }).click();
+  await page.getByTestId('runtime-token-budget').getByRole('button', { name: /Conservative/i }).click();
+  await page.getByTestId('runtime-mcp-allowlist').getByRole('button', { name: /Strict/i }).click();
   await page.getByTestId('runtime-regions').getByRole('button', { name: /US East/i }).click();
 }
 
 test.describe('Onboarding wizard', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, request }) => {
+    await resetOwnerOnboarding(request);
     await clearBrowserSession(page);
   });
 
-  test('Free lite path: signup → answers + stack → connections → projects', async ({ page }) => {
+  test('Free lite path: signup → answers + stack → connections → home', async ({ page }) => {
     await page.goto('/signup');
     await expect(page.getByTestId('signup-page')).toBeVisible();
     await page.getByTestId('signup-continue-demo').click();
@@ -78,13 +80,15 @@ test.describe('Onboarding wizard', () => {
 
     await expect(page).toHaveURL(/\/connections$/, { timeout: 20_000 });
     await expect(page.getByTestId('connections-page')).toBeVisible();
+    // Live picks land in Available; non-live (smartsheet) in Upcoming.
     await expect(page.getByTestId('connection-jira')).toBeVisible();
-    await expect(page.getByTestId('connection-smartsheet')).toBeVisible();
     await expect(page.getByTestId('connection-slack')).toBeVisible();
     await expect(page.getByTestId('connection-github')).toBeVisible();
+    await expect(page.getByTestId('connections-upcoming-grid')).toBeVisible();
+    await expect(page.getByTestId('connections-upcoming-grid').getByTestId('connection-smartsheet')).toBeVisible();
 
     await page.getByTestId('connections-to-projects').click();
-    await expect(page).toHaveURL(/\/projects$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/home$/, { timeout: 20_000 });
   });
 
   test('Enterprise full path reaches runtime slide and connections', async ({ page }) => {
@@ -119,9 +123,8 @@ test.describe('Onboarding wizard', () => {
     await page.getByTestId('connect-jira').click();
     await expect(page.getByTestId('mcp-connect-panel')).toBeVisible();
     await page.getByTestId('mcp-connect-confirm').click();
-    await expect(page.getByTestId('connection-jira').getByText('Connected', { exact: true })).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(page.getByTestId('disconnect-jira')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('connection-jira').getByText(/Connected \(/)).toBeVisible();
 
     await page.getByTestId('secure-aws').click();
     await expect(page.getByTestId('secure-setup-panel')).toBeVisible();
@@ -132,8 +135,8 @@ test.describe('Onboarding wizard', () => {
     await expect(page.getByTestId('login-page')).toBeVisible();
     await page.getByTestId('login-toggle-seats').click();
     await page.getByTestId('login-mode-member').click();
-    await page.getByTestId('login-member-manager').click();
-    await page.getByTestId('login-manager').click();
+    await page.getByTestId('login-member-member').click();
+    await page.getByTestId('login-member').click();
     await expect(page).toHaveURL(/\/onboarding$/, { timeout: 20_000 });
     await expect(page.getByTestId('onboarding-plan-picker')).toBeVisible();
     const session = await page.evaluate((key) => localStorage.getItem(key), DEMO_SESSION_KEY);

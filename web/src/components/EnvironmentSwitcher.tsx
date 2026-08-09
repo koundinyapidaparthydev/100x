@@ -9,6 +9,8 @@ import {
   environmentTone,
 } from '../lib/environmentLabels';
 import {
+  ACTIVE_ENV_CHANGED_EVENT,
+  commitActiveEnvironmentId,
   readCachedActiveEnvironmentId,
   writeCachedActiveEnvironmentId,
 } from '../lib/environmentStorage';
@@ -22,6 +24,32 @@ type EnvironmentSwitcherProps = {
   onNavigated?: () => void;
 };
 
+/** Shared across Topbar/Sidebar mounts so only one listEnvironments flight runs. */
+let sharedState: WorkspaceEnvironmentState | null = null;
+let sharedInflight: Promise<WorkspaceEnvironmentState> | null = null;
+
+function loadSharedEnvironments(force = false): Promise<WorkspaceEnvironmentState> {
+  if (!force && sharedState) return Promise.resolve(sharedState);
+  if (!force && sharedInflight) return sharedInflight;
+  sharedInflight = api
+    .listEnvironments()
+    .then((res) => {
+      sharedState = res;
+      sharedInflight = null;
+      return res;
+    })
+    .catch((err) => {
+      sharedInflight = null;
+      throw err;
+    });
+  return sharedInflight;
+}
+
+function applySharedActive(environmentId: string): void {
+  if (!sharedState) return;
+  sharedState = { ...sharedState, activeEnvironmentId: environmentId };
+}
+
 export default function EnvironmentSwitcher({
   variant = 'header',
   className,
@@ -29,7 +57,7 @@ export default function EnvironmentSwitcher({
 }: EnvironmentSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [state, setState] = useState<WorkspaceEnvironmentState | null>(null);
+  const [state, setState] = useState<WorkspaceEnvironmentState | null>(() => sharedState);
   const menuRef = useRef<HTMLDivElement>(null);
   const session = readDemoSession();
 
@@ -39,12 +67,12 @@ export default function EnvironmentSwitcher({
       return;
     }
     let cancelled = false;
-    void api
-      .listEnvironments()
+    void loadSharedEnvironments()
       .then((res) => {
         if (cancelled) return;
         setState(res);
-        writeCachedActiveEnvironmentId(res.activeEnvironmentId);
+        // Hydrate cache without notifying listeners — user did not switch env.
+        writeCachedActiveEnvironmentId(res.activeEnvironmentId, { emit: false });
       })
       .catch(() => {
         if (!cancelled) setState(null);
@@ -53,6 +81,20 @@ export default function EnvironmentSwitcher({
       cancelled = true;
     };
   }, [session?.token, session?.id]);
+
+  // Stay in sync when another surface (console page / other mount) changes active env.
+  useEffect(() => {
+    const onEnv = (event: Event) => {
+      const environmentId = (event as CustomEvent<{ environmentId?: string }>).detail?.environmentId;
+      if (!environmentId) return;
+      applySharedActive(environmentId);
+      setState((prev) =>
+        prev ? { ...prev, activeEnvironmentId: environmentId } : prev,
+      );
+    };
+    window.addEventListener(ACTIVE_ENV_CHANGED_EVENT, onEnv);
+    return () => window.removeEventListener(ACTIVE_ENV_CHANGED_EVENT, onEnv);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -80,16 +122,21 @@ export default function EnvironmentSwitcher({
     if (!state || environmentId === state.activeEnvironmentId || busy) return;
     setBusy(true);
     const previous = state;
-    setState({ ...state, activeEnvironmentId: environmentId });
-    writeCachedActiveEnvironmentId(environmentId);
+    const optimistic = { ...state, activeEnvironmentId: environmentId };
+    setState(optimistic);
+    applySharedActive(environmentId);
+    // Single writer for user-driven switches (immediate notify).
+    commitActiveEnvironmentId(environmentId);
     setOpen(false);
     try {
       const next = await api.setActiveEnvironment({ environmentId });
+      sharedState = next;
       setState(next);
-      writeCachedActiveEnvironmentId(next.activeEnvironmentId);
+      writeCachedActiveEnvironmentId(next.activeEnvironmentId, { emit: false });
     } catch {
+      sharedState = previous;
       setState(previous);
-      writeCachedActiveEnvironmentId(previous.activeEnvironmentId);
+      commitActiveEnvironmentId(previous.activeEnvironmentId);
     } finally {
       setBusy(false);
     }

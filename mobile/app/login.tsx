@@ -1,8 +1,8 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { FederatedAuthProvider, FederatedProviderStatus } from '@shared/types';
+import { AplifyLogo } from '@/src/AplifyLogo';
 import { api } from '@/src/api';
 import { useSession } from '@/src/session';
 import { Card, colors, commonStyles, PrimaryButton, SecondaryButton, StatusBadge, Tag } from '@/src/ui';
@@ -32,16 +32,16 @@ type DemoSeat = {
 
 const DEMO_SEATS: DemoSeat[] = [
   {
-    id: 'manager',
-    title: 'Delivery lead',
-    description: 'Triage work, assign people, and record approval decisions.',
-    fullAccess: true,
-  },
-  {
     id: 'root',
     title: 'Root',
     description: 'Org owner — policies, invites, and full demo access.',
     fullAccess: true,
+  },
+  {
+    id: 'manager',
+    title: 'Delivery lead',
+    description: 'Triage work when assigned a role. Demo seat starts with no custom capabilities.',
+    fullAccess: false,
   },
   {
     id: 'engineer',
@@ -57,7 +57,7 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<FederatedProviderStatus[]>([]);
   const [providersChecked, setProvidersChecked] = useState(false);
-  const [seat, setSeat] = useState<DemoSeat['id']>('manager');
+  const [seat, setSeat] = useState<DemoSeat['id']>('root');
   const [showSeats, setShowSeats] = useState(false);
 
   useEffect(() => {
@@ -117,13 +117,15 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.atmosphere} />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.logo}>
-          <MaterialCommunityIcons name="clipboard-text-outline" size={36} color={colors.primary} />
-        </View>
-        <Text style={styles.brand}>AplifyAI</Text>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <AplifyLogo size={48} withWordmark stacked style={styles.logoBlock} />
         <Text style={styles.description}>
-          Building-stage demo — continue with full access, pick a seat, or use SSO when configured.
+          Jump in as the workspace owner with full access, pick a limited seat, or use SSO when
+          configured.
         </Text>
         <Card tone="mint" style={styles.role}>
           <View style={styles.roleHeader}>
@@ -140,7 +142,7 @@ export default function LoginScreen() {
             testID="login-primary-button"
             label={busy ? 'Signing in…' : 'Continue as demo'}
             disabled={busy}
-            onPress={() => void enter('manager')}
+            onPress={() => void enter('root')}
           />
           <Pressable
             accessibilityRole="button"
@@ -187,7 +189,7 @@ export default function LoginScreen() {
               <SecondaryButton
                 key={provider}
                 testID={`login-${provider}`}
-                label={label}
+                label={busy && enabled ? 'Opening sign-in…' : label}
                 disabled={busy || (providersChecked && !enabled)}
                 onPress={() => void enterProvider(provider)}
               />
@@ -195,17 +197,18 @@ export default function LoginScreen() {
           })}
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
+        <Text style={styles.trust}>
+          Demo authentication works offline of SSO. Connections and MCP setup stay on the desktop
+          web app — configure IdP env vars on the backend to enable Google, Apple, Okta, Entra, and
+          Google Workspace.
+        </Text>
       </ScrollView>
-      <Text style={styles.trust}>
-        Demo authentication works offline of SSO. Configure IdP env vars on the backend to enable
-        Google, Apple, Okta, Entra, and Google Workspace.
-      </Text>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background, padding: 20 },
+  screen: { flex: 1, backgroundColor: colors.background },
   atmosphere: {
     position: 'absolute',
     top: 0,
@@ -215,53 +218,46 @@ const styles = StyleSheet.create({
     backgroundColor: colors.butterSoft,
     opacity: 0.28,
   },
-  content: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 16 },
-  logo: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
+  content: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: 'rgba(79,99,182,0.22)',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 20,
   },
-  brand: {
-    color: colors.text,
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -0.7,
-  },
-  description: { ...commonStyles.body, textAlign: 'center', maxWidth: 340 },
-  role: { width: '100%', marginTop: 10 },
+  logoBlock: { marginBottom: 2 },
+  description: { ...commonStyles.body, textAlign: 'center', maxWidth: 320 },
+  role: { width: '100%', marginTop: 4 },
   roleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   roleTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  actions: { width: '100%', marginTop: 18, gap: 10 },
-  seatToggle: { alignItems: 'center', paddingVertical: 4 },
+  actions: { width: '100%', marginTop: 10, gap: 8 },
+  seatToggle: { alignItems: 'center', paddingVertical: 2 },
   seatToggleLabel: {
     color: colors.muted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
-  seatList: { gap: 8 },
+  seatList: { gap: 6 },
   seatOption: {
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 4,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 2,
   },
   seatOptionActive: {
     borderColor: colors.primary,
     backgroundColor: colors.primarySoft,
   },
-  seatTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  seatBody: { color: colors.muted, fontSize: 13, lineHeight: 18 },
-  divider: { ...commonStyles.meta, textAlign: 'center', marginTop: 4 },
-  error: { color: colors.danger, textAlign: 'center' },
-  trust: { ...commonStyles.meta, textAlign: 'center', paddingBottom: 8 },
+  seatTitle: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  seatBody: { color: colors.muted, fontSize: 12, lineHeight: 16 },
+  divider: { ...commonStyles.meta, textAlign: 'center', marginTop: 2 },
+  error: { color: colors.danger, textAlign: 'center', fontSize: 12 },
+  trust: { ...commonStyles.meta, textAlign: 'center', marginTop: 6, maxWidth: 340 },
 });

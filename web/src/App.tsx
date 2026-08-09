@@ -35,6 +35,7 @@ import ConsoleServices from './pages/ConsoleServices';
 import ConsoleEnvironments from './pages/ConsoleEnvironments';
 import IamImportWizard from './pages/IamImportWizard';
 import WorkspaceHome from './pages/WorkspaceHome';
+import Triage from './pages/Triage';
 
 function RuntimeRoute() {
   return useLocation().hash === '#cloud' ? <Cloud /> : <Models />;
@@ -86,6 +87,7 @@ export default function App() {
           }
         >
           <Route path="home" element={<WorkspaceHome />} />
+          <Route path="triage" element={<Triage />} />
           <Route path="console" element={<ConsoleHome />} />
           <Route path="console/users" element={<ConsoleUsers />} />
           <Route path="console/roles" element={<ConsoleRoles />} />

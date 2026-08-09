@@ -2,7 +2,8 @@
  * Production bootstrap: one backend on port 4000 (PORT env override).
  * Set PERSIST=1 to write store.json under ./data (or DATA_DIR).
  * Set DATABASE_URL to load/save a PostgreSQL JSONB snapshot instead.
- * Set OPENAI_API_KEY for live model runs; JIRA_* for live Jira connector.
+ * Set OPENAI_API_KEY / ANTHROPIC_API_KEY / OPENROUTER_API_KEY for live model runs;
+ * JIRA_* for live Jira connector.
  */
 
 import './loadEnv';

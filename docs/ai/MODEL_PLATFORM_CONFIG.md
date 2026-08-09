@@ -16,13 +16,27 @@ Configurable fields:
 
 | Field | Description |
 |-------|-------------|
-| `provider` | e.g. openai, anthropic, azure_openai, bedrock, vertex, private |
-| `modelId` | Specific model string |
+| `provider` | `auto`, `openai`, `anthropic`, `openrouter`, or OpenRouter aliases (`deepseek`, `kimi`, `qwen`, `grok`, `nemotron`). Stored labels like `azure_openai` / `bedrock` are policy-only until wired. |
+| `modelId` | Specific model string, or `auto` for the provider default |
 | `temperature` / decoding params | Bounded by org max |
 | `endpoint` | Private or regional endpoint URL |
 | `dataRetention` | `none` preferred for enterprise |
 
 Catalog is org-managed so employees pick only from approved models.
+
+### Runtime (backend env)
+
+Live drafts use keys on the API process (never commit secrets):
+
+| Env | Provider |
+|-----|----------|
+| `OPENAI_API_KEY` (+ optional `OPENAI_BASE_URL`) | OpenAI Chat Completions |
+| `ANTHROPIC_API_KEY` (+ optional `ANTHROPIC_BASE_URL`) | Anthropic Messages |
+| `OPENROUTER_API_KEY` (+ optional `OPENROUTER_BASE_URL`) | OpenRouter (DeepSeek, Kimi, Qwen, Grok, Nemotron, …) |
+
+`provider: auto` selects the **first configured** key in order: OpenAI → Anthropic → OpenRouter. If none are set, the sandbox runner returns canned drafts.
+
+**Not customer-keyed here:** Cursor Composer, Cursor’s internal models, and other IDE-only runtimes. Those appear as *runtime adapter* labels (where humans continue work), not as AplifyAI inference providers. Use OpenRouter (e.g. `x-ai/grok-3-mini`) when you need Grok via an API key.
 
 ## Platform / kit selection
 

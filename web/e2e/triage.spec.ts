@@ -1,10 +1,20 @@
 import { test, expect } from '@playwright/test';
-import { clearBrowserSession, findUntreatedWorkItem, loginAs } from './helpers';
+import {
+  assertFreshTriagePendingCount,
+  clearBrowserSession,
+  findUntreatedWorkItem,
+  loginAs,
+} from './helpers';
 
 test.describe('Triage paths', () => {
   test.beforeEach(async ({ page }) => {
     await clearBrowserSession(page);
     await loginAs(page, 'manager');
+  });
+
+  test('fresh seed keeps triage-pending count in the demo band', async ({ request }) => {
+    // In-memory Playwright backend reseeds to ~18 pending (see createSeedStore).
+    await assertFreshTriagePendingCount(request);
   });
 
   test('AI-first triage from ticket detail', async ({ page, request }) => {

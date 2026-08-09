@@ -175,7 +175,13 @@ function qs(params: Record<string, string | number | boolean | undefined>): stri
 
 export const api = {
   health: () =>
-    request<{ status: 'ok'; version: string; modelRunner?: string; boardConnector?: string }>('/health'),
+    request<{
+      status: 'ok';
+      version: string;
+      modelRunner?: string;
+      modelProviders?: string[];
+      boardConnector?: string;
+    }>('/health'),
 
   // Auth
   listDemoUsers: () =>

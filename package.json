@@ -22,6 +22,7 @@
     "test": "npm run test --workspaces --if-present",
     "test:e2e:web": "npm run test:e2e -w aplifyai-web",
     "test:e2e:mobile": "npm run test:e2e -w aplifyai-mobile",
+    "seed:demo-queue": "node scripts/seed-demo-queue.mjs",
     "build": "npm run build --workspaces --if-present"
   },
   "optionalDependencies": {
@@ -29,5 +30,11 @@
     "@rollup/rollup-linux-x64-gnu": "^4.62.2",
     "@tailwindcss/oxide-linux-x64-gnu": "4.3.3",
     "lightningcss-linux-x64-gnu": "1.32.0"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "expo-font": "14.0.12",
+    "@expo/vector-icons": "15.0.3"
   }
 }
