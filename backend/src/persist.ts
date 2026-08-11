@@ -149,15 +149,50 @@ function hydrateStore(value: unknown): Store {
   if (!parsed.mcpCredentialsByTenant || typeof parsed.mcpCredentialsByTenant !== 'object') {
     parsed.mcpCredentialsByTenant = {};
   }
-  // Migrate legacy string PII modes → full clearing rules.
+  // Migrate legacy string PII modes → full clearing rules; add environmentId + per-env rows.
   parsed.policies = parsed.policies.map((policy) => {
-    const legacy = policy as Policy & { pii?: unknown; customerNames?: unknown };
+    const legacy = policy as Policy & { pii?: unknown; customerNames?: unknown; environmentId?: string | null };
+    const environmentId =
+      legacy.environmentId === undefined
+        ? legacy.id === 'pol-acme-org' || legacy.scope === 'org'
+          ? null
+          : null
+        : legacy.environmentId;
     return {
       ...policy,
+      environmentId,
       pii: normalizePiiMap(legacy.pii as Policy['pii']),
       customerNames: normalizeCustomerNames(legacy.customerNames),
     };
   });
+
+  // Ensure each workspace environment has a policy row (clone org PII/runtime if missing).
+  for (const [tenantId, envs] of Object.entries(parsed.environmentsByTenant ?? {})) {
+    if (!Array.isArray(envs) || envs.length === 0) continue;
+    const org =
+      parsed.policies.find((p) => p.tenantId === tenantId && p.environmentId == null) ??
+      parsed.policies.find((p) => p.tenantId === tenantId);
+    if (!org) continue;
+    if (org.environmentId !== null) org.environmentId = null;
+    const prodEnv = envs.find((e) => e.key === 'prod');
+    const prodPolicy = prodEnv
+      ? parsed.policies.find((p) => p.tenantId === tenantId && p.environmentId === prodEnv.id)
+      : undefined;
+    const cloneSource = prodPolicy ?? org;
+    for (const env of envs) {
+      const exists = parsed.policies.some(
+        (p) => p.tenantId === tenantId && p.environmentId === env.id,
+      );
+      if (exists) continue;
+      parsed.policies.push({
+        ...JSON.parse(JSON.stringify(cloneSource)),
+        id: `pol-env-${env.key}-${env.id}`,
+        environmentId: env.id,
+        scope: 'org',
+      });
+    }
+  }
+
   return parsed;
 }
 

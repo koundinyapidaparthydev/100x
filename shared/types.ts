@@ -167,6 +167,11 @@ export interface Policy {
   id: string;
   tenantId: string;
   scope: PolicyScope;
+  /**
+   * `null` = org-wide base row (budgets, AI defaults, locks, security).
+   * Non-null = per-environment row (PII, cloud, model, platform, MCP allowlist).
+   */
+  environmentId: string | null;
   securityLevel: SecurityLevel;
   pii: Record<PiiCategory, PiiCategoryRule>;
   /** End-customer names matched as PII (word-boundary). Empty = name detector off. */

@@ -14,12 +14,9 @@ import type {
   FederatedProvidersStatusResponse,
   McpConnectionsResponse,
   NotificationItem,
-  Policy,
-  ServiceId,
   TriageRequest,
   TriageResponse,
   WorkItem,
-  WorkspaceEnvironmentState,
 } from '@shared/types';
 
 /** Android emulator loopback to the host; iOS Simulator can use localhost. */
@@ -130,10 +127,8 @@ export const api = {
   listBoards: () => request<BoardHealth[]>('/boards'),
   listJobs: () => request<AiJob[]>('/ai-jobs'),
   getJob: (id: string) => request<AiJob>(`/ai-jobs/${encodeURIComponent(id)}`),
-  listPolicies: () => request<Policy[]>('/policies'),
   listAuditEvents: () => request<AuditEvent[]>('/audit-events'),
   stats: () => request<DashboardStats>('/stats'),
-  listEnvironments: () => request<WorkspaceEnvironmentState>('/environments'),
   listApprovals: () => request<ApprovalItem[]>('/approvals'),
   decideApproval: (id: string, decision: Exclude<ApprovalStatus, 'pending'>) =>
     request<ApprovalItem>(`/approvals/${encodeURIComponent(id)}/decision`, {
@@ -151,29 +146,6 @@ export const api = {
       method: 'POST',
       body: '{}',
     }),
+  /** Read-only pulse for Account — connection edits stay on web. */
   listMcpConnections: () => request<McpConnectionsResponse>('/mcp/connections'),
-  getMcpCredentialsStatus: () =>
-    request<{
-      atlassian: { hasAccessToken: boolean };
-      github: { hasToken: boolean };
-      tokens?: Partial<Record<ServiceId, { hasToken: boolean }>>;
-      oauth?: Record<string, { hasAccessToken: boolean }>;
-      iam?: Partial<Record<ServiceId, { linked: boolean }>>;
-    }>('/mcp/credentials/status'),
-  listMcpOAuthStatuses: () =>
-    request<{
-      atlassian: {
-        enabled: boolean;
-        authorizeReady: boolean;
-        hasAccessToken: boolean;
-        note: string;
-      };
-      providers: Array<{
-        provider: string;
-        enabled: boolean;
-        authorizeReady: boolean;
-        hasAccessToken: boolean;
-        note: string;
-      }>;
-    }>('/mcp/oauth/status'),
 };

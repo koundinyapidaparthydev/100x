@@ -25,12 +25,19 @@ At minimum, detect and handle:
 
 ## Modes
 
-Per category (org / project override):
+Per category (**per workspace environment**; org / project override later):
 
 1. **`redact`** — clear the value using a configured style (see below) before the model call  
 2. **`block`** — refuse to start AI job; notify manager  
 3. **`hash`** — irreversible token for correlation without revealing value  
 4. **`allow`** — only if founder enables (rare; audited)  
+
+### Scope
+
+- **Per environment:** PII clearing rules, customer-name list, cloud / model / platform (code override), MCP allowlist  
+- **Org-wide:** security level, token budget, AI-first default, target completion %, locks  
+
+Runtime sanitize uses the **effective** policy for the active workspace environment (org base + that env’s row). Mobile can request review / approve exceptions but **cannot** edit PII rules — use web **Governance → PII & PCI clearing**.
 
 ### Redaction styles (when mode is `redact`)
 
@@ -69,7 +76,7 @@ No parallel path may skip this pipeline.
 
 ## Configuration UX
 
-Founder / employer settings (**Governance → PII & PCI clearing**):
+Founder / employer settings (**Governance → PII & PCI clearing**, bound to the active environment):
 
 - Per category: mode (redact / block / hash / allow)  
 - When redact: choose clearing style + fixed value or digits to keep  
@@ -77,7 +84,9 @@ Founder / employer settings (**Governance → PII & PCI clearing**):
 - Map Jira fields → PII / forbidden (planned)  
 - Require manager approval when block triggers  
 
-Employee cannot weaken org minimums.
+Switch the top-bar environment to edit another env’s rulebook. Budgets and AI defaults remain under **Governance → Policy defaults** (org-wide).
+
+Employee cannot weaken org minimums. Mobile requests policy review only.
 
 ## Testing requirements
 

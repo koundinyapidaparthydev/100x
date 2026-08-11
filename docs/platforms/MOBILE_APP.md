@@ -27,10 +27,12 @@ Founders can invert or remap gestures in org settings.
 2. **Triage queue** — swipe deck filtered by project  
 3. **Ticket detail** — summary, AI target %, current assignee proposal  
 4. **AI status** — queued / running / ready / blocked  
-5. **Approvals** — high-risk override or mutating MCP approvals  
-6. **Notifications**  
+5. **Approvals** — high-risk override or mutating MCP approvals (workspace owners decide; others read-only)  
+6. **PII blocks** — view blocked work + request policy review (does not edit rules)  
+7. **Notifications**  
+8. **Account** — read-only connections pulse  
 
-Deep configuration (cloud keys, full PII maps) stays on **web**.
+Deep configuration (cloud keys, full PII maps, models, budgets) stays on **web Governance**. Mobile `PATCH /policies` is rejected (403).
 
 ## Customizations managers care about
 
@@ -56,5 +58,6 @@ Deep configuration (cloud keys, full PII maps) stays on **web**.
 - Full Jira board replacement  
 - Editing large code artifacts on phone  
 - Desktop parity  
+- Editing org or per-environment board controls (PII, models, cloud, budgets, MCP credentials)  
 
 Related: [WEB_PLATFORM.md](WEB_PLATFORM.md), [../ai/AI_DELEGATION.md](../ai/AI_DELEGATION.md).

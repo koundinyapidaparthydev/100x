@@ -6,9 +6,14 @@ import {
   type CloudProvider,
   type Policy,
   type ServiceId,
+  type WorkspaceEnvironment,
 } from '@shared/types';
 import GovernanceNav from '../components/GovernanceNav';
 import { useAsync } from '../lib/useAsync';
+import {
+  ACTIVE_ENV_CHANGED_EVENT,
+  readCachedActiveEnvironmentId,
+} from '../lib/environmentStorage';
 import { AsyncBoundary, Card, Field, PageContainer, PageHeader, SaveBar, StatusBadge } from '../components/ui';
 import { cloudModeDisplay, providerDisplay } from '../lib/format';
 import { readDemoSession } from '../lib/session';
@@ -46,10 +51,42 @@ const selectClass =
 
 export default function Cloud() {
   const canManage = ['root', 'owner'].includes(readDemoSession()?.role ?? '');
-  const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), []);
-  const { data: mcp } = useAsync(() => api.listMcpConnections(), []);
+  const [activeEnvId, setActiveEnvId] = useState<string | null>(() => readCachedActiveEnvironmentId());
+  const { data: envState, reload: reloadEnvs } = useAsync(() => api.listEnvironments(), []);
+  const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), [activeEnvId]);
+  const { data: mcp } = useAsync(() => api.listMcpConnections(), [activeEnvId]);
   const { data: onboarding } = useAsync(() => api.getOnboarding(), []);
-  const policy = policies?.find((item) => item.scope === 'org') ?? policies?.[0] ?? null;
+
+  useEffect(() => {
+    const onEnv = (event: Event) => {
+      const id = (event as CustomEvent<{ environmentId?: string }>).detail?.environmentId;
+      if (typeof id === 'string' && id) setActiveEnvId(id);
+      else setActiveEnvId(readCachedActiveEnvironmentId());
+      reload();
+      reloadEnvs();
+    };
+    window.addEventListener(ACTIVE_ENV_CHANGED_EVENT, onEnv);
+    return () => window.removeEventListener(ACTIVE_ENV_CHANGED_EVENT, onEnv);
+  }, [reload, reloadEnvs]);
+
+  useEffect(() => {
+    if (!envState) return;
+    if (!activeEnvId || !envState.environments.some((e) => e.id === activeEnvId)) {
+      setActiveEnvId(envState.activeEnvironmentId);
+    }
+  }, [activeEnvId, envState]);
+
+  const activeEnv: WorkspaceEnvironment | null =
+    envState?.environments.find((e) => e.id === (activeEnvId ?? envState.activeEnvironmentId)) ??
+    envState?.environments[0] ??
+    null;
+  const orgBase = policies?.find((item) => item.environmentId == null) ?? null;
+  const policy =
+    (activeEnv
+      ? policies?.find((item) => item.environmentId === activeEnv.id)
+      : null) ??
+    policies?.find((item) => item.environmentId != null) ??
+    null;
 
   const [provider, setProvider] = useState<CloudProvider>('azure');
   const [mode, setMode] = useState<Policy['cloud']['mode']>('public_managed');
@@ -82,7 +119,7 @@ export default function Cloud() {
     if (policy) resetDraft(policy);
   }, [policy]);
 
-  const locked = policy?.locks.cloud ?? false;
+  const locked = orgBase?.locks.cloud ?? policy?.locks.cloud ?? false;
   const readOnly = locked || !canManage;
   const needsCustomLabel = provider === 'custom' && mode === 'private_vpc';
   const customLabelMissing = needsCustomLabel && !customLabel.trim();
@@ -152,11 +189,21 @@ export default function Cloud() {
       <PageHeader
         eyebrow="Governance / Policy workspace / Runtime"
         title="Cloud runtime"
-        description="Choose connected customer accounts, AplifyAI private cloud, or bring-your-own-cloud — then pick the specific platform when needed."
-        actions={locked ? <StatusBadge status="blocked" label="Editing locked by policy" /> : undefined}
+        description="Choose connected customer accounts, AplifyAI private cloud, or bring-your-own-cloud for the active environment — then pick the specific platform when needed."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {activeEnv ? (
+              <StatusBadge status="running" label={`Editing · ${activeEnv.name}`} />
+            ) : null}
+            {locked ? <StatusBadge status="blocked" label="Editing locked by policy" /> : null}
+          </div>
+        }
       />
 
       <GovernanceNav />
+      <p className="rounded-lg bg-surface-container px-3 py-2 text-sm text-on-surface-variant">
+        PII and runtime are per environment; switch env in the top bar. Org-wide locks still apply.
+      </p>
       {!canManage && (
         <p className="rounded-lg bg-surface-container px-3 py-2 text-sm text-on-surface-variant">
           Your role can review cloud runtime settings but cannot change them.

@@ -13,9 +13,14 @@ import type {
   PiiMode,
   PiiRedactionStyle,
   Policy,
+  WorkspaceEnvironment,
 } from '@shared/types';
 import GovernanceNav from '../components/GovernanceNav';
 import { useAsync } from '../lib/useAsync';
+import {
+  ACTIVE_ENV_CHANGED_EVENT,
+  readCachedActiveEnvironmentId,
+} from '../lib/environmentStorage';
 import { AsyncBoundary, Card, Field, PageContainer, PageHeader, SaveBar, StatusBadge } from '../components/ui';
 import { humanize } from '../lib/format';
 import { readDemoSession } from '../lib/session';
@@ -81,8 +86,39 @@ function previewFor(category: PiiCategory, rule: PiiCategoryRule): string {
 
 export default function PiiRules() {
   const canManage = ['root', 'owner'].includes(readDemoSession()?.role ?? '');
-  const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), []);
-  const policy = policies?.find((item) => item.scope === 'org') ?? policies?.[0] ?? null;
+  const [activeEnvId, setActiveEnvId] = useState<string | null>(() => readCachedActiveEnvironmentId());
+  const { data: envState, reload: reloadEnvs } = useAsync(() => api.listEnvironments(), []);
+  const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), [activeEnvId]);
+
+  useEffect(() => {
+    const onEnv = (event: Event) => {
+      const id = (event as CustomEvent<{ environmentId?: string }>).detail?.environmentId;
+      if (typeof id === 'string' && id) setActiveEnvId(id);
+      else setActiveEnvId(readCachedActiveEnvironmentId());
+      reload();
+      reloadEnvs();
+    };
+    window.addEventListener(ACTIVE_ENV_CHANGED_EVENT, onEnv);
+    return () => window.removeEventListener(ACTIVE_ENV_CHANGED_EVENT, onEnv);
+  }, [reload, reloadEnvs]);
+
+  useEffect(() => {
+    if (!envState) return;
+    if (!activeEnvId || !envState.environments.some((e) => e.id === activeEnvId)) {
+      setActiveEnvId(envState.activeEnvironmentId);
+    }
+  }, [activeEnvId, envState]);
+
+  const activeEnv: WorkspaceEnvironment | null =
+    envState?.environments.find((e) => e.id === (activeEnvId ?? envState.activeEnvironmentId)) ??
+    envState?.environments[0] ??
+    null;
+  const policy =
+    (activeEnv
+      ? policies?.find((item) => item.environmentId === activeEnv.id)
+      : null) ??
+    policies?.find((item) => item.environmentId != null) ??
+    null;
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [namesText, setNamesText] = useState('');
   const [saving, setSaving] = useState(false);
@@ -197,11 +233,21 @@ export default function PiiRules() {
       <PageHeader
         eyebrow="Governance / Policy workspace"
         title="PII & PCI clearing"
-        description="Choose how each sensitive category is cleared from data shared with AI — fixed email, last digits of phone or card, placeholders, or hard block."
-        actions={<StatusBadge status="warning" tone="warning" label="Pattern-based detection" />}
+        description="Choose how each sensitive category is cleared from data shared with AI — fixed email, last digits of phone or card, placeholders, or hard block. PII rules are per workspace environment; switch env in the top bar."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {activeEnv ? (
+              <StatusBadge status="running" label={`Editing · ${activeEnv.name}`} data-testid="pii-active-env" />
+            ) : null}
+            <StatusBadge status="warning" tone="warning" label="Pattern-based detection" />
+          </div>
+        }
       />
 
       <GovernanceNav />
+      <p className="rounded-card border border-outline-variant bg-surface-container-low px-3 py-2 text-sm text-on-surface-variant">
+        PII and runtime settings are per environment. Budgets and AI defaults stay org-wide under Policy defaults.
+      </p>
       {!canManage && (
         <p className="rounded-card border border-butter/20 bg-butter-container px-3 py-2 text-sm text-on-butter-container">
           Your role can review PII rules but cannot change them.

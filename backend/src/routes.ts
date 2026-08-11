@@ -173,7 +173,15 @@ import {
 import type { OrchestratorDeps } from './orchestrator';
 import { createJob, runJobPipeline } from './orchestrator';
 import { scheduleSave } from './persist';
-import { emitAudit, nextId, ORG_POLICY_ID, type Store, TENANT_ID } from './store';
+import {
+  effectivePolicy,
+  ENV_ONLY_POLICY_FIELDS,
+  envPolicyRow,
+  isOrgBasePolicy,
+  ORG_ONLY_POLICY_FIELDS,
+  orgBasePolicy,
+} from './policyResolve';
+import { emitAudit, nextId, type Store, TENANT_ID } from './store';
 
 const PERMISSION_LEVELS: McpPermissionLevel[] = ['read', 'write', 'admin'];
 
@@ -199,10 +207,11 @@ function syncPolicyAllowlistFromConnections(
   tenantId: string,
   environmentId?: string,
 ): void {
-  const policy = store.policies.find((p) => p.id === ORG_POLICY_ID && p.tenantId === tenantId);
+  const envId = environmentId ?? resolveActiveEnvironmentId(store, tenantId);
+  const policy = envPolicyRow(store, envId, tenantId);
   if (!policy) return;
   const fromConn = allowlistEntriesFromConnections(
-    tenantConnections(store, tenantId, environmentId),
+    tenantConnections(store, tenantId, envId),
   );
   if (fromConn.length === 0) return;
   const byServer = new Map(policy.mcpAllowlist.map((e) => [e.server, e]));
@@ -272,7 +281,10 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
   const router = Router();
 
   const findWorkItem = (id: string) => store.workItems.find((w) => w.id === id);
-  const orgPolicy = () => store.policies.find((p) => p.id === ORG_POLICY_ID) ?? store.policies[0];
+  const activeEnvPolicy = (tenantId = TENANT_ID) => {
+    const envId = resolveActiveEnvironmentId(store, tenantId);
+    return effectivePolicy(store, envId, tenantId);
+  };
   const touch = () => scheduleSave(store);
   const upsertBoardIssue = (issue: Awaited<ReturnType<OrchestratorDeps['boardConnector']['syncProject']>>['issues'][number]) => {
     const existing = store.workItems.find(
@@ -306,7 +318,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       priority: issue.priority,
       updatedAt: issue.updatedAt,
       aiFirst: false,
-      targetCompletionPercent: orgPolicy()?.targetCompletionPercentDefault ?? 20,
+      targetCompletionPercent: orgBasePolicy(store)?.targetCompletionPercentDefault ?? 20,
       aiStatus: 'none',
       lastAiJobId: null,
       lastTriageDecision: null,
@@ -684,7 +696,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       res.status(400).json({ error: 'body.aiFirst (boolean) is required' });
       return;
     }
-    const policy = orgPolicy();
+    const policy = activeEnvPolicy();
     if (!policy) {
       res.status(500).json({ error: 'no policy configured for tenant' });
       return;
@@ -784,7 +796,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
         assigneeExternalId: null,
         labels: ['imported'],
         aiFirst: false,
-        targetCompletionPercent: orgPolicy()?.targetCompletionPercentDefault ?? 20,
+        targetCompletionPercent: orgBasePolicy(store)?.targetCompletionPercentDefault ?? 20,
         aiStatus: 'none',
         lastAiJobId: null,
         lastTriageDecision: null,
@@ -854,7 +866,17 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
   });
 
   // -- policies ------------------------------------------------------------------
-  router.get('/policies', (_req, res) => {
+  router.get('/policies', (req, res) => {
+    const environmentId =
+      typeof req.query.environmentId === 'string' ? req.query.environmentId.trim() : '';
+    if (environmentId === 'org' || environmentId === 'null') {
+      res.json(store.policies.filter((p) => p.environmentId == null));
+      return;
+    }
+    if (environmentId) {
+      res.json(store.policies.filter((p) => p.environmentId === environmentId));
+      return;
+    }
     res.json(store.policies);
   });
 
@@ -867,7 +889,13 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     res.json(policy);
   });
 
-  router.patch('/policies/:id', requirePlatform(store, 'policies.manage'), (req, res) => {
+  router.patch('/policies/:id', requirePlatform(store, 'policies.manage'), (req: AuthedRequest, res) => {
+    if (req.auth?.surface === 'mobile') {
+      res.status(403).json({
+        error: 'Policy edits are web-only. Use Governance on the web console.',
+      });
+      return;
+    }
     const policy = store.policies.find((p) => p.id === req.params.id);
     if (!policy) {
       res.status(404).json({ error: `policy not found: ${req.params.id}` });
@@ -875,57 +903,82 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     }
     const body = (req.body ?? {}) as PolicyUpdate;
     const changed: string[] = [];
+    const orgBase = isOrgBasePolicy(policy);
+    const rejected: string[] = [];
 
-    if (body.securityLevel !== undefined) {
-      policy.securityLevel = body.securityLevel;
-      changed.push('securityLevel');
-    }
-    if (body.pii !== undefined) {
-      policy.pii = mergePiiUpdate(policy.pii, body.pii);
-      changed.push('pii');
-    }
-    if (body.customerNames !== undefined) {
-      policy.customerNames = normalizeCustomerNames(body.customerNames);
-      changed.push('customerNames');
-    }
-    if (body.cloud !== undefined) {
-      const nextCloud = { ...policy.cloud, ...body.cloud };
-      if (nextCloud.provider !== 'custom') {
-        delete nextCloud.customLabel;
-      } else if (typeof body.cloud.customLabel === 'string') {
-        nextCloud.customLabel = body.cloud.customLabel.trim() || undefined;
-        if (!nextCloud.customLabel) delete nextCloud.customLabel;
+    const bodyKeys = Object.keys(body) as Array<keyof PolicyUpdate>;
+    for (const key of bodyKeys) {
+      if (body[key] === undefined) continue;
+      if (orgBase && (ENV_ONLY_POLICY_FIELDS as readonly string[]).includes(key)) {
+        rejected.push(key);
       }
-      policy.cloud = nextCloud;
-      changed.push('cloud');
+      if (!orgBase && (ORG_ONLY_POLICY_FIELDS as readonly string[]).includes(key)) {
+        rejected.push(key);
+      }
     }
-    if (body.model !== undefined) {
-      policy.model = { ...policy.model, ...body.model };
-      changed.push('model');
+    if (rejected.length > 0) {
+      res.status(400).json({
+        error: orgBase
+          ? `Org base policy only accepts org-wide fields; refused: ${rejected.join(', ')}. Edit PII/runtime on the environment policy.`
+          : `Environment policy only accepts per-env fields; refused: ${rejected.join(', ')}. Edit budgets/AI defaults on the org base policy.`,
+        refused: rejected,
+      });
+      return;
     }
-    if (body.platform !== undefined) {
-      policy.platform = { ...policy.platform, ...body.platform };
-      changed.push('platform');
-    }
-    if (body.tokenBudget !== undefined) {
-      policy.tokenBudget = { ...policy.tokenBudget, ...body.tokenBudget };
-      changed.push('tokenBudget');
-    }
-    if (body.mcpAllowlist !== undefined) {
-      policy.mcpAllowlist = body.mcpAllowlist;
-      changed.push('mcpAllowlist');
-    }
-    if (typeof body.aiFirstDefault === 'boolean') {
-      policy.aiFirstDefault = body.aiFirstDefault;
-      changed.push('aiFirstDefault');
-    }
-    if (typeof body.targetCompletionPercentDefault === 'number') {
-      policy.targetCompletionPercentDefault = body.targetCompletionPercentDefault;
-      changed.push('targetCompletionPercentDefault');
-    }
-    if (body.locks !== undefined) {
-      policy.locks = { ...policy.locks, ...body.locks };
-      changed.push('locks');
+
+    if (orgBase) {
+      if (body.securityLevel !== undefined) {
+        policy.securityLevel = body.securityLevel;
+        changed.push('securityLevel');
+      }
+      if (body.tokenBudget !== undefined) {
+        policy.tokenBudget = { ...policy.tokenBudget, ...body.tokenBudget };
+        changed.push('tokenBudget');
+      }
+      if (typeof body.aiFirstDefault === 'boolean') {
+        policy.aiFirstDefault = body.aiFirstDefault;
+        changed.push('aiFirstDefault');
+      }
+      if (typeof body.targetCompletionPercentDefault === 'number') {
+        policy.targetCompletionPercentDefault = body.targetCompletionPercentDefault;
+        changed.push('targetCompletionPercentDefault');
+      }
+      if (body.locks !== undefined) {
+        policy.locks = { ...policy.locks, ...body.locks };
+        changed.push('locks');
+      }
+    } else {
+      if (body.pii !== undefined) {
+        policy.pii = mergePiiUpdate(policy.pii, body.pii);
+        changed.push('pii');
+      }
+      if (body.customerNames !== undefined) {
+        policy.customerNames = normalizeCustomerNames(body.customerNames);
+        changed.push('customerNames');
+      }
+      if (body.cloud !== undefined) {
+        const nextCloud = { ...policy.cloud, ...body.cloud };
+        if (nextCloud.provider !== 'custom') {
+          delete nextCloud.customLabel;
+        } else if (typeof body.cloud.customLabel === 'string') {
+          nextCloud.customLabel = body.cloud.customLabel.trim() || undefined;
+          if (!nextCloud.customLabel) delete nextCloud.customLabel;
+        }
+        policy.cloud = nextCloud;
+        changed.push('cloud');
+      }
+      if (body.model !== undefined) {
+        policy.model = { ...policy.model, ...body.model };
+        changed.push('model');
+      }
+      if (body.platform !== undefined) {
+        policy.platform = { ...policy.platform, ...body.platform };
+        changed.push('platform');
+      }
+      if (body.mcpAllowlist !== undefined) {
+        policy.mcpAllowlist = body.mcpAllowlist;
+        changed.push('mcpAllowlist');
+      }
     }
 
     if (changed.length === 0) {
@@ -935,10 +988,10 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
 
     emitAudit(
       store,
-      actorFromAuth(req as AuthedRequest),
+      actorFromAuth(req),
       'policy.updated',
       { type: 'policy', id: policy.id },
-      { changed },
+      { changed, environmentId: policy.environmentId },
       [1, 2, 3, 4],
     );
     touch();
@@ -953,7 +1006,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
   // -- dashboard stats -------------------------------------------------------------
   router.get('/stats', (_req, res) => {
     const now = Date.now();
-    const policy = orgPolicy();
+    const policy = orgBasePolicy(store) ?? activeEnvPolicy();
     const maxTokens = policy?.tokenBudget.maxTotalTokens ?? 0;
 
     const activeJobs = store.jobs.filter(
@@ -1080,7 +1133,8 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     };
     store.onboardingByUser[req.auth.id] = profile;
 
-    const policy = orgPolicy();
+    const envId = resolveActiveEnvironmentId(store, req.auth.tenantId);
+    const policy = envPolicyRow(store, envId, req.auth.tenantId) ?? activeEnvPolicy(req.auth.tenantId);
     if (policy) {
       const stubs = mcpStubsFromServices(profile.selectedServices);
       if (stubs.length > 0) {
@@ -1090,7 +1144,7 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
         }
       }
 
-      // Apply “Where AI runs” answers onto org cloud policy so jobs use the chosen account source.
+      // Apply “Where AI runs” answers onto the active environment’s cloud policy.
       const runtime = profile.enterprise?.runtime;
       if (runtime?.hosting) {
         const mode = runtime.hosting;

@@ -230,8 +230,11 @@ describe('jobs / policies / boards / audit / notifications', () => {
 
   it('lists and gets policies (404 when missing)', async () => {
     const list = await req.get('/api/v1/policies').expect(200);
-    expect(list.body).toHaveLength(1);
-    expect(list.body[0].cloud).toEqual({ provider: 'azure', mode: 'private_vpc', region: 'eastus' });
+    expect(list.body).toHaveLength(4);
+    const org = (list.body as Array<{ environmentId: string | null; cloud: unknown }>).find(
+      (p) => p.environmentId == null,
+    );
+    expect(org?.cloud).toEqual({ provider: 'azure', mode: 'private_vpc', region: 'eastus' });
     await req.get(`/api/v1/policies/${list.body[0].id}`).expect(200);
     await req.get('/api/v1/policies/nope').expect(404);
   });
@@ -283,15 +286,81 @@ describe('jobs / policies / boards / audit / notifications', () => {
     const login = await req.post('/api/v1/auth/login').send({ identity: 'root', surface: 'web' }).expect(200);
     const token = login.body.session.token as string;
     const list = await req.get('/api/v1/policies').expect(200);
-    const id = list.body[0].id as string;
+    const org = (list.body as Array<{ id: string; environmentId: string | null }>).find(
+      (p) => p.environmentId == null,
+    )!;
     const res = await req
-      .patch(`/api/v1/policies/${id}`)
+      .patch(`/api/v1/policies/${org.id}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ tokenBudget: { maxTotalTokens: 40_000 }, securityLevel: 'enterprise' })
       .expect(200);
     expect(res.body.tokenBudget.maxTotalTokens).toBe(40_000);
     expect(res.body.securityLevel).toBe('enterprise');
     expect(store.auditEvents.some((e) => e.action === 'policy.updated')).toBe(true);
+  });
+
+  it('isolates PII per environment and shares org token budget', async () => {
+    const login = await req.post('/api/v1/auth/login').send({ identity: 'root', surface: 'web' }).expect(200);
+    const token = login.body.session.token as string;
+    const list = await req.get('/api/v1/policies').expect(200);
+    const policies = list.body as Array<{
+      id: string;
+      environmentId: string | null;
+      pii: { email: { mode: string } };
+      tokenBudget: { maxTotalTokens: number };
+    }>;
+    const org = policies.find((p) => p.environmentId == null)!;
+    const prod = policies.find((p) => p.environmentId === 'env-prod')!;
+    const stage = policies.find((p) => p.environmentId === 'env-stage')!;
+
+    await req
+      .patch(`/api/v1/policies/${stage.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ pii: { email: { mode: 'hash' } } })
+      .expect(200);
+
+    const after = await req.get('/api/v1/policies').expect(200);
+    const afterPolicies = after.body as typeof policies;
+    expect(afterPolicies.find((p) => p.id === stage.id)!.pii.email.mode).toBe('hash');
+    expect(afterPolicies.find((p) => p.id === prod.id)!.pii.email.mode).toBe(prod.pii.email.mode);
+
+    await req
+      .patch(`/api/v1/policies/${org.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ tokenBudget: { maxTotalTokens: 33_000 } })
+      .expect(200);
+
+    // Org-only fields rejected on env policy; env-only fields rejected on org base.
+    await req
+      .patch(`/api/v1/policies/${stage.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ tokenBudget: { maxTotalTokens: 1 } })
+      .expect(400);
+    await req
+      .patch(`/api/v1/policies/${org.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ pii: { email: { mode: 'allow' } } })
+      .expect(400);
+
+    expect(store.policies.find((p) => p.id === org.id)!.tokenBudget.maxTotalTokens).toBe(33_000);
+  });
+
+  it('rejects mobile surface PATCH /policies with 403', async () => {
+    const login = await req
+      .post('/api/v1/auth/login')
+      .send({ identity: 'root', surface: 'mobile' })
+      .expect(200);
+    const token = login.body.session.token as string;
+    const list = await req.get('/api/v1/policies').expect(200);
+    const org = (list.body as Array<{ id: string; environmentId: string | null }>).find(
+      (p) => p.environmentId == null,
+    )!;
+    const denied = await req
+      .patch(`/api/v1/policies/${org.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ securityLevel: 'standard' })
+      .expect(403);
+    expect(denied.body.error).toMatch(/web-only/i);
   });
 
   it('connects and syncs a sandbox board', async () => {
@@ -523,8 +592,11 @@ describe('onboarding', () => {
     expect(again.body.profile.selectedServices).toContain('jira');
 
     const policies = await req.get('/api/v1/policies').expect(200);
-    const org = (policies.body as Array<{ mcpAllowlist: Array<{ server: string }> }>)[0]!;
-    const servers = org.mcpAllowlist.map((e) => e.server);
+    const activeEnv = store.activeEnvironmentByTenant[store.workItems[0]!.tenantId] ?? 'env-prod';
+    const envPolicy = (
+      policies.body as Array<{ environmentId: string | null; mcpAllowlist: Array<{ server: string }> }>
+    ).find((p) => p.environmentId === activeEnv)!;
+    const servers = envPolicy.mcpAllowlist.map((e) => e.server);
     expect(servers).toEqual(expect.arrayContaining(['jira', 'slack', 'github']));
   });
 

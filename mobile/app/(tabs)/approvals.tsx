@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ApprovalItem } from '@shared/types';
 import { api } from '@/src/api';
+import { useSession } from '@/src/session';
 import {
   AsyncState,
   type CardTone,
@@ -26,6 +27,8 @@ function approvalTone(item: ApprovalItem): CardTone {
 }
 
 export default function ApprovalsScreen() {
+  const { session } = useSession();
+  const canDecide = session?.user.isWorkspaceOwner === true;
   const query = useAsync(() => api.listApprovals());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +47,7 @@ export default function ApprovalsScreen() {
   }, [localStatus, query.data]);
 
   const decide = async (item: ApprovalItem, decision: 'approved' | 'rejected') => {
+    if (!canDecide) return;
     if (decision === 'rejected' && !rejectionReason.trim()) {
       setError('Add a rejection reason before recording this decision.');
       return;
@@ -81,8 +85,15 @@ export default function ApprovalsScreen() {
       >
         <PageHeader
           title="Approvals"
-          description="Exception requests — decisions are recorded, not auto-enacted."
+          description="Exception requests — decisions are recorded, not auto-enacted. Board-control edits stay on web Governance."
         />
+        {!canDecide ? (
+          <Card tone="butter">
+            <Text style={commonStyles.body}>
+              Your seat can review this queue but cannot decide. Sign in as Root (workspace owner) to approve or reject.
+            </Text>
+          </Card>
+        ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {items.length === 0 ? (
           <Card tone="mint">
@@ -113,7 +124,7 @@ export default function ApprovalsScreen() {
                 Recorded for audit — does not auto-change the underlying rule.
               </Text>
             </View>
-            {item.status === 'pending' ? (
+            {item.status === 'pending' && canDecide ? (
               <>
                 {rejectingId === item.id ? (
                   <Field
@@ -165,6 +176,8 @@ export default function ApprovalsScreen() {
                   )}
                 </View>
               </>
+            ) : item.status === 'pending' ? (
+              <StatusBadge status="pending" label="Awaiting owner decision" />
             ) : (
               <StatusBadge status={item.status} label={`${item.status} · record only`} />
             )}

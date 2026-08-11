@@ -349,8 +349,7 @@ function buildExtraTriageWorkItems(): WorkItem[] {
 }
 
 export function createSeedStore(): Store {
-  const policy: Policy = {
-    id: ORG_POLICY_ID,
+  const policyTemplate: Omit<Policy, 'id' | 'environmentId'> = {
     tenantId: TENANT_ID,
     scope: 'org',
     securityLevel: 'elevated',
@@ -372,6 +371,20 @@ export function createSeedStore(): Store {
     targetCompletionPercentDefault: 20,
     locks: { models: true, securityMin: true, cloud: false },
   };
+
+  /** Org base holds budgets / AI defaults / locks / security; env rows hold PII + runtime. */
+  const orgPolicy: Policy = {
+    ...structuredClone(policyTemplate),
+    id: ORG_POLICY_ID,
+    environmentId: null,
+  };
+  const envPolicies: Policy[] = [
+    { ...structuredClone(policyTemplate), id: 'pol-env-prod', environmentId: 'env-prod' },
+    { ...structuredClone(policyTemplate), id: 'pol-env-stage', environmentId: 'env-stage' },
+    { ...structuredClone(policyTemplate), id: 'pol-env-dev', environmentId: 'env-dev' },
+  ];
+  // Seeded jobs reference org model/cloud prefs (same defaults as env rows at seed time).
+  const policy = orgPolicy;
 
   const workItems: WorkItem[] = [
     {
@@ -614,7 +627,7 @@ export function createSeedStore(): Store {
 
   const store: Store = {
     workItems,
-    policies: [policy],
+    policies: [orgPolicy, ...envPolicies],
     jobs,
     auditEvents: [],
     approvals: [

@@ -5,24 +5,15 @@ import type { Policy, SecurityLevel } from '@shared/types';
 import GovernanceNav from '../components/GovernanceNav';
 import { useAsync } from '../lib/useAsync';
 import { AsyncBoundary, Card, Field, PageContainer, PageHeader, SaveBar, StatusBadge } from '../components/ui';
-import { cloudModeDisplay, formatTokens, humanize, providerDisplay } from '../lib/format';
+import { formatTokens, humanize } from '../lib/format';
 import { readDemoSession } from '../lib/session';
 
 const SECURITY_LEVELS: SecurityLevel[] = ['standard', 'elevated', 'enterprise', 'custom'];
 
-function piiSummary(policy: Policy): string {
-  const counts = new Map<string, number>();
-  for (const rule of Object.values(policy.pii)) {
-    const mode = typeof rule === 'string' ? rule : rule.mode;
-    counts.set(mode, (counts.get(mode) ?? 0) + 1);
-  }
-  return [...counts.entries()].map(([mode, n]) => `${n} ${mode}`).join(' · ');
-}
-
 export default function Policies() {
   const canManage = ['root', 'owner'].includes(readDemoSession()?.role ?? '');
   const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), []);
-  const policy = policies?.find((item) => item.scope === 'org') ?? policies?.[0] ?? null;
+  const policy = policies?.find((item) => item.environmentId == null) ?? null;
   const [securityLevel, setSecurityLevel] = useState<SecurityLevel>('standard');
   const [targetCompletion, setTargetCompletion] = useState(0);
   const [maxTokens, setMaxTokens] = useState(0);
@@ -78,11 +69,14 @@ export default function Policies() {
       <PageHeader
         eyebrow="Governance / Policy workspace"
         title="Policy defaults"
-        description="Set the defaults used when work is assigned. Sensitive-data rules and runtime settings live in the same policy workspace."
-        actions={policy ? <StatusBadge status={policy.scope} label={`${humanize(policy.scope)} scope`} /> : undefined}
+        description="Org-wide budgets, AI defaults, locks, and security. PII and runtime (models, cloud, code override) are edited per environment under PII & PCI / Runtime."
+        actions={policy ? <StatusBadge status={policy.scope} label="Org-wide" /> : undefined}
       />
 
       <GovernanceNav />
+      <p className="rounded-card border border-outline-variant bg-surface-container-low px-3 py-2 text-sm text-on-surface-variant">
+        Changes here apply across all workspace environments. Switch env in the top bar to edit PII or runtime.
+      </p>
       {!canManage && (
         <p className="rounded-card border border-butter/20 bg-butter-container px-3 py-2 text-sm text-on-butter-container">
           Your role can review policy defaults but cannot change them.
@@ -164,20 +158,39 @@ export default function Policies() {
               <Card title="Current policy" description={policy.id}>
                 <dl className="space-y-4 text-sm">
                   <div className="flex items-start gap-3">
+                    <ShieldCheck size={18} className="mt-0.5 text-on-surface-variant" />
+                    <div>
+                      <dt className="font-medium text-on-surface">Security level</dt>
+                      <dd className="text-on-surface-variant">{humanize(policy.securityLevel)}</dd>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
                     <Cpu size={18} className="mt-0.5 text-on-surface-variant" />
-                    <div><dt className="font-medium text-on-surface">Model runtime</dt><dd className="text-on-surface-variant">{humanize(policy.model.provider)} · {policy.model.modelId}</dd></div>
+                    <div>
+                      <dt className="font-medium text-on-surface">AI defaults</dt>
+                      <dd className="text-on-surface-variant">
+                        AI-first {policy.aiFirstDefault ? 'on' : 'off'} · target {policy.targetCompletionPercentDefault}%
+                      </dd>
+                    </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <Cloud size={18} className="mt-0.5 text-on-surface-variant" />
-                    <div><dt className="font-medium text-on-surface">Execution location</dt><dd className="text-on-surface-variant">{providerDisplay(policy.cloud.provider, policy.cloud.customLabel)} · {policy.cloud.region} · {cloudModeDisplay(policy.cloud.mode)}</dd></div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <ShieldCheck size={18} className="mt-0.5 text-on-surface-variant" />
-                    <div><dt className="font-medium text-on-surface">PII handling</dt><dd className="text-on-surface-variant">{piiSummary(policy)}</dd></div>
+                    <div>
+                      <dt className="font-medium text-on-surface">Locks</dt>
+                      <dd className="text-on-surface-variant">
+                        models {policy.locks.models ? 'locked' : 'open'} · cloud{' '}
+                        {policy.locks.cloud ? 'locked' : 'open'} · security min{' '}
+                        {policy.locks.securityMin ? 'on' : 'off'}
+                      </dd>
+                    </div>
                   </div>
                   <div className="border-t border-outline-variant pt-3 text-on-surface-variant">
-                    Current token limit: {formatTokens(policy.tokenBudget.maxTotalTokens)} · on exhaustion: {humanize(policy.tokenBudget.onExhaustion)}
+                    Token limit: {formatTokens(policy.tokenBudget.maxTotalTokens)} · on exhaustion:{' '}
+                    {humanize(policy.tokenBudget.onExhaustion)}
                   </div>
+                  <p className="text-xs text-on-surface-variant">
+                    Model, cloud, and PII summaries live on the per-environment Governance pages.
+                  </p>
                 </dl>
               </Card>
             </div>

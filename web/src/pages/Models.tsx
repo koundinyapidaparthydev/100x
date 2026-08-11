@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Brain } from 'lucide-react';
 import { api } from '@shared/api';
-import type { Policy } from '@shared/types';
+import type { Policy, WorkspaceEnvironment } from '@shared/types';
 import GovernanceNav from '../components/GovernanceNav';
 import { useAsync } from '../lib/useAsync';
+import {
+  ACTIVE_ENV_CHANGED_EVENT,
+  readCachedActiveEnvironmentId,
+} from '../lib/environmentStorage';
 import { AsyncBoundary, Card, Field, PageContainer, PageHeader, SaveBar, StatusBadge } from '../components/ui';
 import { humanize } from '../lib/format';
 import { readDemoSession } from '../lib/session';
@@ -74,9 +78,41 @@ function providerHint(provider: string): string {
 
 export default function Models() {
   const canManage = ['root', 'owner'].includes(readDemoSession()?.role ?? '');
-  const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), []);
+  const [activeEnvId, setActiveEnvId] = useState<string | null>(() => readCachedActiveEnvironmentId());
+  const { data: envState, reload: reloadEnvs } = useAsync(() => api.listEnvironments(), []);
+  const { data: policies, loading, error, reload } = useAsync(() => api.listPolicies(), [activeEnvId]);
   const { data: health } = useAsync(() => api.health(), []);
-  const policy = policies?.find((item) => item.scope === 'org') ?? policies?.[0] ?? null;
+
+  useEffect(() => {
+    const onEnv = (event: Event) => {
+      const id = (event as CustomEvent<{ environmentId?: string }>).detail?.environmentId;
+      if (typeof id === 'string' && id) setActiveEnvId(id);
+      else setActiveEnvId(readCachedActiveEnvironmentId());
+      reload();
+      reloadEnvs();
+    };
+    window.addEventListener(ACTIVE_ENV_CHANGED_EVENT, onEnv);
+    return () => window.removeEventListener(ACTIVE_ENV_CHANGED_EVENT, onEnv);
+  }, [reload, reloadEnvs]);
+
+  useEffect(() => {
+    if (!envState) return;
+    if (!activeEnvId || !envState.environments.some((e) => e.id === activeEnvId)) {
+      setActiveEnvId(envState.activeEnvironmentId);
+    }
+  }, [activeEnvId, envState]);
+
+  const activeEnv: WorkspaceEnvironment | null =
+    envState?.environments.find((e) => e.id === (activeEnvId ?? envState.activeEnvironmentId)) ??
+    envState?.environments[0] ??
+    null;
+  const orgBase = policies?.find((item) => item.environmentId == null) ?? null;
+  const policy =
+    (activeEnv
+      ? policies?.find((item) => item.environmentId === activeEnv.id)
+      : null) ??
+    policies?.find((item) => item.environmentId != null) ??
+    null;
 
   const [provider, setProvider] = useState('');
   const [modelId, setModelId] = useState('');
@@ -98,7 +134,7 @@ export default function Models() {
     if (policy) resetDraft(policy);
   }, [policy]);
 
-  const locked = policy?.locks.models ?? false;
+  const locked = orgBase?.locks.models ?? policy?.locks.models ?? false;
   const readOnly = locked || !canManage;
   const presets = MODEL_PRESETS[provider] ?? [];
   const configured = health?.modelProviders ?? [];
@@ -153,11 +189,21 @@ export default function Models() {
       <PageHeader
         eyebrow="Governance / Policy workspace / Runtime"
         title="Model runtime"
-        description="Choose provider and model for AI drafts. Keys live in backend env — this page stores org preference only."
-        actions={locked ? <StatusBadge status="blocked" label="Editing locked by policy" /> : undefined}
+        description="Choose provider and model for AI drafts in the active environment. Keys live in backend env — this page stores the per-environment preference."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {activeEnv ? (
+              <StatusBadge status="running" label={`Editing · ${activeEnv.name}`} />
+            ) : null}
+            {locked ? <StatusBadge status="blocked" label="Editing locked by policy" /> : null}
+          </div>
+        }
       />
 
       <GovernanceNav />
+      <p className="rounded-lg bg-surface-container px-3 py-2 text-sm text-on-surface-variant">
+        PII and runtime are per environment; switch env in the top bar. Org-wide locks still apply.
+      </p>
       {!canManage && (
         <p className="rounded-lg bg-surface-container px-3 py-2 text-sm text-on-surface-variant">
           Your role can review model runtime settings but cannot change them.

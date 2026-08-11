@@ -17,12 +17,13 @@
 import { createHash } from 'node:crypto';
 import type { AiJob, AiJobState, Artifact, Policy, WorkItem } from '../../shared/types';
 import type { BoardConnector } from './connectors/board';
+import { SandboxBoardConnector } from './connectors/board';
+import { resolveActiveEnvironmentId } from './environments';
+import { enrichFromConnections } from './mcp/gateway';
 import { mergePiiReports, sanitize, sanitizeForWriteback } from './pii';
 import type { ModelRunner } from './runners/model';
 import { SandboxModelRunner } from './runners/model';
-import { enrichFromConnections } from './mcp/gateway';
 import { emitAudit, nextId, type Store, TENANT_ID } from './store';
-import { SandboxBoardConnector } from './connectors/board';
 
 const ACTOR = { type: 'system', id: 'orchestrator' } as const;
 
@@ -164,7 +165,13 @@ export async function runJobPipeline(
     return job;
   }
 
-  const mcpConnections = store.mcpConnectionsByTenant[TENANT_ID] ?? [];
+  const envId =
+    (policy.environmentId && policy.environmentId.length > 0
+      ? policy.environmentId
+      : null) ?? resolveActiveEnvironmentId(store, job.tenantId || TENANT_ID);
+  const mcpConnections = (store.mcpConnectionsByTenant[TENANT_ID] ?? []).filter(
+    (c) => c.environmentId === envId,
+  );
   const enrichment = await enrichFromConnections(mcpConnections, workItem.board.issueKey, {
     store,
     tenantId: job.tenantId,

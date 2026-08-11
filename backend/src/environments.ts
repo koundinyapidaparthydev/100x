@@ -15,6 +15,12 @@ import {
   listGrantsForUser,
   userCanAccessEnvironment,
 } from './identity';
+import {
+  clonePolicyForEnvironment,
+  ensureEnvPolicies,
+  envPolicyRow,
+  orgBasePolicy,
+} from './policyResolve';
 import { nextId, TENANT_ID, type Store } from './store';
 
 export const DEFAULT_ENVIRONMENT_DEFS: { key: string; name: string }[] = [
@@ -53,6 +59,16 @@ function stateFor(store: Store, tenantId: string): WorkspaceEnvironmentState {
   return { environments, activeEnvironmentId };
 }
 
+function seedPolicyForEnvironment(store: Store, tenantId: string, environmentId: string): void {
+  if (envPolicyRow(store, environmentId, tenantId)) return;
+  const envs = tenantEnvs(store, tenantId);
+  const prodEnv = envs.find((e) => e.key === 'prod');
+  const prodPolicy = prodEnv ? envPolicyRow(store, prodEnv.id, tenantId) : undefined;
+  const source = prodPolicy ?? orgBasePolicy(store, tenantId);
+  if (!source) return;
+  store.policies.push(clonePolicyForEnvironment(source, environmentId));
+}
+
 /** Seed default Prod/Stage/Dev when the tenant has none. */
 export function ensureDefaultEnvironments(
   store: Store,
@@ -61,6 +77,7 @@ export function ensureDefaultEnvironments(
 ): WorkspaceEnvironmentState {
   const existing = tenantEnvs(store, tenantId);
   if (existing.length > 0) {
+    ensureEnvPolicies(store, tenantId);
     return stateFor(store, tenantId);
   }
 
@@ -90,6 +107,7 @@ export function ensureDefaultEnvironments(
   store.environmentsByTenant[tenantId] = created;
   const preferred = created.find((e) => e.key === 'prod') ?? created[0]!;
   store.activeEnvironmentByTenant[tenantId] = preferred.id;
+  ensureEnvPolicies(store, tenantId);
   return stateFor(store, tenantId);
 }
 
@@ -171,6 +189,7 @@ export function createEnvironment(
     createdAt: new Date().toISOString(),
   };
   envs.push(created);
+  seedPolicyForEnvironment(store, tenantId, created.id);
   return { state: stateFor(store, tenantId), environment: created };
 }
 

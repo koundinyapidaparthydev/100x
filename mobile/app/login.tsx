@@ -34,13 +34,14 @@ const DEMO_SEATS: DemoSeat[] = [
   {
     id: 'root',
     title: 'Root',
-    description: 'Org owner — policies, invites, and full demo access.',
+    description:
+      'Org owner — decide approvals on mobile. Edit PII, models, and board controls on web Governance.',
     fullAccess: true,
   },
   {
     id: 'manager',
     title: 'Delivery lead',
-    description: 'Triage work when assigned a role. Demo seat starts with no custom capabilities.',
+    description: 'Triage and request PII review. Demo seat starts with no custom capabilities; rule edits stay on web.',
     fullAccess: false,
   },
   {

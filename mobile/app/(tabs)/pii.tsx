@@ -65,7 +65,7 @@ export default function PiiScreen() {
         <PageHeader
           eyebrow="Governance"
           title="Sensitive data"
-          description="Work stopped by a configured PII rule."
+          description="Work stopped by a configured PII rule. Rule editing is on web Governance — mobile only requests review or shows the block."
         />
 
         {!query.data?.workItemId ? (
@@ -127,7 +127,8 @@ export default function PiiScreen() {
               />
             </View>
             <Text style={styles.note}>
-              A review request creates an approval record. It does not reveal the matched value or change the saved PII rule.
+              A review request creates an approval record. It does not reveal the matched value or change the saved PII
+              rule — edit clearing rules on web Governance.
             </Text>
           </>
         )}
