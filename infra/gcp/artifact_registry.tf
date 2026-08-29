@@ -2,7 +2,7 @@ resource "google_artifact_registry_repository" "containers" {
   project       = var.project_id
   location      = var.region
   repository_id = var.artifact_repo_id
-  description   = "AplifyAI container images (${var.environment})"
+  description   = "100x container images (${var.environment})"
   format        = "DOCKER"
 
   labels = local.default_labels

@@ -1,6 +1,6 @@
 # Web Playwright E2E
 
-Production-critical flows for the AplifyAI web control plane (`web/`).
+Production-critical flows for the 100x web control plane (`web/`).
 
 ## Prerequisites
 
@@ -22,14 +22,14 @@ Manual alternative:
 
 ```bash
 # terminal 1
-PORT=4100 AUTH_SESSION_SECRET='aplifyai-e2e-session-secret-32b-min' AUTH_ALLOW_DEMO_LOGIN=1 PERSIST=0 \
-  npm run start -w aplifyai-backend
+PORT=4100 AUTH_SESSION_SECRET='100x-e2e-session-secret-32b-min' AUTH_ALLOW_DEMO_LOGIN=1 PERSIST=0 \
+  npm run start -w 100x-backend
 
 # terminal 2
-API_PROXY_TARGET=http://127.0.0.1:4100 WEB_PORT=3100 npm run dev -w aplifyai-web -- --port=3100 --host=127.0.0.1
+API_PROXY_TARGET=http://127.0.0.1:4100 WEB_PORT=3100 npm run dev -w 100x-web -- --port=3100 --host=127.0.0.1
 
 # terminal 3
-PW_REUSE_SERVER=1 npm run test:e2e -w aplifyai-web
+PW_REUSE_SERVER=1 npm run test:e2e -w 100x-web
 ```
 
 ## Commands

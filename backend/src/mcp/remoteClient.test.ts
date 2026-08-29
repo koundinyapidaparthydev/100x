@@ -20,7 +20,7 @@ describe('callRemoteMcpTool', () => {
     const out = await callRemoteMcpTool({
       endpoint: 'https://example.test/mcp',
       tool: 'jira_get_issue',
-      args: { key: 'APLIFYAI-1' },
+      args: { key: 'X100-1' },
       bearerToken: 'token',
     });
 

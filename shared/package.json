@@ -1,9 +1,9 @@
 {
-  "name": "@aplifyai/shared",
+  "name": "@100x/shared",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Shared contracts, API client and theme for the AplifyAI backend, web and mobile apps.",
+  "description": "Shared contracts, API client and theme for the 100x backend, web and mobile apps.",
   "scripts": {
     "test": "vitest run",
     "lint": "tsc --noEmit"

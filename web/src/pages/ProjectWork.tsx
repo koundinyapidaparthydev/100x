@@ -65,7 +65,7 @@ export default function ProjectWork() {
         emptyBody={
           data?.workItems.length
             ? 'Try another filter or clear the current one.'
-            : 'Sync this project to pull issues into AplifyAI.'
+            : 'Sync this project to pull issues into 100x.'
         }
         onRetry={reload}
       >

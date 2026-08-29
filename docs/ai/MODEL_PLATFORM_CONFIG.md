@@ -36,13 +36,13 @@ Live drafts use keys on the API process (never commit secrets):
 
 `provider: auto` selects the **first configured** key in order: OpenAI → Anthropic → OpenRouter. If none are set, the sandbox runner returns canned drafts.
 
-**Not customer-keyed here:** Cursor Composer, Cursor’s internal models, and other IDE-only runtimes. Those appear as *runtime adapter* labels (where humans continue work), not as AplifyAI inference providers. Use OpenRouter (e.g. `x-ai/grok-3-mini`) when you need Grok via an API key.
+**Not customer-keyed here:** Cursor Composer, Cursor’s internal models, and other IDE-only runtimes. Those appear as *runtime adapter* labels (where humans continue work), not as 100x inference providers. Use OpenRouter (e.g. `x-ai/grok-3-mini`) when you need Grok via an API key.
 
 ## Platform / kit selection
 
 “Platform” means where the agent operates on code and tools:
 
-- Managed AplifyAI runner
+- Managed 100x runner
 - Customer CI / agent VM
 - Developer kit integrations (IDE agent kits, CLI runners)
 - Future: desktop kit (not v1)
@@ -77,7 +77,7 @@ Question customers ask: *Can AI change code in our kit?*
 
 - **Public**: approved vendor APIs
 - **Private / customer GenAI area**: inference stays in customer network
-- **Managed GenAI area**: AplifyAI-hosted private-ish plane for smaller customers
+- **Managed GenAI area**: 100x-hosted private-ish plane for smaller customers
 
 See [CLOUD_CUSTOMIZATION.md](../integrations/CLOUD_CUSTOMIZATION.md).
 

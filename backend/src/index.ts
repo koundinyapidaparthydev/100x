@@ -20,9 +20,9 @@ const boardConnector = createBoardConnector(store);
 const app = createApp({ store, modelRunner, boardConnector });
 
 const server = app.listen(port, () => {
-  console.log(`[aplifyai-backend] listening on http://localhost:${port} (api: /api/v1)`);
+  console.log(`[100x-backend] listening on http://localhost:${port} (api: /api/v1)`);
   console.log(
-    `[aplifyai-backend] model=${modelRunner.kind} board=${boardConnector.kind} persist=${persistence.kind}`,
+    `[100x-backend] model=${modelRunner.kind} board=${boardConnector.kind} persist=${persistence.kind}`,
   );
 });
 
@@ -30,7 +30,7 @@ let shuttingDown = false;
 const shutdown = (signal: NodeJS.Signals) => {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`[aplifyai-backend] ${signal} received; draining requests and flushing persistence`);
+  console.log(`[100x-backend] ${signal} received; draining requests and flushing persistence`);
   server.close(async (err) => {
     try {
       await persistence.close();
@@ -38,7 +38,7 @@ const shutdown = (signal: NodeJS.Signals) => {
       process.exitCode = 0;
     } catch (closeError) {
       console.error(
-        '[aplifyai-backend] graceful shutdown failed:',
+        '[100x-backend] graceful shutdown failed:',
         closeError instanceof Error ? closeError.message : closeError,
       );
       process.exitCode = 1;

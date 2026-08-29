@@ -10,7 +10,7 @@ import { createApp } from './app';
 import { demoAuthEnabled, issueSession } from './auth';
 import { createSeedStore } from './store';
 
-const PROD_SECRET = 'aplifyai-prod-test-session-secret-32b';
+const PROD_SECRET = '100x-prod-test-session-secret-32b';
 
 const envKeys = ['NODE_ENV', 'AUTH_ALLOW_DEMO_LOGIN', 'AUTH_SESSION_SECRET'] as const;
 

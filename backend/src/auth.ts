@@ -96,20 +96,20 @@ export function demoAuthEnabled(): boolean {
   return process.env.NODE_ENV !== 'production' || process.env.AUTH_ALLOW_DEMO_LOGIN === '1';
 }
 
-const LOCAL_DEV_SESSION_SECRET = 'aplifyai-local-dev-session-secret-do-not-use-in-prod';
+const LOCAL_DEV_SESSION_SECRET = '100x-local-dev-session-secret-do-not-use-in-prod';
 let warnedMissingSessionSecret = false;
 
 function sessionSecret(): string {
   const configured = process.env.AUTH_SESSION_SECRET;
   if (configured && configured.length >= 32) return configured;
   // Vitest gets a deterministic, process-independent key. It is never accepted in production.
-  if (process.env.NODE_ENV === 'test') return 'aplifyai-test-session-secret-32-bytes';
+  if (process.env.NODE_ENV === 'test') return '100x-test-session-secret-32-bytes';
   // Local/demo: allow Continue as demo without a .env. Production still requires a real secret.
   if (process.env.NODE_ENV !== 'production') {
     if (!warnedMissingSessionSecret) {
       warnedMissingSessionSecret = true;
       console.warn(
-        '[aplifyai-backend] AUTH_SESSION_SECRET missing or too short; using local-dev fallback. Set backend/.env for stable sessions across machines.',
+        '[100x-backend] AUTH_SESSION_SECRET missing or too short; using local-dev fallback. Set backend/.env for stable sessions across machines.',
       );
     }
     return LOCAL_DEV_SESSION_SECRET;

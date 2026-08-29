@@ -1,6 +1,6 @@
 # MCP Integrations
 
-AplifyAI is an **MCP client**: it connects to **vendor-hosted MCP servers** (or customer-hosted bridges). It does not invent fake vendor MCP servers. Auth follows each vendor — OAuth, PAT/API key, or IAM.
+100x is an **MCP client**: it connects to **vendor-hosted MCP servers** (or customer-hosted bridges). It does not invent fake vendor MCP servers. Auth follows each vendor — OAuth, PAT/API key, or IAM.
 
 Connect is **honest**: no “Connected (live)” without credentials. Tenant auth is primary; platform env is a fallback. Connect must not stay **Unavailable** solely because platform env is unset for token/OAuth-capable providers.
 
@@ -113,7 +113,7 @@ There is no public SaaS MCP URL. Host [microsoft/azure-devops-mcp](https://githu
 
 ## Cursor
 
-Cursor is primarily an **MCP client**. AplifyAI will not mark Cursor as Connected without `MCP_CURSOR_BRIDGE_URL` pointing at a documented bridge.
+Cursor is primarily an **MCP client**. 100x will not mark Cursor as Connected without `MCP_CURSOR_BRIDGE_URL` pointing at a documented bridge.
 
 ## Why MCP
 

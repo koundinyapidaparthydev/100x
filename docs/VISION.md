@@ -2,7 +2,7 @@
 
 ## One-line pitch
 
-AplifyAI is an AI-first delegation platform that completes a configurable portion of board work before humans, with enterprise-grade security, PII firewalls, and full control over models, clouds, and token budgets.
+100x is an AI-first delegation platform that completes a configurable portion of board work before humans, with enterprise-grade security, PII firewalls, and full control over models, clouds, and token budgets.
 
 ## Problem
 
@@ -61,7 +61,7 @@ Every major decision is a policy knob owned by founder / employer / employee (wi
 
 ## Differentiation
 
-| Typical “AI for tickets” | AplifyAI |
+| Typical “AI for tickets” | 100x |
 |--------------------------|----------------|
 | Engineer pastes into ChatGPT | Governed pipeline before assignment |
 | No PII controls | Dedicated PII firewall |

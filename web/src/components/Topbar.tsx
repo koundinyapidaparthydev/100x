@@ -3,7 +3,7 @@ import { Bell, ChevronDown, LogOut, Menu, Search, ShieldCheck } from 'lucide-rea
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '@shared/api';
 import type { AuthUser } from '@shared/types';
-import { AplifyLogo } from './AplifyLogo';
+import { BrandLogo } from './BrandLogo';
 import EnvironmentSwitcher from './EnvironmentSwitcher';
 import { CONSOLE_SEARCH_PLACEHOLDER, openCommandPalette } from '../lib/consoleNav';
 import { clearDemoSession, readDemoSession, demoSeatFromUser, writeDemoSession } from '../lib/session';
@@ -184,8 +184,8 @@ export default function Topbar({
               <Menu size={20} aria-hidden="true" />
             </button>
 
-            <Link to="/console" className="flex min-w-0 items-center gap-2.5" aria-label="AplifyAI home">
-              <AplifyLogo
+            <Link to="/console" className="flex min-w-0 items-center gap-2.5" aria-label="100x home">
+              <BrandLogo
                 size={28}
                 withWordmark
                 wordmarkClassName="hidden text-[15px] font-semibold tracking-tight sm:inline"

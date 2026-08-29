@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { AplifyLogo } from '../AplifyLogo';
+import { BrandLogo } from '../BrandLogo';
 import { MarketingWidth } from './MarketingWidth';
 
 const PRODUCT = [
@@ -36,8 +36,8 @@ export function MarketingFooter() {
     >
       <MarketingWidth className="flex flex-col gap-10 py-12 sm:py-14 lg:flex-row lg:justify-between lg:gap-16">
         <div className="max-w-sm">
-          <Link to="/" className="inline-flex items-center" aria-label="AplifyAI home">
-            <AplifyLogo size={28} withWordmark wordmarkClassName="font-serif text-lg font-normal tracking-tight" />
+          <Link to="/" className="inline-flex items-center" aria-label="100x home">
+            <BrandLogo size={28} withWordmark wordmarkClassName="font-serif text-lg font-normal tracking-tight" />
           </Link>
           <p className="mt-3 text-sm leading-6 text-on-surface-variant">
             Connect your board, decide AI vs human, review drafts behind a PII firewall, then train
@@ -76,7 +76,7 @@ export function MarketingFooter() {
 
       <div className="border-t border-outline-variant/50">
         <MarketingWidth className="flex flex-col gap-2 py-5 text-xs text-on-surface-variant sm:flex-row sm:items-center sm:justify-between">
-          <p>© {year} AplifyAI. Free workspace — no card required.</p>
+          <p>© {year} 100x. Free workspace — no card required.</p>
           <p className="sm:text-right">Boards stay the system of record.</p>
         </MarketingWidth>
       </div>

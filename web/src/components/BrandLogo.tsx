@@ -1,24 +1,24 @@
 import { cn } from '../lib/utils';
 
-/** AAI mark — logo-only monogram. Company name remains AplifyAI. */
+/** AAI mark — logo-only monogram. Company name remains 100x. */
 const MARK_SRC = '/brand/aai-mark.svg';
 
-type AplifyLogoProps = {
+type BrandLogoProps = {
   className?: string;
   /** Icon size in px (square). */
   size?: number;
-  /** Show “AplifyAI” wordmark beside the mark. */
+  /** Show “100x” wordmark beside the mark. */
   withWordmark?: boolean;
   wordmarkClassName?: string;
 };
 
-/** Official AplifyAI logo: AAI mark (+ optional AplifyAI wordmark). */
-export function AplifyLogo({
+/** Official 100x logo: AAI mark (+ optional 100x wordmark). */
+export function BrandLogo({
   className,
   size = 32,
   withWordmark = false,
   wordmarkClassName,
-}: AplifyLogoProps) {
+}: BrandLogoProps) {
   return (
     <span className={cn('inline-flex items-center gap-2.5', className)}>
       <img
@@ -36,7 +36,7 @@ export function AplifyLogo({
             wordmarkClassName,
           )}
         >
-          AplifyAI
+          100x
         </span>
       ) : null}
     </span>

@@ -1,8 +1,8 @@
-# AplifyAI
+# 100x
 
 **AI-first work delegation platform** — reduce manual ticket work by letting AI complete a configurable share of each task (10–30%+) before a human engineer picks it up.
 
-AplifyAI sits between your issue board (Jira, Canvas, or similar) and your distributed teams (India, US, Australia, or anywhere). Managers control whether AI runs first, which model/platform/cloud to use, token budgets, and how strictly PII and customer data are blocked from AI.
+100x sits between your issue board (Jira, Canvas, or similar) and your distributed teams (India, US, Australia, or anywhere). Managers control whether AI runs first, which model/platform/cloud to use, token budgets, and how strictly PII and customer data are blocked from AI.
 
 ## Why this exists
 
@@ -100,7 +100,7 @@ cd mobile && npm run dev           # :3001 manager triage
 
 ```bash
 # API image (from repo root)
-docker build -f backend/Dockerfile -t aplifyai-api:local .
+docker build -f backend/Dockerfile -t 100x-api:local .
 
 # Infra (dedicated staging project — never commit real project IDs)
 cd infra/gcp && cp terraform.tfvars.example terraform.tfvars

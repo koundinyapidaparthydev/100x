@@ -1,5 +1,5 @@
 /**
- * Shared contracts for AplifyAI.
+ * Shared contracts for 100x.
  * Source of truth: docs/SCHEMA_SKETCH.md — keep in sync; update the doc if these change.
  * Used by the single backend (`backend/`) and both clients (`web/`, `mobile/`).
  */
@@ -127,7 +127,7 @@ export interface ModelRef {
 /**
  * Where AI compute runs (account source):
  * - `customer_cloud` — connected customer AWS/Azure/GCP/NVIDIA accounts (use their account)
- * - `public_managed` — AplifyAI private / managed cloud (our plane)
+ * - `public_managed` — 100x private / managed cloud (our plane)
  * - `private_vpc` — bring-your-own-cloud; customer picks platform and connects it
  */
 export interface CloudPolicy {
@@ -1151,7 +1151,7 @@ export type BuyerRole = 'executive' | 'delivery_lead' | 'platform' | 'security' 
 export type HumanInTheLoopPref = 'always' | 'high_risk' | 'exceptions' | 'minimal';
 /**
  * Onboarding “Where AI runs” — same three modes as CloudPolicy.mode:
- * connected accounts | AplifyAI private cloud | customer BYOC.
+ * connected accounts | 100x private cloud | customer BYOC.
  */
 export type HostingPreference = 'private_vpc' | 'customer_cloud' | 'public_managed';
 export type RuntimeModePref = 'request_based' | 'always_on';
@@ -1211,10 +1211,10 @@ export interface ExpectationsAnswers {
 export interface RuntimeAnswers {
   /**
    * Account source: `customer_cloud` (connected accounts), `public_managed`
-   * (AplifyAI private cloud), or `private_vpc` (BYOC).
+   * (100x private cloud), or `private_vpc` (BYOC).
    */
   hosting?: HostingPreference;
-  /** Platform when using connected accounts or BYOC (ignored for AplifyAI private cloud). */
+  /** Platform when using connected accounts or BYOC (ignored for 100x private cloud). */
   cloudProvider?: CloudProvider;
   /** Required when cloudProvider is `custom`. */
   customCloudLabel?: string;

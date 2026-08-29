@@ -92,7 +92,7 @@ Stores redacted prompts (optional), outputs, patches, completion estimates, toke
 
 ## Data flow (AI-first ticket)
 
-1. Board webhook / poll creates or updates `WorkItem` in AplifyAI.
+1. Board webhook / poll creates or updates `WorkItem` in 100x.
 2. Manager swipe or org policy sets `aiFirst = true`.
 3. Orchestrator loads project policy (model, cloud, tokens, security, PII).
 4. Connector fetches ticket payload + linked context.
@@ -105,7 +105,7 @@ Stores redacted prompts (optional), outputs, patches, completion estimates, toke
 ## Connection rules
 
 - Boards remain source of truth for ticket identity and human workflow.
-- AplifyAI never sends unsanitized PII to models.
+- 100x never sends unsanitized PII to models.
 - Customer cloud credentials stay in a secrets vault; never in agent prompts.
 - Employee kit override is gated by policy and audited.
 - All AI actions are attributable (who/what/when/tokens/cloud).

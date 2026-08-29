@@ -151,7 +151,7 @@ export const CONSOLE_NAV_ITEMS: ConsoleNavItem[] = [
 export const CONSOLE_SEARCH_PLACEHOLDER =
   'Search users, roles, groups, services, projects…';
 
-export const OPEN_COMMAND_PALETTE_EVENT = 'aplifyai:open-command-palette';
+export const OPEN_COMMAND_PALETTE_EVENT = '100x:open-command-palette';
 
 export function openCommandPalette(seedQuery = '') {
   window.dispatchEvent(

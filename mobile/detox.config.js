@@ -25,12 +25,12 @@ module.exports = {
   apps: {
     'ios.release': {
       type: 'ios.app',
-      binaryPath: 'ios/build/Build/Products/Release-iphonesimulator/AplifyAI.app',
+      binaryPath: 'ios/build/Build/Products/Release-iphonesimulator/100x.app',
       build:
         'export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 ' +
         'EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:4000/api/v1 && ' +
         'npx expo prebuild --platform ios --clean && ' +
-        'xcodebuild -workspace ios/AplifyAI.xcworkspace -scheme AplifyAI ' +
+        'xcodebuild -workspace ios/100x.xcworkspace -scheme 100x ' +
         '-configuration Release -sdk iphonesimulator -derivedDataPath ios/build ' +
         'CODE_SIGNING_ALLOWED=NO',
     },

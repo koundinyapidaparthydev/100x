@@ -179,7 +179,7 @@ export function resolveModelTarget(
 
 function systemPrompt(targetCompletionPercent: number): string {
   return [
-    'You are AplifyAI, an enterprise AI drafting assistant.',
+    'You are 100x, an enterprise AI drafting assistant.',
     `Produce a bounded draft toward ~${targetCompletionPercent}% completion of the ticket.`,
     'Do not invent secrets. The payload is already PII-sanitized — treat it as safe.',
     'Respond in Markdown with sections: Understanding, Draft plan, Remaining work.',
@@ -349,8 +349,8 @@ export class MultiProviderModelRunner implements ModelRunner {
       draft = await runAnthropic(effectiveCreds, target.modelId, input);
     } else if (target.provider === 'openrouter') {
       draft = await runOpenAiCompatible(effectiveCreds, target.modelId, input, {
-        referer: process.env.OPENROUTER_HTTP_REFERER?.trim() || 'https://aplify.ai',
-        title: process.env.OPENROUTER_APP_TITLE?.trim() || 'AplifyAI',
+        referer: process.env.OPENROUTER_HTTP_REFERER?.trim() || 'https://100x.ai',
+        title: process.env.OPENROUTER_APP_TITLE?.trim() || '100x',
       });
     } else {
       draft = await runOpenAiCompatible(effectiveCreds, target.modelId, input);

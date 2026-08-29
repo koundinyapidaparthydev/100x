@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { FederatedAuthProvider, FederatedProviderStatus } from '@shared/types';
-import { AplifyLogo } from '@/src/AplifyLogo';
+import { BrandLogo } from '@/src/BrandLogo';
 import { api } from '@/src/api';
 import { useSession } from '@/src/session';
 import { Card, colors, commonStyles, PrimaryButton, SecondaryButton, StatusBadge, Tag } from '@/src/ui';
@@ -123,7 +123,7 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <AplifyLogo size={48} withWordmark stacked style={styles.logoBlock} />
+        <BrandLogo size={48} withWordmark stacked style={styles.logoBlock} />
         <Text style={styles.description}>
           Jump in as the workspace owner with full access, pick a limited seat, or use SSO when
           configured.

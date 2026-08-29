@@ -112,7 +112,7 @@ describe('board connector API loop', () => {
     const login = await req.post('/api/v1/auth/login').send({ identity: 'root' }).expect(200);
 
     const result = await req
-      .post('/api/v1/work-items/wi-aplifyai-101/triage')
+      .post('/api/v1/work-items/wi-100x-101/triage')
       .set('Authorization', `Bearer ${login.body.session.token as string}`)
       .send({ aiFirst: true })
       .expect(200);

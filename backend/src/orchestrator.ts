@@ -281,13 +281,13 @@ export async function runJobPipeline(
   transition(store, job, 'attaching', { workItemId: workItem.id, board: deps.boardConnector.kind }, [1, 2, 3, 6]);
   try {
     const summaryAttach = await deps.boardConnector.addAttachment(workItem, {
-      filename: `aplifyai-ai-${job.id}-summary.md`,
+      filename: `100x-ai-${job.id}-summary.md`,
       contentType: 'text/markdown',
       body: draft,
     });
     const patchBody = `--- a/${workItem.board.issueKey.toLowerCase()}.md\n+++ b/${workItem.board.issueKey.toLowerCase()}.md\n@@ draft @@\n+${draft.split('\n')[0]}\n`;
     const patchAttach = await deps.boardConnector.addAttachment(workItem, {
-      filename: `aplifyai-ai-${job.id}.patch`,
+      filename: `100x-ai-${job.id}.patch`,
       contentType: 'text/x-diff',
       body: patchBody,
     });
@@ -299,7 +299,7 @@ export async function runJobPipeline(
 
     const comment = await deps.boardConnector.addComment(
       workItem,
-      `AplifyAI AI draft ready (${targetCompletionPercent}% target). Artifacts: ${job.artifacts
+      `100x AI draft ready (${targetCompletionPercent}% target). Artifacts: ${job.artifacts
         .map((a) => a.boardAttachmentId)
         .join(', ')}. Review before human hand-off.`,
     );

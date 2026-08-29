@@ -78,7 +78,7 @@ export default function Signup() {
     >
       <div>
         <h2 className="text-2xl font-semibold tracking-tight text-on-surface sm:text-3xl">
-          Create your AplifyAI workspace
+          Create your 100x workspace
         </h2>
         <p className="mt-2 text-sm leading-6 text-on-surface-variant sm:text-base">
           Start free for full access, or register as the owner and run onboarding. No card required.

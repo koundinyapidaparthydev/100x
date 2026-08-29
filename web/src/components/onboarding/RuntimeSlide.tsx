@@ -57,7 +57,7 @@ const HOSTING = [
   },
   {
     id: 'public_managed' as const,
-    title: 'AplifyAI private cloud',
+    title: '100x private cloud',
     description:
       'Fastest start. Jobs run on our managed private cloud — no customer cloud account required yet.',
     icon: Cloud,
@@ -90,7 +90,7 @@ const MODELS = [
   {
     id: 'none',
     title: 'Managed models',
-    description: 'Use AplifyAI defaults. Simplest path.',
+    description: 'Use 100x defaults. Simplest path.',
   },
   {
     id: 'side_by_side',
@@ -229,7 +229,7 @@ export function RuntimeSlide({ value, onChange, selectedServices = [] }: Runtime
         <OptionCards
           testId="runtime-hosting"
           label="Choose a hosting home"
-          info="This is the main decision. Connected accounts = your cloud bill and IAM. AplifyAI private cloud = we host. BYOC = you bring a platform and connect it next. Pick one to unlock the rest of this step."
+          info="This is the main decision. Connected accounts = your cloud bill and IAM. 100x private cloud = we host. BYOC = you bring a platform and connect it next. Pick one to unlock the rest of this step."
           hint="Required · pick exactly one"
           columns={1}
           density="comfortable"
@@ -241,14 +241,14 @@ export function RuntimeSlide({ value, onChange, selectedServices = [] }: Runtime
         {showConnectedPicker && (
           <p className="text-xs leading-5 text-on-surface-variant" data-testid="runtime-connected-hint">
             {linked.length > 0
-              ? `From your stack we can use: ${linked.map((p) => providerDisplay(p)).join(', ')}. We will not create a separate AplifyAI account there.`
-              : 'No AWS, Azure, GCP, or NVIDIA was selected in your stack yet. Pick a platform below (you can connect it next), or switch hosting to AplifyAI private cloud / BYOC.'}
+              ? `From your stack we can use: ${linked.map((p) => providerDisplay(p)).join(', ')}. We will not create a separate 100x account there.`
+              : 'No AWS, Azure, GCP, or NVIDIA was selected in your stack yet. Pick a platform below (you can connect it next), or switch hosting to 100x private cloud / BYOC.'}
           </p>
         )}
 
         {hosting === 'public_managed' && (
           <p className="text-xs leading-5 text-on-surface-variant" data-testid="runtime-managed-hint">
-            Jobs run on AplifyAI’s managed private cloud. You can move to connected accounts or BYOC
+            Jobs run on 100x’s managed private cloud. You can move to connected accounts or BYOC
             later under Governance → Cloud runtime.
           </p>
         )}

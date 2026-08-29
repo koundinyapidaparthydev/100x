@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronDown, X } from 'lucide-react';
-import { AplifyLogo } from './AplifyLogo';
+import { BrandLogo } from './BrandLogo';
 import EnvironmentSwitcher from './EnvironmentSwitcher';
 import { CONSOLE_CONTEXT_ITEMS } from '../lib/consoleNav';
 import { getProjectRouteContext } from '../lib/projectRoutes';
@@ -89,7 +89,7 @@ function NavBody({
       {showDrawerChrome && (
         <>
           <div className="mb-4 flex h-11 items-center gap-3 px-2">
-            <AplifyLogo size={36} withWordmark wordmarkClassName="text-base" />
+            <BrandLogo size={36} withWordmark wordmarkClassName="text-base" />
             <button
               type="button"
               aria-label="Close navigation"

@@ -1,5 +1,5 @@
 /**
- * Twilio SendGrid v3 Mail Send — AplifyAI fallback for workspace invites.
+ * Twilio SendGrid v3 Mail Send — 100x fallback for workspace invites.
  * Uses fetch (no SDK). Enabled only when SENDGRID_API_KEY (SG.*) + SENDGRID_FROM_EMAIL are set.
  */
 

@@ -89,7 +89,7 @@ export default function Login() {
     >
       <div>
         <h2 className="text-2xl font-semibold tracking-tight text-on-surface sm:text-3xl">
-          Sign in to AplifyAI
+          Sign in to 100x
         </h2>
         <p className="mt-2 text-sm leading-6 text-on-surface-variant sm:text-base">
           Start free for full access, or pick a specific seat. No card required.

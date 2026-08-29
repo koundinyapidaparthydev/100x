@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "AplifyAI",
-    "slug": "aplifyai-mobile",
-    "scheme": "aplifyai",
+    "name": "100x",
+    "slug": "100x-mobile",
+    "scheme": "100x",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -27,10 +27,10 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ai.aplify.mobile"
+      "bundleIdentifier": "ai.100x.mobile"
     },
     "android": {
-      "package": "ai.aplify.mobile",
+      "package": "ai.100x.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/brand/icon.png",
         "backgroundColor": "#F6F3EC"

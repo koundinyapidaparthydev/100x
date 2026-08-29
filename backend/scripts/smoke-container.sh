@@ -3,10 +3,10 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-IMAGE="${APLIFYAI_SMOKE_IMAGE:-aplifyai-api:smoke-local}"
-NAME="${APLIFYAI_SMOKE_NAME:-aplifyai-api-smoke}"
-PORT="${APLIFYAI_SMOKE_PORT:-18080}"
-SECRET="${AUTH_SESSION_SECRET:-aplifyai-smoke-session-secret-32-bytes-min}"
+IMAGE="${X100_SMOKE_IMAGE:-100x-api:smoke-local}"
+NAME="${X100_SMOKE_NAME:-100x-api-smoke}"
+PORT="${X100_SMOKE_PORT:-18080}"
+SECRET="${AUTH_SESSION_SECRET:-100x-smoke-session-secret-32-bytes-min}"
 
 cleanup() {
   docker rm -f "$NAME" >/dev/null 2>&1 || true
@@ -40,7 +40,7 @@ docker run -d \
 echo "[test:smoke-container] Waiting for health..."
 ok=0
 for _ in $(seq 1 40); do
-  if curl -fsS "http://127.0.0.1:${PORT}/api/v1/health" >/tmp/aplifyai-smoke-health.json 2>/dev/null; then
+  if curl -fsS "http://127.0.0.1:${PORT}/api/v1/health" >/tmp/100x-smoke-health.json 2>/dev/null; then
     ok=1
     break
   fi
@@ -53,5 +53,5 @@ if [[ "$ok" -ne 1 ]]; then
   exit 1
 fi
 
-status="$(node -e "const j=require('/tmp/aplifyai-smoke-health.json'); if(j.status!=='ok') process.exit(1); console.log(j.status)")"
+status="$(node -e "const j=require('/tmp/100x-smoke-health.json'); if(j.status!=='ok') process.exit(1); console.log(j.status)")"
 echo "[test:smoke-container] Health OK (status=$status)."

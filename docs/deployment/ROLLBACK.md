@@ -9,7 +9,7 @@ List revisions:
 ```bash
 PROJECT_ID="jobseek-459701"
 REGION="us-central1"
-SERVICE="aplifyai-staging-api"   # or: terraform -chdir=infra/gcp output -raw cloud_run_service_name
+SERVICE="100x-staging-api"   # or: terraform -chdir=infra/gcp output -raw cloud_run_service_name
 
 gcloud run revisions list \
   --project="$PROJECT_ID" \
@@ -20,7 +20,7 @@ gcloud run revisions list \
 Route 100% traffic to the last known-good revision:
 
 ```bash
-GOOD_REVISION="aplifyai-staging-api-00042-abc"
+GOOD_REVISION="100x-staging-api-00042-abc"
 
 gcloud run services update-traffic "$SERVICE" \
   --project="$PROJECT_ID" \
@@ -38,7 +38,7 @@ curl -fsS -H "Authorization: Bearer $(gcloud auth print-identity-token)" "${URI}
 ## Cloud Run — redeploy a previous image tag
 
 ```bash
-IMAGE_BASE="us-central1-docker.pkg.dev/jobseek-459701/aplifyai/api"
+IMAGE_BASE="us-central1-docker.pkg.dev/jobseek-459701/100x/api"
 GOOD_TAG="abc1234"   # previous git short SHA
 
 gcloud run deploy "$SERVICE" \
@@ -59,7 +59,7 @@ deployment:
 STATIC_BUCKET="$(terraform -chdir=infra/gcp output -raw static_assets_bucket)"
 
 npm ci
-npm run build -w aplifyai-web -- --base=/web/
+npm run build -w 100x-web -- --base=/web/
 gcloud storage rsync --recursive --delete-unmatched-destination-objects \
   web/dist "gs://${STATIC_BUCKET}/web"
 
@@ -69,7 +69,7 @@ gcloud storage objects update "gs://${STATIC_BUCKET}/web/index.html" \
   --cache-control="no-cache,max-age=0,must-revalidate"
 ```
 
-Use `/mobile/` and `aplifyai-mobile` for a mobile rollback.
+Use `/mobile/` and `100x-mobile` for a mobile rollback.
 
 GCS versioning is also enabled. For a single-object recovery, list versions and
 copy a known-good generation over the live object:
@@ -104,10 +104,10 @@ unless both apps are affected.
 - Restore via Console or:
 
 ```bash
-gcloud sql backups list --instance=aplifyai-staging-pg --project="$PROJECT_ID"
+gcloud sql backups list --instance=100x-staging-pg --project="$PROJECT_ID"
 # restore to a *new* instance first; cut over only after verification
 gcloud sql backups restore BACKUP_ID \
-  --backup-instance=aplifyai-staging-pg \
+  --backup-instance=100x-staging-pg \
   --backup-project="$PROJECT_ID" \
   --project="$PROJECT_ID"
 ```

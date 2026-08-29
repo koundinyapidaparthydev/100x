@@ -1,5 +1,5 @@
-# AplifyAI production project. Production deploys remain approval-gated.
-project_id      = "aplifyai-prod-2026"
+# 100x production project. Production deploys remain approval-gated.
+project_id      = "100x-prod-2026"
 region          = "us-central1"
 environment     = "production"
 vpc_subnet_cidr = "10.30.0.0/24"
@@ -17,6 +17,6 @@ sql_availability_type   = "REGIONAL"
 sql_deletion_protection = true
 
 labels = {
-  team    = "aplifyai"
-  product = "aplifyai"
+  team    = "100x"
+  product = "100x"
 }

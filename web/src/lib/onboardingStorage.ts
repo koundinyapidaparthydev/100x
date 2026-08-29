@@ -10,7 +10,7 @@ import type {
   ServiceId,
 } from '@shared/types';
 
-export const ONBOARDING_STORAGE_KEY = 'aplifyai-onboarding';
+export const ONBOARDING_STORAGE_KEY = '100x-onboarding';
 
 /**
  * Fresh wizard draft — no questionnaire answers pre-selected.

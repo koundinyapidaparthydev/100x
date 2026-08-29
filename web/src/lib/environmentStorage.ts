@@ -1,5 +1,5 @@
-const ACTIVE_ENV_KEY = 'aplifyai-active-environment';
-export const ACTIVE_ENV_CHANGED_EVENT = 'aplifyai:active-environment';
+const ACTIVE_ENV_KEY = '100x-active-environment';
+export const ACTIVE_ENV_CHANGED_EVENT = '100x:active-environment';
 
 /** Coalesce rapid writers (hydrate + confirm) into one listener notification. */
 const ENV_CHANGE_DEBOUNCE_MS = 50;

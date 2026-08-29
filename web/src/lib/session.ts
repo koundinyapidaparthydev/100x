@@ -3,7 +3,7 @@ import type { AuthUser } from '@shared/types';
 import { clearCachedActiveEnvironmentId } from './environmentStorage';
 import { clearOnboardingProfile } from './onboardingStorage';
 
-export const DEMO_SESSION_KEY = 'aplifyai-demo-session';
+export const DEMO_SESSION_KEY = '100x-demo-session';
 
 export type DemoSession = {
   token: string;

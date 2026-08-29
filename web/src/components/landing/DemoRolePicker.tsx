@@ -49,7 +49,7 @@ const PROVIDER_BUTTON: Record<
 };
 
 /**
- * AplifyAI sign-in: one-click demo entry + Workspace owner vs Team member seats.
+ * 100x sign-in: one-click demo entry + Workspace owner vs Team member seats.
  * Maps to demo identities root / member under the hood.
  */
 export function WorkspaceAuthForm({

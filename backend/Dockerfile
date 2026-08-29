@@ -1,7 +1,7 @@
-# AplifyAI API — production-minded image for Cloud Run / containers.
+# 100x API — production-minded image for Cloud Run / containers.
 #
 # Build from the repository root (shared types live outside backend/):
-#   docker build -f backend/Dockerfile -t aplifyai-api:local .
+#   docker build -f backend/Dockerfile -t 100x-api:local .
 #
 # Do not bake secrets into the image. Pass them at runtime via env / Secret Manager.
 
@@ -16,7 +16,7 @@ COPY backend/package.json ./backend/package.json
 COPY shared/package.json ./shared/package.json
 COPY web/package.json ./web/package.json
 COPY mobile/package.json ./mobile/package.json
-RUN npm ci --workspace aplifyai-backend --include-workspace-root=false --ignore-scripts
+RUN npm ci --workspace 100x-backend --include-workspace-root=false --ignore-scripts
 
 # -----------------------------------------------------------------------------
 # build — bundle ESM entry without requiring package.json script changes
@@ -62,7 +62,7 @@ COPY backend/package.json ./backend/package.json
 COPY shared/package.json ./shared/package.json
 COPY web/package.json ./web/package.json
 COPY mobile/package.json ./mobile/package.json
-RUN npm ci --omit=dev --workspace aplifyai-backend --include-workspace-root=false --ignore-scripts \
+RUN npm ci --omit=dev --workspace 100x-backend --include-workspace-root=false --ignore-scripts \
   && npm cache clean --force
 
 COPY --from=build /app/backend/dist ./backend/dist

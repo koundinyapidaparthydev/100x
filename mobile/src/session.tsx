@@ -9,8 +9,8 @@ import { api, setSessionToken } from './api';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const SESSION_KEY = 'aplifyai.mobile.session';
-const MOBILE_REDIRECT = 'aplifyai://auth/callback';
+const SESSION_KEY = '100x.mobile.session';
+const MOBILE_REDIRECT = '100x://auth/callback';
 
 /** Dedupes concurrent exchange attempts from openAuthSessionAsync + deep-link route. */
 const exchangeInflight = new Map<string, Promise<AuthSession>>();
@@ -147,7 +147,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
 
       // iOS often dismisses ASWebAuthenticationSession while Expo Router still
-      // opens aplifyai://auth/callback. Wait briefly for that path to finish.
+      // opens 100x://auth/callback. Wait briefly for that path to finish.
       if (result.type === 'cancel' || result.type === 'dismiss') {
         for (let attempt = 0; attempt < 12; attempt += 1) {
           await new Promise((resolve) => setTimeout(resolve, 250));

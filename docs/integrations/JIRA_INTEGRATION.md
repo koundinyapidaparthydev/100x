@@ -1,6 +1,6 @@
 # Jira & Board Integration
 
-Boards (starting with **Jira**) are the system of record for work. AplifyAI syncs tickets, runs AI under policy, and writes artifacts back.
+Boards (starting with **Jira**) are the system of record for work. 100x syncs tickets, runs AI under policy, and writes artifacts back.
 
 ## Goals
 
@@ -24,10 +24,10 @@ Boards (starting with **Jira**) are the system of record for work. AplifyAI sync
 
 | Direction | Data |
 |-----------|------|
-| Jira → AplifyAI | Issue CRUD, comments, attachment metadata, transitions |
-| AplifyAI → Jira | AI summary comments, artifact attachments, custom field updates, optional transition to “AI Draft Ready” |
+| Jira → 100x | Issue CRUD, comments, attachment metadata, transitions |
+| 100x → Jira | AI summary comments, artifact attachments, custom field updates, optional transition to “AI Draft Ready” |
 
-Conflict rule: Jira wins for human assignee and workflow state unless AplifyAI owns a dedicated AI status field.
+Conflict rule: Jira wins for human assignee and workflow state unless 100x owns a dedicated AI status field.
 
 ## Ticket lifecycle mapping
 
@@ -40,18 +40,18 @@ Jira Created/Updated
   → Human continues in Jira as usual
 ```
 
-Manager swipe on mobile updates AplifyAI policy for that WorkItem and may set a Jira label/`aiFirst` field.
+Manager swipe on mobile updates 100x policy for that WorkItem and may set a Jira label/`aiFirst` field.
 
 ## Attachments
 
 - Download allowlisted types for MCP/AI context only after PII scan
-- Upload AI artifacts as Jira attachments with clear naming: `aplifyai-ai-{jobId}-summary.md`, `aplifyai-ai-{jobId}.patch`
+- Upload AI artifacts as Jira attachments with clear naming: `100x-ai-{jobId}-summary.md`, `100x-ai-{jobId}.patch`
 - Virus / malware scan before ingest when possible
 
 ## Permissions
 
 - Connector uses a dedicated Jira service account with least project permissions
-- AplifyAI still enforces its own RBAC; Jira access ≠ AplifyAI admin
+- 100x still enforces its own RBAC; Jira access ≠ 100x admin
 
 ## Error handling
 

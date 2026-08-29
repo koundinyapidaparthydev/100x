@@ -1,7 +1,7 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@shared/api';
-import { demoSeatFromUser, writeDemoSession } from '../lib/session';
+import { applyDemoSessionToApi, demoSeatFromUser, readDemoSession, writeDemoSession } from '../lib/session';
 import { hydrateOnboardingFromServer, resolvePostAuthLanding } from '../lib/onboardingStorage';
 import { Button, Field } from '../components/ui';
 
@@ -18,7 +18,40 @@ export default function WorkspaceGate() {
   const [belongsToParent, setBelongsToParent] = useState(false);
   const [parentDomain, setParentDomain] = useState('');
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const existing = readDemoSession();
+    if (!existing?.token) {
+      setChecking(false);
+      return;
+    }
+    applyDemoSessionToApi(existing);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const setup = await api.getWorkspaceSetup();
+        if (cancelled) return;
+        if (setup.complete) {
+          const done = await hydrateOnboardingFromServer();
+          if (!done) {
+            navigate('/onboarding', { replace: true });
+            return;
+          }
+          navigate(await resolvePostAuthLanding(), { replace: true });
+          return;
+        }
+      } catch {
+        // Stay on the gate and let the user submit.
+      } finally {
+        if (!cancelled) setChecking(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -51,6 +84,17 @@ export default function WorkspaceGate() {
       setBusy(false);
     }
   };
+
+  if (checking) {
+    return (
+      <div
+        className="flex min-h-screen items-center justify-center bg-background text-sm text-on-surface-variant"
+        data-testid="workspace-gate-checking"
+      >
+        Checking workspace setup…
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-on-surface">

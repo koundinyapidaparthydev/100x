@@ -2,14 +2,14 @@
 
 > Prefer the full multi-provider guide: [FEDERATED_SSO.md](./FEDERATED_SSO.md) (Okta, Entra, Google Workspace, Google, Apple).
 
-AplifyAI supports **Okta Authorization Code + PKCE** for workspace owner / team member sign-in.
+100x supports **Okta Authorization Code + PKCE** for workspace owner / team member sign-in.
 
 ## Flow
 
 1. Web: **Continue with Okta** → `GET /api/v1/auth/okta/start?intent=login|signup`
 2. Backend redirects to Okta authorize URL (state + PKCE stored server-side)
 3. Okta redirects to `OKTA_REDIRECT_URI` → `GET /api/v1/auth/okta/callback`
-4. Backend verifies `id_token` (JWKS / RS256), mints an AplifyAI session, redirects to  
+4. Backend verifies `id_token` (JWKS / RS256), mints an 100x session, redirects to  
    `{WEB_APP_ORIGIN}/auth/callback?exchange=…&intent=…`
 5. Web exchanges the one-time code via `POST /api/v1/auth/okta/exchange` and stores the session
 
@@ -29,7 +29,7 @@ OKTA_REDIRECT_URI=http://localhost:4000/api/v1/auth/okta/callback
 WEB_APP_ORIGIN=http://localhost:3000
 OKTA_DEFAULT_ROLE=manager
 # Optional:
-# OKTA_GROUP_ROLE_MAP={"AplifyAI-Owners":"root","AplifyAI-Leads":"manager","AplifyAI-Contributors":"engineer"}
+# OKTA_GROUP_ROLE_MAP={"100x-Owners":"root","100x-Leads":"manager","100x-Contributors":"engineer"}
 ```
 
 6. Restart the backend. `GET /api/v1/auth/okta/status` should return `"enabled": true`.
@@ -39,7 +39,7 @@ OKTA_DEFAULT_ROLE=manager
 | Source | Behavior |
 |--------|----------|
 | `OKTA_GROUP_ROLE_MAP` | First matching Okta `groups` claim wins |
-| Claim `aplifyai_role` | If present and valid, overrides |
+| Claim `100x_role` | If present and valid, overrides |
 | Signup intent | If no group map configured, defaults to **root** (org owner; must complete onboarding) |
 | Otherwise | `OKTA_DEFAULT_ROLE` (default `manager`) |
 

@@ -27,7 +27,7 @@ function inviteEmailPreview(invite: WorkspaceInvite, webOrigin: string): string 
   const join = `${webOrigin.replace(/\/$/, '')}/login?invite=${encodeURIComponent(invite.id)}`;
   return [
     `To: ${invite.email}`,
-    `Subject: You're invited to AplifyAI`,
+    `Subject: You're invited to 100x`,
     '',
     `${invite.invitedByEmail} invited you to join workspace ${invite.tenantId}.`,
     `Assigned role id: ${invite.roleId}`,
@@ -43,7 +43,7 @@ async function deliverInviteEmail(
   invite: WorkspaceInvite,
   preview: string,
 ): Promise<CreateInviteResponse['emailDelivery']> {
-  const subject = `You're invited to AplifyAI`;
+  const subject = `You're invited to 100x`;
   const now = new Date().toISOString();
   let channel: InviteEmailChannel = 'stub';
   let messageId: string | null = null;

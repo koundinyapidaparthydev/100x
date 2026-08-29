@@ -1,4 +1,4 @@
-# AplifyAI development environment in the shared non-production project.
+# 100x development environment in the shared non-production project.
 project_id       = "jobseek-459701"
 region           = "us-central1"
 environment      = "dev"
@@ -14,6 +14,6 @@ static_domains    = ["dev.aplifyai.com"]
 sql_deletion_protection = true
 
 labels = {
-  team    = "aplifyai"
-  product = "aplifyai"
+  team    = "100x"
+  product = "100x"
 }

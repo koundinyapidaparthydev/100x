@@ -2,7 +2,7 @@
  * Registry of which onboarding services have an MCP server we can wire.
  *
  * Permissions are granted at connect time; the MCP server / IdP still enforces
- * the user's real ACLs. AplifyAI only stores which permission *level* the tenant
+ * the user's real ACLs. 100x only stores which permission *level* the tenant
  * enabled and which tools that level exposes.
  */
 
@@ -65,7 +65,7 @@ function tools(
   ];
 }
 
-/** Providers that expose (or can expose) MCP tools AplifyAI can connect. */
+/** Providers that expose (or can expose) MCP tools 100x can connect. */
 export const MCP_PROVIDERS: McpProviderDef[] = [
   // —— Official / strong MCP ——
   {
@@ -201,7 +201,7 @@ export const MCP_PROVIDERS: McpProviderDef[] = [
     connectable: true,
     permissionLevels: ['read', 'write'],
     docsUrl: 'https://docs.aws.amazon.com/aws-mcp/latest/userguide/what-is-mcp-server.html',
-    notes: 'AWS-hosted MCP — IAM identity, no long-lived keys in AplifyAI.',
+    notes: 'AWS-hosted MCP — IAM identity, no long-lived keys in 100x.',
     tools: tools(
       [
         ['aws_describe_resources', 'Describe tagged resources'],
@@ -429,7 +429,7 @@ export const MCP_PROVIDERS: McpProviderDef[] = [
     connectable: true,
     permissionLevels: ['read', 'write'],
     notes:
-      'Cursor is primarily an MCP client — AplifyAI will not fake Connected. Set MCP_CURSOR_BRIDGE_URL only for a real agent-kit bridge.',
+      'Cursor is primarily an MCP client — 100x will not fake Connected. Set MCP_CURSOR_BRIDGE_URL only for a real agent-kit bridge.',
     tools: tools(
       [
         ['cursor_list_kits', 'List allowed agent kits'],

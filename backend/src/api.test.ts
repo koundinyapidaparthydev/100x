@@ -47,7 +47,7 @@ describe('work items', () => {
     const res = await req.get('/api/v1/work-items').expect(200);
     const items = res.body as WorkItem[];
     expect(items).toHaveLength(21);
-    expect(new Set(items.map((w) => w.board.projectId))).toEqual(new Set(['APLIFYAI', 'INFRA', 'FE']));
+    expect(new Set(items.map((w) => w.board.projectId))).toEqual(new Set(['X100', 'INFRA', 'FE']));
     const triagePending = items.filter((w) => w.lastTriageDecision === null && w.aiStatus === 'none');
     expect(triagePending).toHaveLength(18);
   });
@@ -62,8 +62,8 @@ describe('work items', () => {
   });
 
   it('gets one work item, 404 {error} when missing', async () => {
-    const ok = await req.get('/api/v1/work-items/wi-aplifyai-101').expect(200);
-    expect((ok.body as WorkItem).board.issueKey).toBe('APLIFYAI-101');
+    const ok = await req.get('/api/v1/work-items/wi-100x-101').expect(200);
+    expect((ok.body as WorkItem).board.issueKey).toBe('X100-101');
 
     const missing = await req.get('/api/v1/work-items/nope').expect(404);
     expect(missing.body.error).toBeTruthy();
@@ -74,7 +74,7 @@ describe('triage: human-first', () => {
   it('sets aiFirst=false, durable lastTriageDecision, job=null, and writes an audit event', async () => {
     const before = store.auditEvents.length;
     const res = await req
-      .post('/api/v1/work-items/wi-aplifyai-101/triage')
+      .post('/api/v1/work-items/wi-100x-101/triage')
       .set('Authorization', `Bearer ${managerToken}`)
       .send({ aiFirst: false })
       .expect(200);
@@ -89,11 +89,11 @@ describe('triage: human-first', () => {
 
     // Leaves the triage queue permanently.
     const pending = await req.get('/api/v1/work-items?triagePending=true').expect(200);
-    expect((pending.body as WorkItem[]).some((w) => w.id === 'wi-aplifyai-101')).toBe(false);
+    expect((pending.body as WorkItem[]).some((w) => w.id === 'wi-100x-101')).toBe(false);
   });
 
   it('400 on missing aiFirst, 404 on unknown work item', async () => {
-    await req.post('/api/v1/work-items/wi-aplifyai-101/triage').set('Authorization', `Bearer ${managerToken}`).send({}).expect(400);
+    await req.post('/api/v1/work-items/wi-100x-101/triage').set('Authorization', `Bearer ${managerToken}`).send({}).expect(400);
     await req.post('/api/v1/work-items/unknown/triage').set('Authorization', `Bearer ${managerToken}`).send({ aiFirst: true }).expect(404);
   });
 });
@@ -101,7 +101,7 @@ describe('triage: human-first', () => {
 describe('triage: ai-first happy path', () => {
   it('runs the full pipeline to ready_for_human with artifacts + audit trail', async () => {
     const res = await req
-      .post('/api/v1/work-items/wi-aplifyai-101/triage')
+      .post('/api/v1/work-items/wi-100x-101/triage')
       .set('Authorization', `Bearer ${managerToken}`)
       .send({ aiFirst: true, targetCompletionPercent: 20 })
       .expect(200);
@@ -150,7 +150,7 @@ describe('triage: ai-first happy path', () => {
 
   it('redacts the seeded email ticket and still succeeds', async () => {
     const res = await req
-      .post('/api/v1/work-items/wi-aplifyai-103/triage')
+      .post('/api/v1/work-items/wi-100x-103/triage')
       .set('Authorization', `Bearer ${managerToken}`)
       .send({ aiFirst: true })
       .expect(200);
@@ -194,14 +194,14 @@ describe('triage: ai-first PII block', () => {
 
 describe('token budget enforcement', () => {
   it('fails before running when the estimate exceeds the budget', async () => {
-    // Lower the org budget so the estimate for wi-aplifyai-101 cannot fit.
+    // Lower the org budget so the estimate for wi-100x-101 cannot fit.
     const policy = store.policies[0]!;
-    const wi = store.workItems.find((w) => w.id === 'wi-aplifyai-101')!;
+    const wi = store.workItems.find((w) => w.id === 'wi-100x-101')!;
     const estimate = estimateTokens(`${wi.title}\n\n${wi.description}`.length);
     policy.tokenBudget.maxTotalTokens = estimate.total - 1;
 
     const res = await req
-      .post('/api/v1/work-items/wi-aplifyai-101/triage')
+      .post('/api/v1/work-items/wi-100x-101/triage')
       .set('Authorization', `Bearer ${managerToken}`)
       .send({ aiFirst: true })
       .expect(200);
@@ -246,7 +246,7 @@ describe('jobs / policies / boards / audit / notifications', () => {
     await req
       .post('/api/v1/boards/connect')
       .set('Authorization', `Bearer ${managerToken}`)
-      .send({ projectId: 'APLIFYAI', name: 'AplifyAI Core' })
+      .send({ projectId: 'X100', name: '100x Core' })
       .expect(201);
     await req
       .post('/api/v1/boards/connect')
@@ -262,12 +262,12 @@ describe('jobs / policies / boards / audit / notifications', () => {
     const res = await req.get('/api/v1/boards').expect(200);
     expect(res.body).toHaveLength(3);
     const keys = res.body.map((b: { issuePrefix: string }) => b.issuePrefix).sort();
-    expect(keys).toEqual(['APLIFYAI', 'FE', 'INFRA']);
+    expect(keys).toEqual(['X100', 'FE', 'INFRA']);
     expect(res.body.every((b: { activeIssues: number }) => b.activeIssues > 0)).toBe(true);
   });
 
   it('returns audit events newest first', async () => {
-    await req.post('/api/v1/work-items/wi-aplifyai-101/triage').set('Authorization', `Bearer ${managerToken}`).send({ aiFirst: false });
+    await req.post('/api/v1/work-items/wi-100x-101/triage').set('Authorization', `Bearer ${managerToken}`).send({ aiFirst: false });
     const res = await req.get('/api/v1/audit-events').expect(200);
     const events = res.body as AuditEvent[];
     expect(events.length).toBeGreaterThan(0);
@@ -440,7 +440,7 @@ describe('auth', () => {
 
   it('never treats x-actor-id as an authenticated manager', async () => {
     await req
-      .post('/api/v1/work-items/wi-aplifyai-101/triage')
+      .post('/api/v1/work-items/wi-100x-101/triage')
       .set('x-actor-id', 'synthetic-manager')
       .send({ aiFirst: false })
       .expect(401);
@@ -450,7 +450,7 @@ describe('auth', () => {
     const login = await req.post('/api/v1/auth/login').send({ identity: 'engineer' }).expect(200);
     const token = login.body.session.token as string;
     const bearer = { Authorization: `Bearer ${token}` };
-    await req.post('/api/v1/work-items/wi-aplifyai-101/triage').set(bearer).send({ aiFirst: false }).expect(403);
+    await req.post('/api/v1/work-items/wi-100x-101/triage').set(bearer).send({ aiFirst: false }).expect(403);
     await req
       .post('/api/v1/approvals/app-infra-221/decision')
       .set(bearer)
@@ -458,7 +458,7 @@ describe('auth', () => {
       .expect(403);
     await req.post('/api/v1/notifications/ntf-2/read').set(bearer).expect(403);
     await req
-      .patch('/api/v1/work-items/wi-aplifyai-101/assignee')
+      .patch('/api/v1/work-items/wi-100x-101/assignee')
       .set(bearer)
       .send({ assigneeExternalId: 'someone' })
       .expect(403);
@@ -482,10 +482,10 @@ describe('auth', () => {
       .send({ projectId: 'ENG-DENIED', name: 'Denied' })
       .expect(403);
 
-    await req.post('/api/v1/boards/APLIFYAI/sync').set(bearer).expect(403);
+    await req.post('/api/v1/boards/X100/sync').set(bearer).expect(403);
 
     await req
-      .post('/api/v1/work-items/wi-aplifyai-101/triage')
+      .post('/api/v1/work-items/wi-100x-101/triage')
       .set(bearer)
       .send({ aiFirst: false })
       .expect(403);
@@ -971,7 +971,7 @@ describe('mcp connections', () => {
     await req
       .put('/api/v1/mcp/credentials/aws')
       .set('Authorization', `Bearer ${managerToken}`)
-      .send({ roleArn: 'arn:aws:iam::123456789012:role/AplifyMcp' })
+      .send({ roleArn: 'arn:aws:iam::123456789012:role/X100Mcp' })
       .expect(200);
 
     const awsConnected = await req

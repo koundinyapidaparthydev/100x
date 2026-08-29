@@ -32,7 +32,7 @@ const MODES: {
   },
   {
     id: 'public_managed',
-    title: 'AplifyAI private cloud',
+    title: '100x private cloud',
     description:
       'Run on our managed private cloud. No customer AWS, Azure, GCP, or NVIDIA account required.',
   },
@@ -189,7 +189,7 @@ export default function Cloud() {
       <PageHeader
         eyebrow="Governance / Policy workspace / Runtime"
         title="Cloud runtime"
-        description="Choose connected customer accounts, AplifyAI private cloud, or bring-your-own-cloud for the active environment — then pick the specific platform when needed."
+        description="Choose connected customer accounts, 100x private cloud, or bring-your-own-cloud for the active environment — then pick the specific platform when needed."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {activeEnv ? (
@@ -227,7 +227,7 @@ export default function Cloud() {
                 description={
                   readOnly
                     ? 'These fields are read-only for the current role or policy.'
-                    : 'If you link AWS, Azure, GCP, or NVIDIA, you can run AI in those accounts instead of an AplifyAI-created one.'
+                    : 'If you link AWS, Azure, GCP, or NVIDIA, you can run AI in those accounts instead of an 100x-created one.'
                 }
               >
                 <div
@@ -342,7 +342,7 @@ export default function Cloud() {
 
             <Card title="What this setting means" className="bg-surface-container-low">
               <p className="text-sm leading-6 text-on-surface-variant">
-                Connected accounts and BYOC run under the customer’s cloud billing and IAM. AplifyAI
+                Connected accounts and BYOC run under the customer’s cloud billing and IAM. 100x
                 private cloud runs on our managed plane. The selected provider, mode, and region are
                 stamped onto future AI jobs; this page does not verify network isolation or account
                 ownership by itself.

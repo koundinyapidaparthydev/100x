@@ -1,6 +1,6 @@
 # Security Model
 
-Security is the **top priority**. Enterprise customers will only adopt AplifyAI if we can prove their code, tickets, and customer data stay safe — including when AI runs.
+Security is the **top priority**. Enterprise customers will only adopt 100x if we can prove their code, tickets, and customer data stay safe — including when AI runs.
 
 ## Promise to customers
 
@@ -86,7 +86,7 @@ Founders can lock a **minimum** level so employees cannot weaken org policy.
 
 Customers choose where AI and storage run:
 
-- AplifyAI managed region
+- 100x managed region
 - Customer AWS account
 - Customer Azure subscription
 - Customer GCP project

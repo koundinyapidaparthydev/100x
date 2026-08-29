@@ -42,14 +42,14 @@ describe('Okta config + mapping', () => {
     process.env.OKTA_CLIENT_SECRET = 'client-secret';
     process.env.OKTA_REDIRECT_URI = 'http://localhost:4000/api/v1/auth/okta/callback';
     process.env.OKTA_DEFAULT_ROLE = 'role-default';
-    process.env.OKTA_GROUP_ROLE_MAP = JSON.stringify({ 'AplifyAI-Owners': 'role-owners' });
+    process.env.OKTA_GROUP_ROLE_MAP = JSON.stringify({ '100x-Owners': 'role-owners' });
     const cfg = getOktaConfig()!;
     const user = mapOktaClaimsToUser(
       {
         sub: 'okta-sub-1',
         email: 'owner@acme.com',
         name: 'Owner Person',
-        groups: ['AplifyAI-Owners', 'Everyone'],
+        groups: ['100x-Owners', 'Everyone'],
       },
       cfg,
       'web',
@@ -65,10 +65,10 @@ describe('Okta config + mapping', () => {
     process.env.OKTA_CLIENT_ID = 'client-id';
     process.env.OKTA_CLIENT_SECRET = 'client-secret';
     process.env.OKTA_REDIRECT_URI = 'http://localhost:4000/api/v1/auth/okta/callback';
-    process.env.OKTA_GROUP_ROLE_MAP = JSON.stringify({ 'AplifyAI-Owners': 'root' });
+    process.env.OKTA_GROUP_ROLE_MAP = JSON.stringify({ '100x-Owners': 'root' });
     const cfg = getOktaConfig()!;
     const user = mapOktaClaimsToUser(
-      { sub: 'okta-sub-2', email: 'legacy@acme.com', groups: ['AplifyAI-Owners'] },
+      { sub: 'okta-sub-2', email: 'legacy@acme.com', groups: ['100x-Owners'] },
       cfg,
       'web',
     );

@@ -20,7 +20,7 @@ export default function TabsLayout() {
         headerTintColor: colors.text,
         headerTitleStyle: { fontWeight: '600', fontSize: 15 },
         headerLeft: () => (
-          <View style={styles.brandMark} accessibilityLabel="AplifyAI">
+          <View style={styles.brandMark} accessibilityLabel="100x">
             <Image source={MARK} style={styles.brandImage} resizeMode="contain" />
           </View>
         ),

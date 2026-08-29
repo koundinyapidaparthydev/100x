@@ -1,6 +1,6 @@
 # Federated sign-in (SSO + social)
 
-AplifyAI supports **OIDC Authorization Code + PKCE** for:
+100x supports **OIDC Authorization Code + PKCE** for:
 
 | Provider | Button label | Category |
 |----------|--------------|----------|
@@ -20,7 +20,7 @@ Demo email/role login still works when IdPs are not configured.
 4. IdP redirects to `GET /api/v1/auth/{provider}/callback`.
 5. Backend verifies `id_token`, issues a federated session, and redirects:
    - **Web:** `{WEB_APP_ORIGIN}/auth/callback?exchange=…&intent=…&provider=…`
-   - **Mobile:** `{MOBILE_APP_ORIGIN}/callback?exchange=…&intent=…&provider=…` (default `aplifyai://auth/callback`)
+   - **Mobile:** `{MOBILE_APP_ORIGIN}/callback?exchange=…&intent=…&provider=…` (default `100x://auth/callback`)
 6. Client exchanges once via `POST /api/v1/auth/federated/exchange` `{ exchange }` and stores the Bearer session.
 
 Per-provider exchange routes (`POST /api/v1/auth/{provider}/exchange`) remain for compatibility.
@@ -29,7 +29,7 @@ Per-provider exchange routes (`POST /api/v1/auth/{provider}/exchange`) remain fo
 
 ```bash
 WEB_APP_ORIGIN=http://localhost:3000
-MOBILE_APP_ORIGIN=aplifyai://auth
+MOBILE_APP_ORIGIN=100x://auth
 AUTH_SESSION_SECRET=… # ≥32 chars
 ```
 
@@ -43,7 +43,7 @@ OKTA_CLIENT_ID=
 OKTA_CLIENT_SECRET=
 OKTA_REDIRECT_URI=http://localhost:4000/api/v1/auth/okta/callback
 # OKTA_DEFAULT_ROLE=manager
-# OKTA_GROUP_ROLE_MAP={"AplifyAI-Owners":"founder"}
+# OKTA_GROUP_ROLE_MAP={"100x-Owners":"founder"}
 ```
 
 ### Microsoft Entra ID
@@ -54,7 +54,7 @@ ENTRA_CLIENT_ID=
 ENTRA_CLIENT_SECRET=
 ENTRA_REDIRECT_URI=http://localhost:4000/api/v1/auth/entra/callback
 # ENTRA_DEFAULT_ROLE=manager
-# ENTRA_GROUP_ROLE_MAP={"AplifyAI-Owners":"founder"}
+# ENTRA_GROUP_ROLE_MAP={"100x-Owners":"founder"}
 ```
 
 Create an **App registration** → Web redirect URI matching `ENTRA_REDIRECT_URI`. Enable ID tokens. Add optional claims `email`, `preferred_username`, and group claims if you use role maps.
@@ -91,7 +91,7 @@ GOOGLE_WORKSPACE_HD=yourcompany.com
 ### Apple (Continue with Apple)
 
 ```bash
-APPLE_CLIENT_ID=com.example.aplifyai.service
+APPLE_CLIENT_ID=com.example.100x.service
 APPLE_TEAM_ID=
 APPLE_KEY_ID=
 APPLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n…\n-----END PRIVATE KEY-----"
@@ -105,7 +105,7 @@ Create a Services ID with Sign in with Apple, configure the return URL to `APPLE
 
 1. Pending workspace invite matching email (role from invite; invite marked accepted)
 2. First matching entry in `{PROVIDER}_GROUP_ROLE_MAP` (Okta/Entra/Workspace groups or Entra `roles`)
-3. Custom claim `aplifyai_role` when present
+3. Custom claim `100x_role` when present
 4. Signup with empty group map → `root` (org owner; must complete onboarding)
 5. Else `{PROVIDER}_DEFAULT_ROLE` (Google default `root`; Apple default `engineer`; enterprise SSO default `manager`)
 
@@ -126,6 +126,6 @@ Each provider also exposes `GET /api/v1/auth/{provider}/status`.
 | Web login/signup | Buttons in `WorkspaceAuthForm` |
 | Web callback | `/auth/callback` |
 | Mobile login | Buttons on `mobile/app/login.tsx` via `expo-web-browser` |
-| Mobile callback | `aplifyai://auth/callback` → `mobile/app/auth/callback.tsx` |
+| Mobile callback | `100x://auth/callback` → `mobile/app/auth/callback.tsx` |
 
 See also [OKTA_SSO.md](./OKTA_SSO.md) for Okta-specific Admin Console notes.

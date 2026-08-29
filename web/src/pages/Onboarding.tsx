@@ -35,7 +35,7 @@ import {
   ServicePicker,
   SlideShell,
 } from '../components/onboarding';
-import { AplifyLogo } from '../components/AplifyLogo';
+import { BrandLogo } from '../components/BrandLogo';
 import { Chip, Field } from '../components/ui';
 import { FREE_CATALOG_CATEGORIES, getService } from '../lib/serviceCatalog';
 import {
@@ -468,7 +468,7 @@ export default function Onboarding() {
     >
       <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-4 py-3 sm:px-6 lg:px-8">
         <div className="mb-2 shrink-0">
-          <AplifyLogo size={24} withWordmark wordmarkClassName="text-sm" />
+          <BrandLogo size={24} withWordmark wordmarkClassName="text-sm" />
         </div>
         {saveError ? (
           <p
@@ -529,7 +529,7 @@ export default function Onboarding() {
                 <OptionCards
                   testId="lite-team-size"
                   label="Delivery team size"
-                  info="Choose the size of the group that will use AplifyAI day to day. We use this for default collaboration and approval patterns—not billing."
+                  info="Choose the size of the group that will use 100x day to day. We use this for default collaboration and approval patterns—not billing."
                   hint="Required · pick one"
                   columns={2}
                   selected={profile.lite?.teamSize}

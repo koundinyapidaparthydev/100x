@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
-export const ONBOARDING_SEEN_KEY = 'aplifyai.mobile.onboarding.seen';
+export const ONBOARDING_SEEN_KEY = '100x.mobile.onboarding.seen';
 
 async function writeFlag(value: string) {
   try {

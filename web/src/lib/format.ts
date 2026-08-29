@@ -58,8 +58,8 @@ export function providerDisplay(provider: string, customLabel?: string): string 
 }
 
 const CLOUD_MODES: Record<string, string> = {
-  /** AplifyAI-hosted managed private plane — no customer cloud account required. */
-  public_managed: 'AplifyAI private cloud',
+  /** 100x-hosted managed private plane — no customer cloud account required. */
+  public_managed: '100x private cloud',
   /** Bring-your-own-cloud — customer picks platform and connects their account. */
   private_vpc: 'Your cloud (BYOC)',
   /** Execute in cloud accounts already linked (AWS / Azure / GCP / NVIDIA). */

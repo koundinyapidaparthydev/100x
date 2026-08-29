@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AplifyLogo } from '@/src/AplifyLogo';
+import { BrandLogo } from '@/src/BrandLogo';
 import { hasSeenOnboarding } from '@/src/onboarding';
 import { colors } from '@/src/ui';
 import { SessionProvider, useSession } from '@/src/session';
@@ -16,7 +16,7 @@ void SplashScreen.preventAutoHideAsync().catch(() => {
 function BootLoading() {
   return (
     <View style={styles.boot} testID="boot-loading">
-      <AplifyLogo size={48} withWordmark stacked />
+      <BrandLogo size={48} withWordmark stacked />
       <ActivityIndicator color={colors.primary} style={styles.bootSpinner} />
       <Text style={styles.bootMeta}>Loading your workspace…</Text>
     </View>

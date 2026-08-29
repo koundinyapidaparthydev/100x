@@ -67,11 +67,11 @@ test.describe('Approvals & audit', () => {
     // Connect + sync a board to append a visible audit trail, then reload log.
     await page.goto('/projects');
     await page.getByTestId('boards-connect-open').click();
-    await page.getByTestId('boards-connect-project-id').fill('APLIFYAI');
-    await page.getByTestId('boards-connect-name').fill('AplifyAI Core');
+    await page.getByTestId('boards-connect-project-id').fill('X100');
+    await page.getByTestId('boards-connect-name').fill('100x Core');
     await page.getByTestId('boards-connect-submit').click();
     await page.goto('/projects');
-    await page.getByTestId('board-sync-APLIFYAI').click();
+    await page.getByTestId('board-sync-X100').click();
     await page.goto('/audit');
     await expect(page.getByTestId('audit-table')).toBeVisible();
     await expect(page.locator('td').filter({ hasText: /board\.|sync|auth\.|job\./i }).first()).toBeVisible();

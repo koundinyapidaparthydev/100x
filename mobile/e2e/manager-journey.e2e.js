@@ -41,7 +41,7 @@ async function clearTriageFilter() {
   await waitForVisible(by.id('triage-swipe-card'));
 }
 
-describe('AplifyAI manager journey', () => {
+describe('100x manager journey', () => {
   beforeAll(async () => {
     // Avoid device.openURL mid-test — it can leave a RemoteView overlay that
     // blocks taps on login controls.
@@ -95,7 +95,7 @@ describe('AplifyAI manager journey', () => {
   });
 
   it('opens ticket details from triage', async () => {
-    await filterTriageQueue('APLIFYAI-101');
+    await filterTriageQueue('X100-101');
     await element(by.id('triage-swipe-card')).tap();
     await waitForVisible(by.id('ticket-detail-screen'));
     await expect(element(by.text('Refactor authentication middleware'))).toBeVisible();
@@ -107,7 +107,7 @@ describe('AplifyAI manager journey', () => {
 
   it('triages a ticket by swiping right (AI)', async () => {
     // Right swipe = AI-first; keep stable story ticket out of priority-sort races.
-    await filterTriageQueue('APLIFYAI-101');
+    await filterTriageQueue('X100-101');
     await element(by.id('triage-swipe-card')).swipe('right', 'fast', 0.8);
     await waitForVisible(by.id('ticket-detail-screen'));
     await expect(element(by.text('Refactor authentication middleware'))).toBeVisible();
@@ -118,7 +118,7 @@ describe('AplifyAI manager journey', () => {
   });
 
   it('triages a ticket human-first with the button fallback', async () => {
-    await filterTriageQueue('APLIFYAI-103');
+    await filterTriageQueue('X100-103');
     await element(by.id('triage-human-button')).tap();
     await clearTriageFilter();
     await waitForVisible(by.id('triage-swipe-card'));

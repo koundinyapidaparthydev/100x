@@ -1,15 +1,15 @@
 # GCP multi-environment infrastructure (Terraform)
 
-AplifyAI runs `dev` and `stage` in shared Project A (`jobseek-459701`).
-Production uses the separate Project B `aplifyai-prod-2026`.
+100x runs `dev` and `stage` in shared Project A (`jobseek-459701`).
+Production uses the separate Project B `100x-prod-2026`.
 
 | Environment | Project | Domain | Subnet example | Resource suffix |
 |-------------|---------|--------|----------------|-----------------|
 | `dev` | `jobseek-459701` | `dev.aplifyai.com` | `10.20.0.0/24` | `dev` |
 | `stage` | `jobseek-459701` | `stage.aplifyai.com` | `10.10.0.0/24` | `staging` (compatibility) |
-| `production` | `aplifyai-prod-2026` | `aplifyai.com` | `10.30.0.0/24` | `production` |
+| `production` | `100x-prod-2026` | `100x.com` | `10.30.0.0/24` | `production` |
 
-The `stage` input maps to the existing `aplifyai-staging-*` resource names.
+The `stage` input maps to the existing `100x-staging-*` resource names.
 This avoids renaming or destroying the current stack when its tfvars move from
 the legacy value `staging` to `stage`.
 

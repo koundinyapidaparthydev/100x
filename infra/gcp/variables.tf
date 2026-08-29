@@ -1,5 +1,5 @@
 variable "project_id" {
-  description = "GCP project ID for this AplifyAI environment."
+  description = "GCP project ID for this 100x environment."
   type        = string
 
   validation {
@@ -28,7 +28,7 @@ variable "environment" {
 variable "name_prefix" {
   description = "Short prefix for resource names."
   type        = string
-  default     = "aplifyai"
+  default     = "100x"
 
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{1,20}$", var.name_prefix))
@@ -55,7 +55,7 @@ variable "enable_apis" {
 variable "artifact_repo_id" {
   description = "Artifact Registry repository ID for container images."
   type        = string
-  default     = "aplifyai"
+  default     = "100x"
 }
 
 variable "cloud_run_image" {
@@ -173,13 +173,13 @@ variable "sql_backup_enabled" {
 variable "db_name" {
   description = "Application database name."
   type        = string
-  default     = "aplifyai"
+  default     = "100x"
 }
 
 variable "db_user" {
   description = "Application database user."
   type        = string
-  default     = "aplifyai"
+  default     = "100x"
 }
 
 variable "artifact_retention_days" {
@@ -201,7 +201,7 @@ variable "enable_static_cdn" {
 }
 
 variable "static_domains" {
-  description = "Custom DNS names for the AplifyAI frontend (documented domain: aplifyai.com). Google-managed certificates are created only when enable_static_cdn is true and this list is non-empty."
+  description = "Custom DNS names for the 100x frontend (documented domain: 100x.com). Google-managed certificates are created only when enable_static_cdn is true and this list is non-empty."
   type        = list(string)
   default     = []
 

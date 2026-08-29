@@ -147,7 +147,7 @@ export default function Projects() {
         <EmptyState
           icon={<Compass size={22} />}
           title="No projects connected"
-          body="Finish connecting your tools, then connect a Jira project to sync work into AplifyAI."
+          body="Finish connecting your tools, then connect a Jira project to sync work into 100x."
         />
       )}
       {!loading && !error && data && data.boards.length > 0 && visibleBoards.length === 0 && (

@@ -1,8 +1,8 @@
 {
-  "name": "aplifyai",
+  "name": "100x",
   "private": true,
   "version": "0.1.0",
-  "description": "AplifyAI monorepo — backend, shared contracts, web control plane, mobile triage.",
+  "description": "100x monorepo — backend, shared contracts, web control plane, mobile triage.",
   "workspaces": [
     "backend",
     "shared",
@@ -14,14 +14,14 @@
   },
   "packageManager": "npm@10.9.2",
   "scripts": {
-    "dev": "npm run dev -w aplifyai-backend",
-    "dev:backend": "npm run dev -w aplifyai-backend",
-    "dev:web": "npm run dev -w aplifyai-web",
-    "dev:mobile": "npm run dev -w aplifyai-mobile",
+    "dev": "npm run dev -w 100x-backend",
+    "dev:backend": "npm run dev -w 100x-backend",
+    "dev:web": "npm run dev -w 100x-web",
+    "dev:mobile": "npm run dev -w 100x-mobile",
     "typecheck": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "test:e2e:web": "npm run test:e2e -w aplifyai-web",
-    "test:e2e:mobile": "npm run test:e2e -w aplifyai-mobile",
+    "test:e2e:web": "npm run test:e2e -w 100x-web",
+    "test:e2e:mobile": "npm run test:e2e -w 100x-mobile",
     "seed:demo-queue": "node scripts/seed-demo-queue.mjs",
     "build": "npm run build --workspaces --if-present"
   },

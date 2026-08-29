@@ -2,8 +2,8 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import type { OnboardingProfile } from '@shared/types';
 import { emptyOnboardingProfile, markOnboardingComplete } from '../src/lib/onboardingStorage';
 
-export const DEMO_SESSION_KEY = 'aplifyai-demo-session';
-export const ONBOARDING_STORAGE_KEY = 'aplifyai-onboarding';
+export const DEMO_SESSION_KEY = '100x-demo-session';
+export const ONBOARDING_STORAGE_KEY = '100x-onboarding';
 
 /** Demo seat identities — prefer root for privileged flows; engineer/member for negative RBAC. */
 export type DemoIdentity = 'manager' | 'root' | 'engineer' | 'member';

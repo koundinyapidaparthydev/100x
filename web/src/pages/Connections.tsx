@@ -47,7 +47,7 @@ type TransportRow = { serviceId: ServiceId; ready: boolean; note: string; endpoi
 
 type ConnectionRow = ServiceCatalogEntry & { selected: true };
 
-const PENDING_CONNECT_KEY = 'aplifyai.mcp.pendingConnect';
+const PENDING_CONNECT_KEY = '100x.mcp.pendingConnect';
 
 /** Connections we surface as connectable now; everything else is Upcoming in the layout. */
 const LIVE_CONNECTION_ORDER: ServiceId[] = [
@@ -748,7 +748,7 @@ export default function Connections() {
       reloadForEnv(id);
     };
     const onStorage = (event: StorageEvent) => {
-      if (event.key === 'aplifyai-active-environment') {
+      if (event.key === '100x-active-environment') {
         reloadForEnv(readCachedActiveEnvironmentId());
       }
     };
@@ -1163,7 +1163,7 @@ export default function Connections() {
           <Card
             className="w-full max-w-lg shadow-lg"
             title={`Connect ${getService(connectFor)?.name ?? connectProvider.serviceId} MCP`}
-            description="Choose the capability band AplifyAI may request. The provider MCP server still enforces the signed-in user’s permissions."
+            description="Choose the capability band 100x may request. The provider MCP server still enforces the signed-in user’s permissions."
             hierarchy="primary"
             actions={
               <Button type="button" variant="quiet" onClick={() => setConnectFor(null)}>
@@ -1286,7 +1286,7 @@ export default function Connections() {
                 label="AWS role ARN"
                 value={iamRoleArn}
                 onChange={(e) => setIamRoleArn(e.target.value)}
-                placeholder="arn:aws:iam::123456789012:role/AplifyMcp"
+                placeholder="arn:aws:iam::123456789012:role/X100Mcp"
                 data-testid="mcp-iam-role-arn"
               />
             )}

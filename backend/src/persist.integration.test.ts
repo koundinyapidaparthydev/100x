@@ -4,7 +4,7 @@
  * Prefer TEST_DATABASE_URL (dedicated test DB). Falls back to DATABASE_URL.
  * Skips cleanly when neither is set — Docker/Testcontainers are not required on this machine.
  *
- * Run: npm run test:integration -w aplifyai-backend
+ * Run: npm run test:integration -w 100x-backend
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

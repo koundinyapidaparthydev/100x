@@ -75,7 +75,7 @@ export default function IamImportWizard() {
       <PageHeader
         eyebrow="Identity"
         title="Import IAM"
-        description="Phase 1 stub — preview-map AWS/GCP exports into AplifyAI users and groups. Live API pull ships later."
+        description="Phase 1 stub — preview-map AWS/GCP exports into 100x users and groups. Live API pull ships later."
         actions={
           <Link to="/console/users" className="text-sm font-medium text-primary hover:underline">
             Back to Users

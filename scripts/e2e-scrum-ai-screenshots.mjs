@@ -49,7 +49,7 @@ async function main() {
   await page.evaluate(
     ({ token, user }) => {
       localStorage.setItem(
-        'aplifyai-demo-session',
+        '100x-demo-session',
         JSON.stringify({
           token,
           id: user.id,
@@ -58,7 +58,7 @@ async function main() {
         }),
       );
       localStorage.setItem(
-        'aplifyai-onboarding',
+        '100x-onboarding',
         JSON.stringify({
           plan: 'free',
           selectedServices: ['jira', 'slack', 'github'],

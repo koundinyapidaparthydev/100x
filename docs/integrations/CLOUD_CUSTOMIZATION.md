@@ -1,6 +1,6 @@
 # Cloud Customization
 
-Customers choose **where data is stored** and **where AI runs**. AplifyAI is cloud-agnostic at the policy layer and adapter-based at the implementation layer.
+Customers choose **where data is stored** and **where AI runs**. 100x is cloud-agnostic at the policy layer and adapter-based at the implementation layer.
 
 ## Account source (product choice)
 
@@ -8,8 +8,8 @@ When a workspace has (or will) connect AWS, Azure, GCP, or NVIDIA, onboarding an
 
 | Choice | Policy `mode` | Meaning |
 |--------|---------------|---------|
-| **Connected cloud accounts** | `customer_cloud` | Run AI in accounts already linked from the stack. We use **their** AWS/Azure/GCP/NVIDIA account — we do not create a separate AplifyAI account in that cloud. |
-| **AplifyAI private cloud** | `public_managed` | Run on our managed private plane. No customer cloud account required. |
+| **Connected cloud accounts** | `customer_cloud` | Run AI in accounts already linked from the stack. We use **their** AWS/Azure/GCP/NVIDIA account — we do not create a separate 100x account in that cloud. |
+| **100x private cloud** | `public_managed` | Run on our managed private plane. No customer cloud account required. |
 | **Your cloud (BYOC)** | `private_vpc` | Bring-your-own-cloud. Customer picks the platform (AWS, Azure, GCP, NVIDIA, generic private, or other) and connects that account under Connections. |
 
 After choosing connected accounts or BYOC, the customer selects the **specific** platform. Connected mode prefers platforms already selected/linked; BYOC offers the full platform list.
@@ -24,7 +24,7 @@ After choosing connected accounts or BYOC, the customer selects the **specific**
 | NVIDIA | Customer object store + secrets | DGX Cloud / NGC / customer GPU runners | First-class private GPU path |
 | Generic private cloud | Customer object store + DB | Customer GPU/CPU runners | Via standard adapters |
 | Custom / other platform | Customer-defined | Customer-defined runners | Free-text label (e.g. Oracle, CoreWeave, on-prem) |
-| AplifyAI managed | Our regions | Our controlled runners | Default for pilots |
+| 100x managed | Our regions | Our controlled runners | Default for pilots |
 
 Private / customer modes (`private_vpc`, `customer_cloud`) let the org pick **AWS, Azure, GCP, NVIDIA, generic private, or any other named platform**.
 
@@ -61,7 +61,7 @@ Storage and execution providers **may differ**.
 
 1. Founder selects provider in web control plane.
 2. Connect via OIDC / IAM role assumption (preferred) or short-lived credentials.
-3. AplifyAI validates permissions with least privilege (write artifacts, invoke model gateway, read secrets).
+3. 100x validates permissions with least privilege (write artifacts, invoke model gateway, read secrets).
 4. Health check job runs in the customer environment.
 5. Policy becomes available to orchestrator.
 
@@ -75,7 +75,7 @@ Never store long-lived access keys in application DB without vault wrapping.
 | Private GenAI | Models hosted in customer VPC / dedicated endpoints; no training on customer data |
 | Hybrid | Embeddings private; generation public — only if policy allows |
 
-“Our genic area” / managed GenAI is an optional AplifyAI-hosted plane for customers who do not bring their own — still subject to PII firewall and audit.
+“Our genic area” / managed GenAI is an optional 100x-hosted plane for customers who do not bring their own — still subject to PII firewall and audit.
 
 ## Scaling story
 

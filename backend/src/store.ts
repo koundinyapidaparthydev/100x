@@ -6,7 +6,7 @@
  * per `createApp()`).
  *
  * Seed coverage required by the build spec:
- *  - ~21 WorkItems across 3 Jira projects (APLIFYAI, INFRA, FE)
+ *  - ~21 WorkItems across 3 Jira projects (X100, INFRA, FE)
  *  - 18 triage-pending (lastTriageDecision=null && aiStatus=none) for swipe demos
  *  - Connected boards start empty — connect via UI / API
  *  - one ticket with an email in its description (→ redact path, succeeds)
@@ -159,7 +159,7 @@ type SeedPriority = WorkItem['priority'];
 
 /** Compact specs for extra triage-pending tickets (beyond the 8 story WIs). */
 const EXTRA_TRIAGE_SPECS: Array<{
-  projectId: 'APLIFYAI' | 'INFRA' | 'FE';
+  projectId: 'X100' | 'INFRA' | 'FE';
   issueNum: number;
   title: string;
   labels: string[];
@@ -169,7 +169,7 @@ const EXTRA_TRIAGE_SPECS: Array<{
   description: string;
 }> = [
   {
-    projectId: 'APLIFYAI',
+    projectId: 'X100',
     issueNum: 104,
     title: 'Cache policy decisions for hot triage paths',
     labels: ['backend', 'performance'],
@@ -180,7 +180,7 @@ const EXTRA_TRIAGE_SPECS: Array<{
       'Triage endpoints re-evaluate org policy on every request. Add a short-TTL in-process cache keyed by tenant + policy version, with invalidation on PATCH /policies.',
   },
   {
-    projectId: 'APLIFYAI',
+    projectId: 'X100',
     issueNum: 105,
     title: 'Surface token-budget warnings before AI start',
     labels: ['backend', 'ux'],
@@ -191,7 +191,7 @@ const EXTRA_TRIAGE_SPECS: Array<{
       'When estimated tokens exceed 80% of the org budget, return a soft warning in the triage response so managers can approve a budget extension first.',
   },
   {
-    projectId: 'APLIFYAI',
+    projectId: 'X100',
     issueNum: 106,
     title: 'Normalize webhook signature verification errors',
     labels: ['integrations', 'security'],
@@ -202,7 +202,7 @@ const EXTRA_TRIAGE_SPECS: Array<{
       'Signature mismatches currently return 500. Map them to 401 with a stable error code and audit the failure without logging the raw payload.',
   },
   {
-    projectId: 'APLIFYAI',
+    projectId: 'X100',
     issueNum: 107,
     title: 'Document sandbox AI runner limitations',
     labels: ['docs'],
@@ -213,7 +213,7 @@ const EXTRA_TRIAGE_SPECS: Array<{
       'When no model API keys are set (OPENAI_API_KEY / ANTHROPIC_API_KEY / OPENROUTER_API_KEY), the sandbox runner returns canned artifacts. Add a short ops note in the README so demos do not look like live model output.',
   },
   {
-    projectId: 'APLIFYAI',
+    projectId: 'X100',
     issueNum: 108,
     title: 'Trim oversized ticket descriptions before tokenize',
     labels: ['backend', 'pii'],
@@ -316,8 +316,8 @@ const EXTRA_TRIAGE_SPECS: Array<{
 ];
 
 function buildExtraTriageWorkItems(): WorkItem[] {
-  const issueIdBase: Record<'APLIFYAI' | 'INFRA' | 'FE', number> = {
-    APLIFYAI: 10_000,
+  const issueIdBase: Record<'X100' | 'INFRA' | 'FE', number> = {
+    X100: 10_000,
     INFRA: 20_000,
     FE: 30_000,
   };
@@ -388,9 +388,9 @@ export function createSeedStore(): Store {
 
   const workItems: WorkItem[] = [
     {
-      id: 'wi-aplifyai-101',
+      id: 'wi-100x-101',
       tenantId: TENANT_ID,
-      board: { type: 'jira', projectId: 'APLIFYAI', issueKey: 'APLIFYAI-101', issueId: '10001' },
+      board: { type: 'jira', projectId: 'X100', issueKey: 'X100-101', issueId: '10001' },
       title: 'Refactor authentication middleware',
       status: 'To Do',
       assigneeExternalId: null,
@@ -403,14 +403,14 @@ export function createSeedStore(): Store {
       description:
         'The Express auth middleware has grown to 400+ lines with mixed JWT and session logic. ' +
         'Split it into strategy modules, add unit tests for token expiry edge cases, and keep the public API unchanged.\n\n' +
-        '![Auth flow sketch](https://picsum.photos/seed/aplify-auth/640/360)',
+        '![Auth flow sketch](https://picsum.photos/seed/100x-auth/640/360)',
       priority: 'high',
       updatedAt: hoursAgo(3),
     },
     {
-      id: 'wi-aplifyai-102',
+      id: 'wi-100x-102',
       tenantId: TENANT_ID,
-      board: { type: 'jira', projectId: 'APLIFYAI', issueKey: 'APLIFYAI-102', issueId: '10002' },
+      board: { type: 'jira', projectId: 'X100', issueKey: 'X100-102', issueId: '10002' },
       title: 'Fix pagination on audit log API',
       status: 'In Progress',
       assigneeExternalId: 'u-priya',
@@ -427,9 +427,9 @@ export function createSeedStore(): Store {
       updatedAt: hoursAgo(1),
     },
     {
-      id: 'wi-aplifyai-103',
+      id: 'wi-100x-103',
       tenantId: TENANT_ID,
-      board: { type: 'jira', projectId: 'APLIFYAI', issueKey: 'APLIFYAI-103', issueId: '10003' },
+      board: { type: 'jira', projectId: 'X100', issueKey: 'X100-103', issueId: '10003' },
       title: 'Add retry logic to webhook delivery',
       status: 'To Do',
       assigneeExternalId: null,
@@ -501,7 +501,7 @@ export function createSeedStore(): Store {
       description:
         'CI runners currently have unrestricted egress. Restrict to the package registries and the artifact ' +
         'store; log denied destinations for a week before enforcing.\n\n' +
-        '![Egress allowlist draft](https://picsum.photos/seed/aplify-egress/640/360)',
+        '![Egress allowlist draft](https://picsum.photos/seed/100x-egress/640/360)',
       priority: 'high',
       updatedAt: hoursAgo(8),
     },
@@ -551,7 +551,7 @@ export function createSeedStore(): Store {
   const jobs: AiJob[] = [
     {
       id: 'job-running-1',
-      workItemId: 'wi-aplifyai-102',
+      workItemId: 'wi-100x-102',
       tenantId: TENANT_ID,
       state: 'running',
       model: { provider: policy.model.provider, modelId: policy.model.modelId },
@@ -651,9 +651,9 @@ export function createSeedStore(): Store {
         requestedAt: hoursAgo(3),
       },
       {
-        id: 'app-aplifyai-103',
-        workItemId: 'wi-aplifyai-103',
-        title: 'Grant PII access for APLIFYAI-103 review',
+        id: 'app-100x-103',
+        workItemId: 'wi-100x-103',
+        title: 'Grant PII access for X100-103 review',
         reason:
           'Manager needs a time-boxed view of the redacted email fields to confirm the webhook owner contact before AI re-run.',
         risk: 'medium',
@@ -671,9 +671,9 @@ export function createSeedStore(): Store {
         requestedAt: hoursAgo(5),
       },
       {
-        id: 'app-aplifyai-105',
-        workItemId: 'wi-aplifyai-105',
-        title: 'Extend token budget for APLIFYAI-105',
+        id: 'app-100x-105',
+        workItemId: 'wi-100x-105',
+        title: 'Extend token budget for X100-105',
         reason:
           'Budget-warning UX spike estimates ~58k tokens against the 50k org cap; approve a one-off extension to finish the draft.',
         risk: 'low',
@@ -695,11 +695,11 @@ export function createSeedStore(): Store {
       {
         id: 'ntf-1',
         kind: 'ai_ready',
-        title: 'AI draft ready on APLIFYAI-97',
+        title: 'AI draft ready on X100-97',
         body: 'Summary + patch attached to the board. Review before handing off.',
         createdAt: hoursAgo(7),
         read: true,
-        workItemId: 'wi-aplifyai-101',
+        workItemId: 'wi-100x-101',
       },
       {
         id: 'ntf-2',
@@ -732,18 +732,18 @@ export function createSeedStore(): Store {
         id: 'ntf-5',
         kind: 'system',
         title: 'Jira sync completed',
-        body: `Projects APLIFYAI, INFRA and FE synced. ${workItems.length} work items mirrored.`,
+        body: `Projects X100, INFRA and FE synced. ${workItems.length} work items mirrored.`,
         createdAt: hoursAgo(10),
         read: true,
       },
       {
         id: 'ntf-6',
         kind: 'approval',
-        title: 'Approval needed: APLIFYAI-103',
+        title: 'Approval needed: X100-103',
         body: 'PII access request for the webhook owner contact review is waiting for your decision.',
         createdAt: hoursAgo(4),
         read: false,
-        workItemId: 'wi-aplifyai-103',
+        workItemId: 'wi-100x-103',
       },
       {
         id: 'ntf-7',
@@ -757,11 +757,11 @@ export function createSeedStore(): Store {
       {
         id: 'ntf-8',
         kind: 'approval',
-        title: 'Approval needed: APLIFYAI-105',
+        title: 'Approval needed: X100-105',
         body: 'Token budget extension request is waiting for your decision.',
         createdAt: hoursAgo(1.5),
         read: false,
-        workItemId: 'wi-aplifyai-105',
+        workItemId: 'wi-100x-105',
       },
       {
         id: 'ntf-9',
@@ -913,7 +913,7 @@ export function createSeedStore(): Store {
     { type: 'system', id: 'orchestrator' },
     'job.state.queued',
     { type: 'ai_job', id: 'job-running-1' },
-    { workItemId: 'wi-aplifyai-102' },
+    { workItemId: 'wi-100x-102' },
     [1, 2, 3],
   );
   emitAudit(
@@ -921,7 +921,7 @@ export function createSeedStore(): Store {
     { type: 'system', id: 'orchestrator' },
     'job.state.sanitizing',
     { type: 'ai_job', id: 'job-running-1' },
-    { workItemId: 'wi-aplifyai-102', piiRedactions: 0, piiBlocks: [] },
+    { workItemId: 'wi-100x-102', piiRedactions: 0, piiBlocks: [] },
     [1, 2, 3, 5],
   );
   emitAudit(
@@ -929,7 +929,7 @@ export function createSeedStore(): Store {
     { type: 'system', id: 'orchestrator' },
     'job.state.running',
     { type: 'ai_job', id: 'job-running-1' },
-    { workItemId: 'wi-aplifyai-102', model: 'gpt-4o', cloud: 'azure/eastus' },
+    { workItemId: 'wi-100x-102', model: 'gpt-4o', cloud: 'azure/eastus' },
     [1, 2, 3, 4, 5],
   );
   emitAudit(

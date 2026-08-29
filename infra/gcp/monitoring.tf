@@ -26,7 +26,7 @@ resource "google_monitoring_notification_channel" "email" {
   count = var.alert_email == "" ? 0 : 1
 
   project      = var.project_id
-  display_name = "AplifyAI ${var.environment} email"
+  display_name = "100x ${var.environment} email"
   type         = "email"
 
   labels = {

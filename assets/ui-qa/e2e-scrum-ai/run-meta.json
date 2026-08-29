@@ -1,0 +1,50 @@
+{
+  "capturedAt": "2026-08-09T06:33:33.426Z",
+  "mode": "sandbox",
+  "modelRunner": "sandbox",
+  "boardConnector": "jira",
+  "ticket": {
+    "id": "wi-msldmtqi-13",
+    "issueKey": "SCRUM-61",
+    "projectId": "SCRUM",
+    "title": "Seed demo-queue stability for dual-platform e2e"
+  },
+  "afterTriage": {
+    "aiStatus": "ready_for_human",
+    "lastTriageDecision": "ai_first",
+    "targetCompletionPercent": 35,
+    "lastAiJobId": "job-mslff3rm-67"
+  },
+  "job": {
+    "id": "job-mslff3rm-67",
+    "state": "ready_for_human",
+    "artifactCount": 2
+  },
+  "openaiKeyPresent": false,
+  "note": "OPENAI_API_KEY missing \u2014 AI path used sandbox canned drafts. UI + Jira MCP path exercised.",
+  "screenshots": [
+    "01-web-triage-deck.png",
+    "02-web-desktop-console-rail.png",
+    "03-web-triage-after-ai-first.png",
+    "04-web-ticket-detail-estimate.png",
+    "05-web-approvals.png",
+    "06-web-connections.png",
+    "07-web-pii-rules.png",
+    "08-web-audit-jobs-trail.png",
+    "09-android-current.png",
+    "10-android-after-deeplink.png",
+    "11-ios-current.png",
+    "12-ios-after-open.png",
+    "13-android-jobs.png",
+    "14-android-approvals.png",
+    "15-android-pii.png",
+    "16-android-triage.png",
+    "17-ios-jobs.png"
+  ],
+  "platforms": {
+    "web": "localhost:3000 (sandbox AI)",
+    "android": "emulator-5554 Pixel \u2014 triage/jobs/approvals/pii captured",
+    "ios": "iPhone 16 Pro booted \u2014 triage (+ jobs attempt) captured"
+  },
+  "blocker": "OPENAI_API_KEY not set in backend/.env \u2014 live OpenAI drafts blocked; sandbox path completed with evidence."
+}

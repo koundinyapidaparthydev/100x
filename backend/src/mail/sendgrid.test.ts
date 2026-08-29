@@ -42,7 +42,7 @@ describe('sendgridConfigured', () => {
   it('rejects placeholder keys that are not SG.*', () => {
     setEnv({
       SENDGRID_API_KEY: 'REPLACE_ME_SENDGRID_API_KEY',
-      SENDGRID_FROM_EMAIL: 'noreply@aplifyai.com',
+      SENDGRID_FROM_EMAIL: 'noreply@100x.com',
     });
     expect(sendgridConfigured()).toBe(false);
   });
@@ -50,7 +50,7 @@ describe('sendgridConfigured', () => {
   it('is true with SG key and from email', () => {
     setEnv({
       SENDGRID_API_KEY: 'SG.testdummykey',
-      SENDGRID_FROM_EMAIL: 'noreply@aplifyai.com',
+      SENDGRID_FROM_EMAIL: 'noreply@100x.com',
     });
     expect(sendgridConfigured()).toBe(true);
   });
@@ -60,8 +60,8 @@ describe('sendWithSendgrid', () => {
   it('POSTs mail/send and returns message id', async () => {
     setEnv({
       SENDGRID_API_KEY: 'SG.testdummykey',
-      SENDGRID_FROM_EMAIL: 'noreply@aplifyai.com',
-      SENDGRID_FROM_NAME: 'AplifyAI',
+      SENDGRID_FROM_EMAIL: 'noreply@100x.com',
+      SENDGRID_FROM_NAME: '100x',
     });
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -89,7 +89,7 @@ describe('sendWithSendgrid', () => {
       personalizations: Array<{ to: Array<{ email: string }> }>;
       custom_args: Record<string, string>;
     };
-    expect(body.from).toEqual({ email: 'noreply@aplifyai.com', name: 'AplifyAI' });
+    expect(body.from).toEqual({ email: 'noreply@100x.com', name: '100x' });
     expect(body.personalizations[0]?.to[0]?.email).toBe('alex@contoso.com');
     expect(body.custom_args.invite_id).toBe('inv-1');
   });
@@ -97,7 +97,7 @@ describe('sendWithSendgrid', () => {
   it('surfaces SendGrid error messages', async () => {
     setEnv({
       SENDGRID_API_KEY: 'SG.testdummykey',
-      SENDGRID_FROM_EMAIL: 'noreply@aplifyai.com',
+      SENDGRID_FROM_EMAIL: 'noreply@100x.com',
     });
     vi.stubGlobal(
       'fetch',

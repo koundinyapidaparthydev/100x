@@ -35,7 +35,7 @@ describe('persist', () => {
   });
 
   it('round-trips a store to disk', () => {
-    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aplifyai-persist-'));
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), '100x-persist-'));
     process.env.DATA_DIR = tmp;
     const store = createSeedStore();
     store.workItems[0]!.title = 'Persisted title';

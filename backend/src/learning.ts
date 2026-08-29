@@ -346,7 +346,7 @@ export function exportSkillPack(
         `- ${s.id} · ${s.category} · merge \`${s.mergeRef}\`\n  - Input: ${s.inputSummary.slice(0, 160)}\n  - Solution: ${s.solutionSummary.slice(0, 160)}`,
     ),
     '',
-    '_Exported from AplifyAI — governed skill pack. Do not paste uncleared production data into agent kits._',
+    '_Exported from 100x — governed skill pack. Do not paste uncleared production data into agent kits._',
   ].join('\n');
 
   return { pack, markdown, solutions };

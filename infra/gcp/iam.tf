@@ -1,8 +1,8 @@
 # Runtime service account for Cloud Run (least privilege).
 resource "google_service_account" "api" {
   account_id   = "${local.name}-api"
-  display_name = "AplifyAI API (${var.environment})"
-  description  = "Cloud Run runtime identity for the AplifyAI API"
+  display_name = "100x API (${var.environment})"
+  description  = "Cloud Run runtime identity for the 100x API"
   project      = var.project_id
 
   depends_on = [google_project_service.required]
@@ -11,7 +11,7 @@ resource "google_service_account" "api" {
 # Deployer / CI identity for pushing images and updating Cloud Run.
 resource "google_service_account" "deployer" {
   account_id   = "${local.name}-deployer"
-  display_name = "AplifyAI deployer (${var.environment})"
+  display_name = "100x deployer (${var.environment})"
   description  = "CI/CD identity for Artifact Registry pushes and Cloud Run deploys"
   project      = var.project_id
 

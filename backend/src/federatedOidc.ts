@@ -1,5 +1,5 @@
 /**
- * Multi-provider OIDC Authorization Code + PKCE for AplifyAI.
+ * Multi-provider OIDC Authorization Code + PKCE for 100x.
  * Providers: Okta, Microsoft Entra ID, Google Workspace, Google, Apple.
  * Configure via per-provider env vars; when unset, status.enabled is false.
  */
@@ -197,7 +197,7 @@ function webOrigin(): string {
 }
 
 function mobileOrigin(): string {
-  return trimEnv('MOBILE_APP_ORIGIN') ?? 'aplifyai://auth';
+  return trimEnv('MOBILE_APP_ORIGIN') ?? '100x://auth';
 }
 
 function appleClientSecret(clientId: string): string {
@@ -512,7 +512,7 @@ export function mapClaimsToUser(
     throw new Error(`${cfg.label} token missing email`);
   }
 
-  const resolvedEmail = email ?? `${cfg.provider}-${sub}@users.aplifyai.local`;
+  const resolvedEmail = email ?? `${cfg.provider}-${sub}@users.100x.local`;
 
   const displayName =
     (typeof claims.name === 'string' && claims.name) ||
@@ -528,7 +528,7 @@ export function mapClaimsToUser(
       break;
     }
   }
-  const claimRole = parseRoleId(typeof claims.aplifyai_role === 'string' ? claims.aplifyai_role : '');
+  const claimRole = parseRoleId(typeof claims.100x_role === 'string' ? claims.100x_role : '');
   if (claimRole) roleId = claimRole;
 
   // Google Workspace hosted-domain soft check when hd claim present

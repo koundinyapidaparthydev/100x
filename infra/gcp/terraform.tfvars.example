@@ -38,6 +38,6 @@ static_domains    = ["stage.aplifyai.com"]
 sql_deletion_protection = true
 
 labels = {
-  team    = "aplifyai"
-  product = "aplifyai"
+  team    = "100x"
+  product = "100x"
 }

@@ -10,7 +10,7 @@ const MARK = require('../assets/brand/aai-mark.png');
 const SCREENS = [
   {
     eyebrow: 'Decisions',
-    title: 'What AplifyAI decides',
+    title: 'What 100x decides',
     body: 'Triage each ticket for AI or a person. Mobile is built for those fast routing calls—not for workspace setup.',
   },
   {
@@ -46,8 +46,8 @@ export default function OnboardingScreen() {
     <SafeAreaView style={commonStyles.screen} testID="onboarding-screen">
       <View style={styles.shell}>
         <View style={styles.brandRow}>
-          <Image source={MARK} style={styles.mark} resizeMode="contain" accessibilityLabel="AplifyAI" />
-          <Text style={styles.brand}>AplifyAI</Text>
+          <Image source={MARK} style={styles.mark} resizeMode="contain" accessibilityLabel="100x" />
+          <Text style={styles.brand}>100x</Text>
         </View>
 
         <Card style={styles.card} testID={`onboarding-step-${index}`}>

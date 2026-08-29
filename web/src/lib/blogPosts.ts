@@ -32,37 +32,37 @@ export const COMPARISON_ROWS = [
     dimension: 'Where AI starts',
     cursorLike: 'Inside the IDE, when a developer asks',
     agentLike: 'On a ticket, when the org assigns an agent',
-    aplify: 'On the board, before a human is assigned — policy or manager swipe',
+    100x: 'On the board, before a human is assigned — policy or manager swipe',
   },
   {
     dimension: 'System of record',
     cursorLike: 'The repo + editor session',
     agentLike: 'Agent session + PR',
-    aplify: 'Jira / board stays authoritative; drafts attach back',
+    100x: 'Jira / board stays authoritative; drafts attach back',
   },
   {
     dimension: 'Governance',
     cursorLike: 'Seat policies, privacy mode, org controls',
     agentLike: 'Enterprise deployment, audit of agent runs',
-    aplify: 'PII firewall, model/cloud/token budgets, approvals, searchable audit',
+    100x: 'PII firewall, model/cloud/token budgets, approvals, searchable audit',
   },
   {
     dimension: 'Manager workflow',
     cursorLike: 'Indirect — managers see outcomes later',
     agentLike: 'Ticket → agent → review PR',
-    aplify: 'Mobile swipe AI-first vs human-first; web for deep review',
+    100x: 'Mobile swipe AI-first vs human-first; web for deep review',
   },
   {
     dimension: 'Best fit',
     cursorLike: 'Make the coding you keep faster',
     agentLike: 'Offload high-volume, well-scoped backlog work',
-    aplify: 'Govern AI share of every ticket across distributed delivery teams',
+    100x: 'Govern AI share of every ticket across distributed delivery teams',
   },
   {
     dimension: 'Open-source reality',
     cursorLike: 'Maintainers use locally; hard to standardize for contributors',
     agentLike: 'Costly for volunteer orgs; overkill for triage',
-    aplify: 'Triage + bounded drafts on issues without forcing one IDE or one agent bill',
+    100x: 'Triage + bounded drafts on issues without forcing one IDE or one agent bill',
   },
 ] as const;
 
@@ -89,7 +89,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: 'p',
-        text: 'AplifyAI sits between the board (Jira today) and the people who finish the work. Policy or a manager decides whether AI runs first. A PII firewall sanitizes the packet. The orchestrator picks model, cloud, and token ceiling. Bounded artifacts — analysis, plan, draft patch, repro notes — attach back to the ticket. A human continues from a warmer start.',
+        text: '100x sits between the board (Jira today) and the people who finish the work. Policy or a manager decides whether AI runs first. A PII firewall sanitizes the packet. The orchestrator picks model, cloud, and token ceiling. Bounded artifacts — analysis, plan, draft patch, repro notes — attach back to the ticket. A human continues from a warmer start.',
       },
       {
         type: 'ul',
@@ -107,7 +107,7 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         type: 'table',
         caption: 'Realistic enterprise levers (directional, not a vendor benchmark)',
-        headers: ['Lever', 'Without governed AI', 'With AplifyAI in front'],
+        headers: ['Lever', 'Without governed AI', 'With 100x in front'],
         rows: [
           [
             'Routine bugs / chores',
@@ -142,7 +142,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: 'p',
-        text: 'IDE assistants (Cursor-class) make the coding you keep faster. Autonomous agents (Devin-class) excel when you can hand off well-scoped backlog work and review PRs later. AplifyAI is the control plane that decides when AI touches board work at all — before assignment — under policies delivery and security orgs can share.',
+        text: 'IDE assistants (Cursor-class) make the coding you keep faster. Autonomous agents (Devin-class) excel when you can hand off well-scoped backlog work and review PRs later. 100x is the control plane that decides when AI touches board work at all — before assignment — under policies delivery and security orgs can share.',
       },
       {
         type: 'p',
@@ -203,7 +203,7 @@ export const BLOG_POSTS: BlogPost[] = [
             'Cost and trust; overkill for triage volume',
           ],
           [
-            'AplifyAI-style board pass',
+            '100x-style board pass',
             'Yes at intake for the whole project',
             'Needs board connector + clear human ownership of merges',
           ],
@@ -225,7 +225,7 @@ export const BLOG_POSTS: BlogPost[] = [
     ],
   },
   {
-    slug: 'how-aplify-works-in-real-delivery',
+    slug: 'how-100x-works-in-real-delivery',
     title: 'How this actually works in a delivery week',
     date: '2026-07-14',
     readingMinutes: 6,
@@ -246,7 +246,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: 'p',
-        text: 'A bug is filed in Jira. AplifyAI syncs it as a work item. Org default says AI-first for “bug” types under a token ceiling. Or a manager on mobile swipes right: Send to AI.',
+        text: 'A bug is filed in Jira. 100x syncs it as a work item. Org default says AI-first for “bug” types under a token ceiling. Or a manager on mobile swipes right: Send to AI.',
       },
       {
         type: 'h2',
@@ -286,8 +286,8 @@ export const BLOG_POSTS: BlogPost[] = [
     ],
   },
   {
-    slug: 'compare-cursor-devin-aplify',
-    title: 'Cursor, Devin-class agents, and AplifyAI: different jobs',
+    slug: 'compare-cursor-devin-100x',
+    title: 'Cursor, Devin-class agents, and 100x: different jobs',
     date: '2026-07-08',
     readingMinutes: 9,
     topic: 'comparison',
@@ -299,7 +299,7 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         type: 'p',
-        text: 'By 2026 the market split is clear in practitioner write-ups: IDE-native assistants scale individuals; autonomous agents scale certain organizational tasks; few products own the governed intake layer that sits on the board before assignment. AplifyAI is aimed at that third job.',
+        text: 'By 2026 the market split is clear in practitioner write-ups: IDE-native assistants scale individuals; autonomous agents scale certain organizational tasks; few products own the governed intake layer that sits on the board before assignment. 100x is aimed at that third job.',
       },
       {
         type: 'h2',
@@ -308,7 +308,7 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         type: 'table',
         caption: 'Job-to-be-done snapshot',
-        headers: ['Job', 'Typical tools', 'AplifyAI stance'],
+        headers: ['Job', 'Typical tools', '100x stance'],
         rows: [
           [
             'Make interactive coding faster',
@@ -350,7 +350,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: 'p',
-        text: 'If your constraint is individual coding speed, buy IDE seats. If your constraint is a mountain of mechanical migrations, evaluate autonomous agents. If your constraint is inconsistent shadow AI across India/US/AU delivery, leaking PII, and no manager triage surface — that is the AplifyAI conversation.',
+        text: 'If your constraint is individual coding speed, buy IDE seats. If your constraint is a mountain of mechanical migrations, evaluate autonomous agents. If your constraint is inconsistent shadow AI across India/US/AU delivery, leaking PII, and no manager triage surface — that is the 100x conversation.',
       },
     ],
   },

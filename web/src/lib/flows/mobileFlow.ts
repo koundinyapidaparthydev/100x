@@ -29,7 +29,7 @@ function mobileFlow(platform: 'android' | 'ios'): FlowGraph {
         label: 'Auth callback',
         layer: 'ui',
         kind: 'screen',
-        summary: 'aplifyai://auth/callback',
+        summary: '100x://auth/callback',
         constructs: 'Deep-link code/state from IdP.',
         transmits: 'api.federatedExchange → SecureStore session.',
         files: ['mobile/app/auth/callback.tsx'],

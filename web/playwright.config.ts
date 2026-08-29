@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..');
 
-const AUTH_SESSION_SECRET = 'aplifyai-e2e-session-secret-32b-min';
+const AUTH_SESSION_SECRET = '100x-e2e-session-secret-32b-min';
 /** Dedicated ports avoid colliding with local :3000/:4000 apps (reuseExistingServer pitfall). */
 const BACKEND_PORT = process.env.E2E_BACKEND_PORT ?? '4100';
 const WEB_PORT = process.env.E2E_WEB_PORT ?? '3100';
@@ -13,7 +13,7 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${WEB_PORT
 const reuse = process.env.PW_REUSE_SERVER === '1';
 
 /**
- * Production-critical Playwright config for the AplifyAI web control plane.
+ * Production-critical Playwright config for the 100x web control plane.
  * Starts backend (in-memory seed) + Vite web unless PW_REUSE_SERVER=1.
  */
 export default defineConfig({
@@ -40,7 +40,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `npm run start -w aplifyai-backend`,
+      command: `npm run start -w 100x-backend`,
       cwd: REPO_ROOT,
       url: `http://127.0.0.1:${BACKEND_PORT}/api/v1/health`,
       reuseExistingServer: reuse,
@@ -62,7 +62,7 @@ export default defineConfig({
       },
     },
     {
-      command: `npm run dev -w aplifyai-web -- --port=${WEB_PORT} --host=127.0.0.1`,
+      command: `npm run dev -w 100x-web -- --port=${WEB_PORT} --host=127.0.0.1`,
       cwd: REPO_ROOT,
       url: BASE_URL,
       reuseExistingServer: reuse,

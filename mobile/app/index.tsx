@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet, Text, View } from 'react-native';
-import { AplifyLogo } from '@/src/AplifyLogo';
+import { BrandLogo } from '@/src/BrandLogo';
 import { colors, commonStyles, PrimaryButton } from '@/src/ui';
 
 export default function SplashScreen() {
@@ -10,7 +10,7 @@ export default function SplashScreen() {
     <SafeAreaView style={styles.screen}>
       <View style={styles.atmosphere} />
       <View style={styles.hero}>
-        <AplifyLogo size={56} withWordmark stacked />
+        <BrandLogo size={56} withWordmark stacked />
         <Text style={styles.tagline}>Decide where work goes next.</Text>
         <Text style={styles.description}>
           Send tickets to AI, assign them to people, and review output before it moves forward.

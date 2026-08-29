@@ -60,7 +60,7 @@ export function createApp(options: AppOptions | Store = {}): Express {
       res.status(400).json({ error: 'invalid JSON body' });
       return;
     }
-    console.error('[aplifyai-backend] request error:', err.message);
+    console.error('[100x-backend] request error:', err.message);
     res.status(500).json({
       error:
         process.env.NODE_ENV !== 'production' && err.message

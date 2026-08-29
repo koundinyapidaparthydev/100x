@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { AplifyLogo } from '@/src/AplifyLogo';
+import { BrandLogo } from '@/src/BrandLogo';
 import { useSession } from '@/src/session';
 import { colors, commonStyles, PrimaryButton } from '@/src/ui';
 
@@ -10,7 +10,7 @@ function first(value: string | string[] | undefined): string | undefined {
 }
 
 /**
- * Deep-link landing for aplifyai://auth/callback?exchange=…&provider=…
+ * Deep-link landing for 100x://auth/callback?exchange=…&provider=…
  * Also opened if the OS delivers the redirect outside openAuthSessionAsync.
  */
 export default function AuthCallbackScreen() {
@@ -61,7 +61,7 @@ export default function AuthCallbackScreen() {
   if (error) {
     return (
       <View style={styles.screen} testID="sso-callback-error">
-        <AplifyLogo size={56} />
+        <BrandLogo size={56} />
         <Text style={commonStyles.heading}>Couldn’t finish sign-in</Text>
         <Text style={styles.error}>{error}</Text>
         <PrimaryButton label="Back to login" onPress={() => router.replace('/login')} />
@@ -71,7 +71,7 @@ export default function AuthCallbackScreen() {
 
   return (
     <View style={styles.screen} testID="sso-callback-pending">
-      <AplifyLogo size={56} withWordmark stacked />
+      <BrandLogo size={56} withWordmark stacked />
       <ActivityIndicator color={colors.primary} style={styles.spinner} />
       <Text style={commonStyles.heading}>Completing sign-in…</Text>
       <Text style={commonStyles.meta}>Exchanging your secure session</Text>

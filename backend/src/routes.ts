@@ -228,7 +228,7 @@ function isSandboxDemoWorkItem(item: WorkItem): boolean {
   const projectId = item.board.projectId.toUpperCase();
   const issueKey = item.board.issueKey.toUpperCase();
   if (projectId === 'DEMO' || issueKey.startsWith('DEMO-')) return true;
-  if (/^wi-(aplifyai|infra|fe)-\d+$/i.test(item.id)) return true;
+  if (/^wi-(100x|infra|fe)-\d+$/i.test(item.id)) return true;
   if (/^demo queue top-up/i.test(item.title)) return true;
   return false;
 }

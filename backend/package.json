@@ -1,8 +1,8 @@
 {
-  "name": "aplifyai-backend",
+  "name": "100x-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Single backend for AplifyAI — work items, PII firewall, AI orchestration, audit.",
+  "description": "Single backend for 100x — work items, PII firewall, AI orchestration, audit.",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",

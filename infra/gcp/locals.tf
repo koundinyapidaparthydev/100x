@@ -6,7 +6,7 @@ locals {
 
   default_labels = merge(
     {
-      project     = "aplifyai"
+      project     = "100x"
       environment = var.environment
       managed_by  = "terraform"
     },

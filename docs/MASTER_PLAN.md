@@ -1,4 +1,4 @@
-# AplifyAI — Master Plan
+# 100x — Master Plan
 
 Source of truth for making the **full product flow** correct and aligned. Complements [FOUNDATION.md](FOUNDATION.md), [ROADMAP.md](ROADMAP.md), and [VISION.md](VISION.md).
 

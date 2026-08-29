@@ -35,6 +35,6 @@ jobs:
         run: npm ci
 
       # This is the agreed placeholder contract. Add test:e2e and Playwright
-      # dependencies/configuration to the aplifyai-web workspace to enable it.
+      # dependencies/configuration to the 100x-web workspace to enable it.
       - name: Run Playwright end-to-end tests
-        run: npm run test:e2e -w aplifyai-web
+        run: npm run test:e2e -w 100x-web

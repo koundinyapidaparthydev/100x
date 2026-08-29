@@ -1,11 +1,11 @@
-# AplifyAI Web
+# 100x Web
 
-Primary control plane for AplifyAI — boards, policies, models, cloud, PII rules, audit, and admin.
+Primary control plane for 100x — boards, policies, models, cloud, PII rules, audit, and admin.
 
 ## Prerequisites
 
 - Node.js 18+ and npm
-- The AplifyAI **backend running on http://localhost:4000** — the Vite dev server proxies all `/api` requests there.
+- The 100x **backend running on http://localhost:4000** — the Vite dev server proxies all `/api` requests there.
 
 ## Run locally
 

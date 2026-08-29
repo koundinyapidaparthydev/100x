@@ -1,4 +1,4 @@
-# Contributing to AplifyAI
+# Contributing to 100x
 
 This repository is **proprietary**. Do not publish it, fork it publicly, or add an open-source license.
 

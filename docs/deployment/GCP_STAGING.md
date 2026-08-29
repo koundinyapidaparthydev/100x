@@ -45,7 +45,7 @@ Related:
 
 | Requirement | Notes |
 |-------------|--------|
-| Dedicated GCP project | Billing on; empty or AplifyAI-only |
+| Dedicated GCP project | Billing on; empty or 100x-only |
 | `gcloud` CLI | Authenticated to **that** project only for these steps |
 | Terraform >= 1.5 | `cd infra/gcp && terraform init` |
 | Node.js 22 + npm 10 | Build the web and mobile Vite clients |
@@ -70,7 +70,7 @@ terraform apply stage.tfplan
 For the existing local stage state, use `terraform init -migrate-state` instead
 of `-reconfigure`. Follow the migration guardrails in
 [`infra/gcp/README.md`](../../infra/gcp/README.md); the `stage` input preserves
-the existing `aplifyai-staging-*` names.
+the existing `100x-staging-*` names.
 
 Capture outputs (image base, buckets, secret IDs, SQL connection name):
 
@@ -115,7 +115,7 @@ docker push "${IMAGE_BASE}:staging"
 
 ```hcl
 # in terraform.tfvars
-cloud_run_image = "us-central1-docker.pkg.dev/jobseek-459701/aplifyai/api:TAG"
+cloud_run_image = "us-central1-docker.pkg.dev/jobseek-459701/100x/api:TAG"
 # Required for browser access through the same-origin HTTPS load balancer.
 cloud_run_allow_unauthenticated = true
 auth_allow_demo_login           = false
@@ -131,13 +131,13 @@ terraform apply
 SERVICE="$(terraform -chdir=infra/gcp output -raw cloud_run_service_name)"
 # If the service does not exist yet, first apply with cloud_run_image set once,
 # or create with:
-gcloud run deploy aplifyai-staging-api \
+gcloud run deploy 100x-staging-api \
   --project="$PROJECT_ID" \
   --region="$REGION" \
   --image="${IMAGE_BASE}:${TAG}" \
   --service-account="$(terraform -chdir=infra/gcp output -raw api_service_account_email)" \
   --add-cloudsql-instances="$(terraform -chdir=infra/gcp output -raw cloud_sql_connection_name)" \
-  --set-secrets="DATABASE_URL=aplifyai-staging-database-url:latest,AUTH_SESSION_SECRET=aplifyai-staging-session-secret:latest,OPENAI_API_KEY=aplifyai-staging-openai-api-key:latest,JIRA_API_TOKEN=aplifyai-staging-jira-api-token:latest" \
+  --set-secrets="DATABASE_URL=100x-staging-database-url:latest,AUTH_SESSION_SECRET=100x-staging-session-secret:latest,OPENAI_API_KEY=100x-staging-openai-api-key:latest,JIRA_API_TOKEN=100x-staging-jira-api-token:latest" \
   --set-env-vars="NODE_ENV=production,AUTH_ALLOW_DEMO_LOGIN=0,ARTIFACTS_BUCKET=$(terraform -chdir=infra/gcp output -raw artifacts_bucket)" \
   --port=8080 \
   --cpu=1 \
@@ -147,7 +147,7 @@ gcloud run deploy aplifyai-staging-api \
   --allow-unauthenticated
 ```
 
-Secret resource IDs follow `{name_prefix}-{environment}-{key}` (defaults: `aplifyai-staging-database-url`, etc.). Confirm with `terraform output secret_ids`.
+Secret resource IDs follow `{name_prefix}-{environment}-{key}` (defaults: `100x-staging-database-url`, etc.). Confirm with `terraform output secret_ids`.
 
 ## 5. Static web / mobile
 
@@ -190,8 +190,8 @@ STATIC_BUCKET="$(terraform -chdir=infra/gcp output -raw static_assets_bucket)"
 # From the repository root. The explicit bases keep generated asset URLs under
 # each app's bucket prefix.
 npm ci
-npm run build -w aplifyai-web -- --base=/web/
-npm run build -w aplifyai-mobile -- --base=/mobile/
+npm run build -w 100x-web -- --base=/web/
+npm run build -w 100x-mobile -- --base=/mobile/
 
 gcloud storage rsync --recursive --delete-unmatched-destination-objects \
   web/dist "gs://${STATIC_BUCKET}/web"
@@ -252,5 +252,5 @@ Cloud Run disks are ephemeral. **Do not rely on `PERSIST=1` / `store.json` in st
 - [ ] `cloud_run_allow_unauthenticated` left `false` unless deliberately public
 - [ ] No credentials in client env bundles
 - [ ] SQL deletion protection enabled once real data exists
-- [ ] Stage uses its own GCS state prefix (`aplifyai/stage`), separate from dev
+- [ ] Stage uses its own GCS state prefix (`100x/stage`), separate from dev
 - [ ] `auth_allow_demo_login = false`

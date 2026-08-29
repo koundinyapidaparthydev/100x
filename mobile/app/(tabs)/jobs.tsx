@@ -22,7 +22,7 @@ import {
   useAsync,
 } from '@/src/ui';
 
-const JOBS_PREFS_KEY = 'aplifyai.mobile.jobs.prefs.v1';
+const JOBS_PREFS_KEY = '100x.mobile.jobs.prefs.v1';
 
 type StatusFilter = 'all' | 'review' | 'active' | 'blocked' | 'failed';
 type SortMode = 'recent' | 'tokens' | 'status' | 'priority';

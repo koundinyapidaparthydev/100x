@@ -1,5 +1,5 @@
 /**
- * Typed client for the single AplifyAI backend.
+ * Typed client for the single 100x backend.
  * Both web and mobile apps use this — there is exactly one API.
  * In dev, each Vite server proxies `/api` → http://localhost:4000.
  */
