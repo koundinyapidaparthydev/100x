@@ -32,37 +32,37 @@ export const COMPARISON_ROWS = [
     dimension: 'Where AI starts',
     cursorLike: 'Inside the IDE, when a developer asks',
     agentLike: 'On a ticket, when the org assigns an agent',
-    100x: 'On the board, before a human is assigned — policy or manager swipe',
+    '100x': 'On the board, before a human is assigned — policy or manager swipe',
   },
   {
     dimension: 'System of record',
     cursorLike: 'The repo + editor session',
     agentLike: 'Agent session + PR',
-    100x: 'Jira / board stays authoritative; drafts attach back',
+    '100x': 'Jira / board stays authoritative; drafts attach back',
   },
   {
     dimension: 'Governance',
     cursorLike: 'Seat policies, privacy mode, org controls',
     agentLike: 'Enterprise deployment, audit of agent runs',
-    100x: 'PII firewall, model/cloud/token budgets, approvals, searchable audit',
+    '100x': 'PII firewall, model/cloud/token budgets, approvals, searchable audit',
   },
   {
     dimension: 'Manager workflow',
     cursorLike: 'Indirect — managers see outcomes later',
     agentLike: 'Ticket → agent → review PR',
-    100x: 'Mobile swipe AI-first vs human-first; web for deep review',
+    '100x': 'Mobile swipe AI-first vs human-first; web for deep review',
   },
   {
     dimension: 'Best fit',
     cursorLike: 'Make the coding you keep faster',
     agentLike: 'Offload high-volume, well-scoped backlog work',
-    100x: 'Govern AI share of every ticket across distributed delivery teams',
+    '100x': 'Govern AI share of every ticket across distributed delivery teams',
   },
   {
     dimension: 'Open-source reality',
     cursorLike: 'Maintainers use locally; hard to standardize for contributors',
     agentLike: 'Costly for volunteer orgs; overkill for triage',
-    100x: 'Triage + bounded drafts on issues without forcing one IDE or one agent bill',
+    '100x': 'Triage + bounded drafts on issues without forcing one IDE or one agent bill',
   },
 ] as const;
 

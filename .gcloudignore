@@ -1,8 +1,6 @@
-# Context for repo-root Docker builds (API-only or combined Cloud Run).
 .git
 .github
 .cursor
-**/.DS_Store
 **/node_modules
 **/dist
 **/build
@@ -11,15 +9,10 @@
 **/.env
 **/.env.*
 !**/.env.example
-**/*.md
-!README.md
 mobile/**
 !mobile/package.json
 docs
 infra
-**/*.test.ts
-**/__tests__
-**/bun.lock
 **/*.log
 .idea
 .vscode

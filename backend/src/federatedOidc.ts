@@ -528,7 +528,7 @@ export function mapClaimsToUser(
       break;
     }
   }
-  const claimRole = parseRoleId(typeof claims.100x_role === 'string' ? claims.100x_role : '');
+  const claimRole = parseRoleId(typeof claims['100x_role'] === 'string' ? claims['100x_role'] : '');
   if (claimRole) roleId = claimRole;
 
   // Google Workspace hosted-domain soft check when hd claim present

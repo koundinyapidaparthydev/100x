@@ -19,7 +19,7 @@ const boardConnector = createBoardConnector(store);
 
 const app = createApp({ store, modelRunner, boardConnector });
 
-const server = app.listen(port, () => {
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`[100x-backend] listening on http://localhost:${port} (api: /api/v1)`);
   console.log(
     `[100x-backend] model=${modelRunner.kind} board=${boardConnector.kind} persist=${persistence.kind}`,
