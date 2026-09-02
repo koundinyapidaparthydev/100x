@@ -2,6 +2,7 @@
 
 | Doc | Purpose |
 |-----|---------|
+| [../../DEMO_STAGING.md](../../DEMO_STAGING.md) | Code MVP local compose URLs (this deploy) |
 | [GCP_STAGING.md](GCP_STAGING.md) | Project A stage deployment: Terraform, image build/push, secrets, smoke checks |
 | [ROLLBACK.md](ROLLBACK.md) | Cloud Run traffic rollback, image re-deploy, SQL/secret recovery |
 

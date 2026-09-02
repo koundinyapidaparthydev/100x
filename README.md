@@ -63,6 +63,7 @@ Use these docs as the source of truth when splitting work across agents:
 | [docs/platforms/WEB_PLATFORM.md](docs/platforms/WEB_PLATFORM.md) | Web application |
 | [docs/platforms/MOBILE_APP.md](docs/platforms/MOBILE_APP.md) | Mobile manager UX |
 | [docs/agents/AGENT_HANDOFF.md](docs/agents/AGENT_HANDOFF.md) | How to split work across agents |
+| [DEMO_STAGING.md](DEMO_STAGING.md) | Code MVP local compose URLs |
 | [docs/deployment/GCP_STAGING.md](docs/deployment/GCP_STAGING.md) | GCP staging (Cloud Run, Terraform) |
 | [docs/deployment/ROLLBACK.md](docs/deployment/ROLLBACK.md) | Staging rollback / recovery |
 

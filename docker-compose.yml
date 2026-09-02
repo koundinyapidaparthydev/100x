@@ -1,21 +1,57 @@
-# Local Code MVP only. Prefer `npm run demo` if Node 22 is installed.
-# This compose starts the API; run `npm run dev:web` for the control plane.
+# Code MVP staging: API + web only. File persist — no Redis, Postgres, Cloud SQL.
+# Cloud Run / Fly / Railway / Vercel were not used (no deployable cloud target).
+name: x100-demo
+
 services:
   api:
-    image: node:22-bookworm
-    working_dir: /app
-    volumes:
-      - .:/app
-      - demo-data:/app/backend/data
-    command: bash -lc "npm install && npm run demo:seed -w 100x-backend && npm run dev:backend"
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: 100x-api:demo-mvp
     ports:
-      - "4000:4000"
+      - "${API_PORT:-4000}:8080"
     environment:
+      NODE_ENV: production
+      PORT: "8080"
       PERSIST: "1"
+      DATA_DIR: /data
       DEMO_SEED: "1"
       AUTH_ALLOW_DEMO_LOGIN: "1"
-      PORT: "4000"
-      DATA_DIR: /app/backend/data
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-100x-demo-mvp-session-secret-local-only}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001,http://127.0.0.1:3001}
+    volumes:
+      - demo-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    mem_limit: 512m
+    cpus: 0.50
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    image: 100x-web:demo-mvp
+    ports:
+      - "${WEB_PORT:-3001}:80"
+    environment:
+      API_URL: ${API_URL:-http://api:8080}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    mem_limit: 64m
+    cpus: 0.25
+    restart: unless-stopped
 
 volumes:
   demo-data:

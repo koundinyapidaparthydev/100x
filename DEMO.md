@@ -35,7 +35,7 @@ Copy `backend/.env.example` → `backend/.env`. Do not commit secrets.
 npm install
 npm run demo
 # optional: npm run demo:check   (starts API if needed, stops it after)
-# or: docker compose up api
+# or: docker compose up --build -d   (see DEMO_STAGING.md)
 ```
 
 ## CI-equivalent local command

@@ -1,9 +1,9 @@
 # 100x API — production-minded image for Cloud Run / containers.
 #
 # Build from the repository root (shared types live outside backend/):
-#   docker build -f backend/Dockerfile -t 100x-api:local .
+#   docker build -f backend/Dockerfile -t 100x-api:demo-mvp .
 #
-# Do not bake secrets into the image. Pass them at runtime via env / Secret Manager.
+# Do not bake secrets into the image. Pass them at runtime via env.
 
 # -----------------------------------------------------------------------------
 # deps — install npm packages once
@@ -67,10 +67,14 @@ RUN npm ci --omit=dev --workspace 100x-backend --include-workspace-root=false --
 
 COPY --from=build /app/backend/dist ./backend/dist
 
+RUN mkdir -p /data && chown app:app /data
+VOLUME ["/data"]
+
 USER app
 EXPOSE 8080
 
+# Matches GET /api/v1/health (router mount /api/v1 + /health).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD curl -fsS "http://127.0.0.1:${PORT}/api/v1/health" || exit 1
+  CMD curl -fsS "http://127.0.0.1:8080/api/v1/health" || exit 1
 
 CMD ["node", "backend/dist/index.js"]
