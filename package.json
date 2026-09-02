@@ -21,6 +21,7 @@
     "typecheck": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:e2e:web": "npm run test:e2e -w 100x-web",
+    "test:e2e:demo-mvp": "npm run test:e2e -w 100x-web -- e2e/demo-mvp.spec.ts",
     "test:e2e:mobile": "npm run test:e2e -w 100x-mobile",
     "seed:demo-queue": "node scripts/seed-demo-queue.mjs",
     "demo": "bash scripts/demo.sh",

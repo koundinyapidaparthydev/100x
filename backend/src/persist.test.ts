@@ -58,6 +58,36 @@ describe('persist', () => {
     expect(loaded.workItems.some((w) => w.id === 'wi-mvp-a')).toBe(true);
   });
 
+  it('survives a process restart: new store load still lists MVP tickets', async () => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), '100x-persist-restart-'));
+    process.env.PERSIST = '1';
+    process.env.DATA_DIR = tmp;
+    const seeded = createSeedStore();
+    applyDemoSeed(seeded);
+    seeded.workItems.find((w) => w.id === 'wi-mvp-a')!.title = 'Restarted title';
+    saveStore(seeded);
+
+    const reloaded = loadOrCreateStore();
+    expect(hasDemoSeed(reloaded)).toBe(true);
+    expect(reloaded.workItems.find((w) => w.id === 'wi-mvp-a')?.title).toBe('Restarted title');
+    expect(reloaded.workItems.some((w) => w.id === 'wi-mvp-b')).toBe(true);
+    expect(reloaded.workItems.some((w) => w.id === 'wi-mvp-c')).toBe(true);
+
+    const { createApp } = await import('./app');
+    const { DEMO_MANAGER_EMAIL, DEMO_TICKET_A, DEMO_TICKET_B, DEMO_TICKET_C } = await import('./demoSeed');
+    const restarted = (await import('supertest')).default(createApp(reloaded));
+    const login = await restarted
+      .post('/api/v1/auth/login')
+      .send({ email: DEMO_MANAGER_EMAIL, password: 'demo', surface: 'web' })
+      .expect(200);
+    const token = login.body.session.token as string;
+    const list = await restarted.get('/api/v1/work-items').set('Authorization', `Bearer ${token}`).expect(200);
+    const ids = new Set((list.body as Array<{ id: string }>).map((w) => w.id));
+    expect(ids.has(DEMO_TICKET_A)).toBe(true);
+    expect(ids.has(DEMO_TICKET_B)).toBe(true);
+    expect(ids.has(DEMO_TICKET_C)).toBe(true);
+  });
+
   it('loads and saves a PostgreSQL snapshot with parameterized values', async () => {
     const persisted = createSeedStore();
     persisted.workItems[0]!.title = 'Loaded from PostgreSQL';

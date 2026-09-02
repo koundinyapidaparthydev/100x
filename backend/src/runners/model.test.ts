@@ -107,3 +107,29 @@ describe('createModelRunner', () => {
     expect(runner.configuredProviders).toEqual(['openai', 'anthropic']);
   });
 });
+
+describe('SandboxModelRunner', () => {
+  it('returns a draft without calling OpenAI', async () => {
+    const prev = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    const { createSeedStore } = await import('../store');
+    const { applyDemoSeed, DEMO_TICKET_A } = await import('../demoSeed');
+    const store = createSeedStore();
+    applyDemoSeed(store);
+    const item = store.workItems.find((w) => w.id === DEMO_TICKET_A)!;
+    const policy = store.policies[0]!;
+    const runner = new SandboxModelRunner();
+    const result = await runner.run({
+      workItem: item,
+      sanitized: item.description,
+      sanitizedTitle: item.title,
+      policy,
+      targetCompletionPercent: 20,
+    });
+    expect(runner.kind).toBe('sandbox');
+    expect(result.draft.length).toBeGreaterThan(40);
+    expect(result.draft).toContain('MVP-A');
+    expect(result.provider).toBeTruthy();
+    if (prev !== undefined) process.env.OPENAI_API_KEY = prev;
+  });
+});

@@ -1,6 +1,9 @@
 /**
  * Code MVP demo path — seed, /demo/run, PII gate, sandbox runner, failures.
  */
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Express } from 'express';
 import supertest from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -16,9 +19,42 @@ import {
   DEMO_TICKET_C,
   hasDemoSeed,
 } from './demoSeed';
+import { sanitize } from './pii';
 import type { ModelRunInput, ModelRunner } from './runners/model';
 import { SandboxModelRunner } from './runners/model';
 import { createSeedStore, type Store } from './store';
+
+const GOLDEN_AUDIT = JSON.parse(
+  readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/golden-audit-sequence.json'),
+    'utf8',
+  ),
+) as { happyPath: string[] };
+
+/** Fail if a payload accidentally contains live secrets or raw ticket-B PII. */
+function assertNoSecrets(payload: unknown): void {
+  const raw = JSON.stringify(payload);
+  const banned = [
+    DEMO_TICKET_B_EMAIL,
+    process.env.OPENAI_API_KEY,
+    process.env.ANTHROPIC_API_KEY,
+    process.env.OPENROUTER_API_KEY,
+    process.env.AUTH_SESSION_SECRET,
+    process.env.DEMO_MANAGER_PASSWORD,
+    process.env.DATABASE_URL,
+  ].filter((value): value is string => Boolean(value && value.length > 3));
+  for (const secret of banned) {
+    expect(raw).not.toContain(secret);
+  }
+}
+
+function assertAuditOrder(actions: string[], expected: string[]): void {
+  let cursor = 0;
+  for (const action of actions) {
+    if (action === expected[cursor]) cursor += 1;
+  }
+  expect(cursor).toBe(expected.length);
+}
 
 let store: Store;
 let app: Express;
@@ -72,7 +108,69 @@ describe('POST /demo/run', () => {
     expect(actions.has('ai_started')).toBe(true);
     expect(actions.has('ai_finished')).toBe(true);
     expect(actions.has('artifact_attached')).toBe(true);
+    assertAuditOrder(
+      body.audit.map((e) => e.action),
+      GOLDEN_AUDIT.happyPath,
+    );
     expect(JSON.stringify(body)).not.toContain(DEMO_TICKET_B_EMAIL);
+    assertNoSecrets(body);
+  });
+});
+
+describe('demo seed idempotent + list', () => {
+  it('applyDemoSeed twice keeps one copy of A/B/C', () => {
+    const first = applyDemoSeed(store);
+    const second = applyDemoSeed(store);
+    expect(second.tickets).toEqual(first.tickets);
+    const ids = store.workItems.filter((w) =>
+      [DEMO_TICKET_A, DEMO_TICKET_B, DEMO_TICKET_C].includes(w.id),
+    );
+    expect(ids).toHaveLength(3);
+    expect(hasDemoSeed(store)).toBe(true);
+  });
+
+  it('seed → manager login → list includes MVP-A/B/C', async () => {
+    applyDemoSeed(store);
+    const login = await req
+      .post('/api/v1/auth/login')
+      .send({ email: DEMO_MANAGER_EMAIL, password: 'demo', surface: 'web' })
+      .expect(200);
+    const token = login.body.session.token as string;
+    expect(token).toBeTruthy();
+    assertNoSecrets({ login: { email: login.body.session.user.email, id: login.body.session.user.id } });
+    const list = await req.get('/api/v1/work-items').set('Authorization', `Bearer ${token}`).expect(200);
+    const items = list.body as WorkItem[];
+    const keys = new Set(items.map((w) => w.board.issueKey));
+    expect(keys.has('MVP-A')).toBe(true);
+    expect(keys.has('MVP-B')).toBe(true);
+    expect(keys.has('MVP-C')).toBe(true);
+    assertNoSecrets(items.map((w) => ({ id: w.id, key: w.board.issueKey, title: w.title })));
+  });
+});
+
+describe('PII unit: demo tickets A/B', () => {
+  it('detects email and phone on ticket B', () => {
+    applyDemoSeed(store);
+    const item = store.workItems.find((w) => w.id === DEMO_TICKET_B) as WorkItem;
+    const policy = store.policies[0]!;
+    const { sanitized, report } = sanitize(`${item.title}\n${item.description}`, policy);
+    expect(report.redactions).toBeGreaterThanOrEqual(2);
+    expect(report.blocks).toEqual([]);
+    expect(sanitized).not.toContain(DEMO_TICKET_B_EMAIL);
+    expect(sanitized).not.toContain(DEMO_TICKET_B_PHONE);
+    expect(item.description).toContain(DEMO_TICKET_B_EMAIL);
+    expect(item.description).toContain(DEMO_TICKET_B_PHONE);
+    expect(JSON.stringify(report)).not.toContain(DEMO_TICKET_B_EMAIL);
+  });
+
+  it('does not false-positive ticket A', () => {
+    applyDemoSeed(store);
+    const item = store.workItems.find((w) => w.id === DEMO_TICKET_A) as WorkItem;
+    const policy = store.policies[0]!;
+    const { sanitized, report } = sanitize(`${item.title}\n${item.description}`, policy);
+    expect(report).toEqual({ redactions: 0, blocks: [] });
+    expect(sanitized).toContain(item.title);
+    expect(sanitized).toContain('No customer identifiers in this ticket');
   });
 });
 
@@ -118,6 +216,28 @@ describe('PII gate + ticket B/C', () => {
     const item = store.workItems.find((w) => w.id === DEMO_TICKET_C) as WorkItem;
     expect(item.aiStatus).toBe('none');
     expect(item.lastTriageDecision).toBe('human_first');
+    expect(store.jobs.some((j) => j.workItemId === DEMO_TICKET_C)).toBe(false);
+    expect(store.auditEvents.some((e) => e.action === 'ai_started' && e.resource.id === DEMO_TICKET_C)).toBe(
+      false,
+    );
+  });
+});
+
+describe('API: health + unauthenticated write', () => {
+  it('GET /health shape is { ok, pii, runner, persist }', async () => {
+    const res = await req.get('/api/v1/health').expect(200);
+    expect(res.body).toMatchObject({
+      ok: true,
+      pii: true,
+      runner: expect.any(String),
+      persist: expect.stringMatching(/memory|file|postgres/),
+    });
+    assertNoSecrets(res.body);
+  });
+
+  it('unauthenticated triage write is 401', async () => {
+    applyDemoSeed(store);
+    await req.post(`/api/v1/work-items/${DEMO_TICKET_A}/triage`).send({ aiFirst: true }).expect(401);
   });
 });
 
@@ -161,6 +281,16 @@ describe('failure paths', () => {
     expect(job.state).toBe('failed');
     expect(job.error).toBe('upstream_model_timeout');
     expect(store.workItems.find((w) => w.id === DEMO_TICKET_A)?.aiStatus).toBe('failed');
+    const usable = await supertest(failing).get(`/api/v1/work-items/${DEMO_TICKET_A}`).expect(200);
+    expect((usable.body as WorkItem).id).toBe(DEMO_TICKET_A);
+    expect((usable.body as WorkItem).board.issueKey).toBe('MVP-A');
+    const retryHuman = await supertest(failing)
+      .post(`/api/v1/work-items/${DEMO_TICKET_A}/triage`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ aiFirst: false })
+      .expect(200);
+    expect(retryHuman.body.workItem.lastTriageDecision).toBe('human_first');
+    expect(retryHuman.body.job).toBeNull();
   });
 
   it('createModelRunner stays sandbox when OPENAI_API_KEY is unset', async () => {

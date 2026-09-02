@@ -34,8 +34,28 @@ Copy `backend/.env.example` → `backend/.env`. Do not commit secrets.
 ```bash
 npm install
 npm run demo
-# optional: npm run demo:check   (API must already be up)
+# optional: npm run demo:check   (starts API if needed, stops it after)
 # or: docker compose up api
+```
+
+## CI-equivalent local command
+
+Same quality gate as `.github/workflows/ci.yml` (`quality` job):
+
+```bash
+npm ci
+npm run typecheck
+npm test
+npm run build
+```
+
+`npm test` runs workspace unit/API tests (backend + shared). It does not start a deploy, Jira OAuth, or Playwright.
+
+Optional local smokes (not required for the CI quality job):
+
+```bash
+npm run demo:check
+# web Code MVP smokes (needs Chromium): npx playwright install chromium && npm run test:e2e:web -- e2e/demo-mvp.spec.ts
 ```
 
 `npm run demo:seed` writes the tenant, manager, and three tickets to the persist file so they survive restart.

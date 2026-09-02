@@ -1,0 +1,9 @@
+{
+  "description": "Happy-path Code MVP audit actions, in order. Extra events may appear between these.",
+  "happyPath": [
+    "pii_scanned",
+    "ai_started",
+    "ai_finished",
+    "artifact_attached"
+  ]
+}
