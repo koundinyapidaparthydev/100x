@@ -143,6 +143,9 @@ function hydrateStore(value: unknown): Store {
   if (!Array.isArray(parsed.emailOutbox)) {
     parsed.emailOutbox = [];
   }
+  if (parsed.demoSeed && typeof parsed.demoSeed !== 'object') {
+    delete parsed.demoSeed;
+  }
   if (!parsed.mcpConnectionsByTenant || typeof parsed.mcpConnectionsByTenant !== 'object') {
     parsed.mcpConnectionsByTenant = {};
   }
@@ -433,4 +436,8 @@ export async function initializePostgresForTest(
 /** Debounced persistence hook used by the synchronous mutable Store API. */
 export function scheduleSave(store: Store): void {
   activePersistence.schedule(store);
+}
+
+export function getPersistenceKind(): Persistence['kind'] {
+  return activePersistence.kind;
 }

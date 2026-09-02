@@ -23,6 +23,7 @@ import { enrichFromConnections } from './mcp/gateway';
 import { mergePiiReports, sanitize, sanitizeForWriteback } from './pii';
 import type { ModelRunner } from './runners/model';
 import { SandboxModelRunner } from './runners/model';
+import { DEMO_TICKET_C } from './demoSeed';
 import { emitAudit, nextId, type Store, TENANT_ID } from './store';
 
 const ACTOR = { type: 'system', id: 'orchestrator' } as const;
@@ -93,12 +94,47 @@ export async function runJobPipeline(
   targetCompletionPercent: number,
   deps: OrchestratorDeps = defaultDeps(store),
 ): Promise<AiJob> {
+  if (workItem.id === DEMO_TICKET_C) {
+    workItem.aiStatus = 'none';
+    workItem.lastAiJobId = job.id;
+    workItem.updatedAt = new Date().toISOString();
+    job.error = 'human_first_skip';
+    job.tokenUsage = { input: 0, output: 0, total: 0 };
+    job.finishedAt = new Date().toISOString();
+    transition(
+      store,
+      job,
+      'failed',
+      { workItemId: workItem.id, error: 'human_first_skip' },
+      [1, 2, 3],
+    );
+    return job;
+  }
+
   transition(store, job, 'sanitizing', { workItemId: workItem.id }, [1, 2, 3, 5]);
   const titleResult = sanitize(workItem.title, policy);
   const bodyResult = sanitize(workItem.description, policy);
   let report = mergePiiReports(titleResult.report, bodyResult.report);
   let sanitized = `${titleResult.sanitized}\n\n${bodyResult.sanitized}`;
   job.piiReport = report;
+  emitAudit(
+    store,
+    ACTOR,
+    'pii_scanned',
+    { type: 'work_item', id: workItem.id },
+    { jobId: job.id, redactions: report.redactions, blocks: report.blocks },
+    [5],
+  );
+  if (report.redactions > 0) {
+    emitAudit(
+      store,
+      ACTOR,
+      'pii_redacted',
+      { type: 'work_item', id: workItem.id },
+      { jobId: job.id, redactions: report.redactions },
+      [5],
+    );
+  }
 
   if (report.blocks.length > 0) {
     workItem.aiStatus = 'blocked_pii';
@@ -141,6 +177,18 @@ export async function runJobPipeline(
     job.error = 'token_budget_exceeded';
     job.tokenUsage = { input: 0, output: 0, total: 0 };
     job.finishedAt = new Date().toISOString();
+    emitAudit(
+      store,
+      ACTOR,
+      'token_budget_exceeded',
+      { type: 'work_item', id: workItem.id },
+      {
+        jobId: job.id,
+        estimatedTotal: estimate.total,
+        maxTotalTokens: policy.tokenBudget.maxTotalTokens,
+      },
+      [1, 2, 3, 4],
+    );
     transition(
       store,
       job,
@@ -229,6 +277,14 @@ export async function runJobPipeline(
   }
 
   workItem.aiStatus = 'running';
+  emitAudit(
+    store,
+    ACTOR,
+    'ai_started',
+    { type: 'work_item', id: workItem.id },
+    { jobId: job.id, runner: deps.modelRunner.kind, model: policy.model.modelId },
+    [1, 2, 3, 4, 5],
+  );
   transition(
     store,
     job,
@@ -254,6 +310,14 @@ export async function runJobPipeline(
     });
     draft = result.draft;
     job.model = { provider: result.provider, modelId: result.modelId };
+    emitAudit(
+      store,
+      ACTOR,
+      'ai_finished',
+      { type: 'work_item', id: workItem.id },
+      { jobId: job.id, provider: result.provider, modelId: result.modelId },
+      [1, 2, 3, 4],
+    );
   } catch (err) {
     workItem.aiStatus = 'failed';
     workItem.lastAiJobId = job.id;
@@ -311,6 +375,18 @@ export async function runJobPipeline(
       {
         jobId: job.id,
         commentId: comment.commentId,
+        attachmentIds: job.artifacts.map((artifact) => artifact.boardAttachmentId),
+      },
+      [1, 2, 3, 6],
+    );
+    emitAudit(
+      store,
+      ACTOR,
+      'artifact_attached',
+      { type: 'work_item', id: workItem.id },
+      {
+        jobId: job.id,
+        artifactIds: job.artifacts.map((artifact) => artifact.id),
         attachmentIds: job.artifacts.map((artifact) => artifact.boardAttachmentId),
       },
       [1, 2, 3, 6],

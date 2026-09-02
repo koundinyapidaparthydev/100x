@@ -18,6 +18,23 @@ import { createSeedStore, type Store } from './store';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
+const LOCAL_CORS_ORIGINS = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
+  'http://localhost:8081',
+  'http://127.0.0.1:8081',
+];
+
+export function localCorsOrigins(env: NodeJS.ProcessEnv = process.env): string[] {
+  const extra = (env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return [...new Set([...LOCAL_CORS_ORIGINS, ...extra])];
+}
+
 export interface AppOptions {
   store?: Store;
   modelRunner?: ModelRunner;
@@ -35,7 +52,18 @@ export function createApp(options: AppOptions | Store = {}): Express {
   const deps: OrchestratorDeps = { modelRunner, boardConnector };
 
   const app = express();
-  app.use(cors());
+  const allowedOrigins = localCorsOrigins();
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(null, false);
+      },
+    }),
+  );
   app.use(express.json());
   app.use(attachAuth);
 

@@ -47,8 +47,16 @@ async function loadTaskDetail(id: string): Promise<{
       for (const layer of e.securityLayersApplied) layers.add(layer);
     }
     securityLayers = [...layers].sort((a, b) => a - b);
+    const trailActions = new Set([
+      'pii_scanned',
+      'pii_redacted',
+      'ai_started',
+      'ai_finished',
+      'artifact_attached',
+      'token_budget_exceeded',
+    ]);
     auditTransitions = related
-      .filter((event) => event.action.startsWith('job.state.'))
+      .filter((event) => event.action.startsWith('job.state.') || trailActions.has(event.action))
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   } catch {
     /* audit is best-effort for the security panel */
@@ -68,7 +76,7 @@ export default function TaskDetail() {
   const queueFilter = parseWorkQueueFilter(searchParams.get('filter'));
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const canManage = ['root', 'owner'].includes(readDemoSession()?.role ?? '');
+  const canManage = ['root', 'owner', 'manager'].includes(readDemoSession()?.role ?? '');
 
   const { data, loading, error, reload } = useAsync(() => loadTaskDetail(id!), [id]);
 

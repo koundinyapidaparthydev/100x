@@ -170,9 +170,15 @@ import {
   providerStatus,
   type AuthIntent,
 } from './federatedOidc';
+import {
+  applyDemoSeed,
+  DEMO_TICKET_A,
+  DEMO_TICKET_C,
+  hasDemoSeed,
+} from './demoSeed';
 import type { OrchestratorDeps } from './orchestrator';
 import { createJob, runJobPipeline } from './orchestrator';
-import { scheduleSave } from './persist';
+import { getPersistenceKind, scheduleSave } from './persist';
 import {
   effectivePolicy,
   ENV_ONLY_POLICY_FIELDS,
@@ -346,9 +352,10 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
 
   router.post('/auth/login', (req, res) => {
     const body = (req.body ?? {}) as Partial<LoginRequest>;
-    if (typeof body.identity !== 'string' || !body.identity.trim()) {
+    const identity = (body.identity ?? body.email ?? '').trim();
+    if (!identity) {
       res.status(400).json({
-        error: 'body.identity is required (owner|root|member|engineer or email)',
+        error: 'body.identity or body.email is required (owner|root|member|engineer, email, or manager password login)',
       });
       return;
     }
@@ -357,7 +364,9 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
       return;
     }
     const session = issueSession({
-      identity: body.identity,
+      identity,
+      email: body.email,
+      password: body.password,
       surface: body.surface === 'mobile' ? 'mobile' : 'web',
     });
     if (!session) {
@@ -570,12 +579,66 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
   // -- health ----------------------------------------------------------------
   router.get('/health', (_req, res) => {
     res.json({
+      ok: true,
+      pii: true,
+      runner: deps.modelRunner.kind,
+      persist: getPersistenceKind(),
       status: 'ok',
       version: '0.2.0',
       modelRunner: deps.modelRunner.kind,
       modelProviders: deps.modelRunner.configuredProviders ?? [],
       boardConnector: deps.boardConnector.kind,
     });
+  });
+
+  router.get('/demo/status', (_req, res) => {
+    const seeded = hasDemoSeed(store);
+    res.json({
+      seeded,
+      ...(seeded && store.demoSeed
+        ? {
+            tenantId: store.demoSeed.tenantId,
+            managerEmail: store.demoSeed.managerEmail,
+            tickets: store.demoSeed.tickets,
+          }
+        : {}),
+    });
+  });
+
+  router.post('/demo/run', async (_req, res) => {
+    try {
+      applyDemoSeed(store);
+      const item = findWorkItem(DEMO_TICKET_A);
+      const policy = activeEnvPolicy();
+      if (!item || !policy) {
+        res.status(500).json({ error: 'demo seed missing ticket A or policy' });
+        return;
+      }
+      item.aiFirst = true;
+      item.lastTriageDecision = 'ai_first';
+      item.targetCompletionPercent = policy.targetCompletionPercentDefault;
+      item.updatedAt = new Date().toISOString();
+      item.aiStatus = 'queued';
+      const job = createJob(store, item, policy);
+      await runJobPipeline(store, job, item, policy, item.targetCompletionPercent, deps);
+      touch();
+      const audit = store.auditEvents.filter(
+        (event) =>
+          event.resource.id === item.id ||
+          event.resource.id === job.id ||
+          event.metadata?.workItemId === item.id ||
+          event.metadata?.jobId === job.id,
+      );
+      res.json({
+        job,
+        artifact: job.artifacts[0] ?? null,
+        audit,
+      });
+    } catch (err) {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'demo run failed',
+      });
+    }
   });
 
   // -- work items --------------------------------------------------------------
@@ -694,6 +757,10 @@ export function createRouter(store: Store, deps: OrchestratorDeps): Router {
     const body = (req.body ?? {}) as Partial<TriageRequest>;
     if (typeof body.aiFirst !== 'boolean') {
       res.status(400).json({ error: 'body.aiFirst (boolean) is required' });
+      return;
+    }
+    if (body.aiFirst && item.id === DEMO_TICKET_C) {
+      res.status(409).json({ error: 'human-first ticket; AI must not run' });
       return;
     }
     const policy = activeEnvPolicy();

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@shared/api';
 import { applyDemoSessionToApi, readDemoSession, demoSeatFromUser, writeDemoSession } from '../lib/session';
 import { hydrateOnboardingFromServer, resolvePostAuthLanding } from '../lib/onboardingStorage';
@@ -39,23 +39,40 @@ export default function Login() {
     };
   }, [navigate]);
 
+  const finishLogin = async (session: Awaited<ReturnType<typeof api.login>>['session']) => {
+    writeDemoSession({
+      token: session.token,
+      id: session.user.id,
+      role: demoSeatFromUser(session.user),
+      surface: 'web',
+    });
+    const done = await hydrateOnboardingFromServer();
+    if (!done) {
+      navigate('/onboarding');
+      return;
+    }
+    navigate(await resolvePostAuthLanding());
+  };
+
   const handleLogin = async (identity: DemoRoleId) => {
     setBusy(true);
     setError(null);
     try {
       const { session } = await api.login({ identity, surface: 'web' });
-      writeDemoSession({
-        token: session.token,
-        id: session.user.id,
-        role: demoSeatFromUser(session.user),
-        surface: 'web',
-      });
-      const done = await hydrateOnboardingFromServer();
-      if (!done) {
-        navigate('/onboarding');
-        return;
-      }
-      navigate(await resolvePostAuthLanding());
+      await finishLogin(session);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Login failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handlePasswordLogin = async (email: string, password: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const { session } = await api.login({ email, password, identity: email, surface: 'web' });
+      await finishLogin(session);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Login failed');
     } finally {
@@ -100,10 +117,14 @@ export default function Login() {
             busy={busy}
             error={error}
             onSelect={(id) => void handleLogin(id)}
+            onPasswordLogin={(email, password) => void handlePasswordLogin(email, password)}
             testIdPrefix="login"
             switchLabel="Need a workspace?"
             switchTo="/signup"
           />
+          <p className="mt-4 text-center text-xs text-on-surface-variant" data-testid="login-sandbox-note">
+            Sandbox demo — no live Jira
+          </p>
         </div>
       </div>
     </AuthSplit>

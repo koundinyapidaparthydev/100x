@@ -23,12 +23,12 @@ export function WorkItemLifecycleRail({
         <p className="text-sm text-on-surface-variant">No audit transitions were returned for this job.</p>
       )}
       {auditTransitions.length > 0 && (
-        <ol className="space-y-3">
+        <ol className="space-y-3" data-testid="task-audit-trail">
           {auditTransitions.map((event) => {
             const state = event.action.replace('job.state.', '');
             return (
               <li key={event.id} className="flex items-center justify-between gap-3 border-b border-outline-variant pb-3 last:border-0">
-                <StatusBadge status={state} />
+                <StatusBadge status={state} label={humanize(state)} />
                 <span className="text-xs text-on-surface-variant">{timeAgo(event.createdAt)}</span>
               </li>
             );

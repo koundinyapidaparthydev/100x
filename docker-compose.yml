@@ -1,0 +1,21 @@
+# Local Code MVP only. Prefer `npm run demo` if Node 22 is installed.
+# This compose starts the API; run `npm run dev:web` for the control plane.
+services:
+  api:
+    image: node:22-bookworm
+    working_dir: /app
+    volumes:
+      - .:/app
+      - demo-data:/app/backend/data
+    command: bash -lc "npm install && npm run demo:seed -w 100x-backend && npm run dev:backend"
+    ports:
+      - "4000:4000"
+    environment:
+      PERSIST: "1"
+      DEMO_SEED: "1"
+      AUTH_ALLOW_DEMO_LOGIN: "1"
+      PORT: "4000"
+      DATA_DIR: /app/backend/data
+
+volumes:
+  demo-data:

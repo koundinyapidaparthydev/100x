@@ -201,6 +201,9 @@ export default function Cloud() {
       />
 
       <GovernanceNav />
+      <p className="rounded-lg border border-butter/30 bg-butter-container px-3 py-2 text-sm text-on-butter-container">
+        Sandbox demo — no live Jira. Multi-cloud customer adapters are out of this demo; the sandbox runner uses the org policy defaults.
+      </p>
       <p className="rounded-lg bg-surface-container px-3 py-2 text-sm text-on-surface-variant">
         PII and runtime are per environment; switch env in the top bar. Org-wide locks still apply.
       </p>

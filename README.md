@@ -2,6 +2,15 @@
 
 **AI-first work delegation platform** — reduce manual ticket work by letting AI complete a configurable share of each task (10–30%+) before a human engineer picks it up.
 
+```bash
+npm install && npm run demo
+# web http://localhost:3000   api http://localhost:4000
+# login  manager@acme.demo / demo
+# path   ticket → PII firewall → AI pass → artifact on board → audit
+```
+
+See [DEMO.md](DEMO.md) for the 5-click path, env vars, and what this demo will not build.
+
 100x sits between your issue board (Jira, Canvas, or similar) and your distributed teams (India, US, Australia, or anywhere). Managers control whether AI runs first, which model/platform/cloud to use, token budgets, and how strictly PII and customer data are blocked from AI.
 
 ## Why this exists
@@ -91,6 +100,8 @@ See [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md).
 ### Run locally
 
 ```bash
+npm run demo                       # seed + API :4000 + web :3000
+# or separately:
 cd backend && npm run dev          # :4000
 cd web && npm run dev              # :3000 control plane
 cd mobile && npm run dev           # :3001 manager triage

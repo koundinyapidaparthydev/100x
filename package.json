@@ -23,6 +23,9 @@
     "test:e2e:web": "npm run test:e2e -w 100x-web",
     "test:e2e:mobile": "npm run test:e2e -w 100x-mobile",
     "seed:demo-queue": "node scripts/seed-demo-queue.mjs",
+    "demo": "bash scripts/demo.sh",
+    "demo:seed": "npm run demo:seed -w 100x-backend",
+    "demo:check": "bash scripts/demo-check.sh",
     "build": "npm run build --workspaces --if-present"
   },
   "optionalDependencies": {

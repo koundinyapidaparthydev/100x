@@ -56,6 +56,7 @@ export function WorkspaceAuthForm({
   busy,
   error,
   onSelect,
+  onPasswordLogin,
   testIdPrefix,
   switchLabel,
   switchTo,
@@ -64,6 +65,7 @@ export function WorkspaceAuthForm({
   busy: boolean;
   error: string | null;
   onSelect: (id: DemoRoleId) => void;
+  onPasswordLogin?: (email: string, password: string) => void;
   testIdPrefix: 'login' | 'signup';
   switchLabel: string;
   switchTo: string;
@@ -77,6 +79,8 @@ export function WorkspaceAuthForm({
   const [providers, setProviders] = useState<FederatedProviderStatus[]>([]);
   const [providersChecked, setProvidersChecked] = useState(false);
   const [showSeatPicker, setShowSeatPicker] = useState(false);
+  const [managerEmail, setManagerEmail] = useState('manager@acme.demo');
+  const [managerPassword, setManagerPassword] = useState('demo');
 
   useEffect(() => {
     let cancelled = false;
@@ -107,8 +111,12 @@ export function WorkspaceAuthForm({
     return map;
   }, [providers]);
 
-  const social: FederatedAuthProvider[] = ['google', 'apple'];
-  const enterprise: FederatedAuthProvider[] = ['okta', 'entra', 'google_workspace'];
+  const social: FederatedAuthProvider[] = (
+    ['google', 'apple'] as const satisfies readonly FederatedAuthProvider[]
+  ).filter((provider) => !providersChecked || byProvider.get(provider)?.enabled === true);
+  const enterprise: FederatedAuthProvider[] = (
+    ['okta', 'entra', 'google_workspace'] as const satisfies readonly FederatedAuthProvider[]
+  ).filter((provider) => !providersChecked || byProvider.get(provider)?.enabled === true);
 
   const activeIdentity: DemoRoleId = mode === 'owner' ? 'root' : memberSeat;
   const switchHrefLabel = switchTo.includes('signup')
@@ -174,6 +182,48 @@ export function WorkspaceAuthForm({
           <Sparkles size={16} aria-hidden="true" />
           Continue as demo <ArrowRight size={16} />
         </Button>
+        {variant === 'login' && onPasswordLogin && (
+          <form
+            className="mt-4 space-y-3 border-t border-primary/20 pt-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onPasswordLogin(managerEmail, managerPassword);
+            }}
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-on-surface-variant">
+              Manager password login
+            </p>
+            <Field
+              label="Email"
+              id={`${testIdPrefix}-manager-email`}
+              data-testid={`${testIdPrefix}-manager-email`}
+              type="email"
+              autoComplete="username"
+              value={managerEmail}
+              onChange={(e) => setManagerEmail(e.target.value)}
+            />
+            <Field
+              label="Password"
+              id={`${testIdPrefix}-manager-password`}
+              data-testid={`${testIdPrefix}-manager-password`}
+              type="password"
+              autoComplete="current-password"
+              value={managerPassword}
+              onChange={(e) => setManagerPassword(e.target.value)}
+              hint="Local sandbox: manager@acme.demo / demo"
+            />
+            <Button
+              type="submit"
+              variant="secondary"
+              className="w-full"
+              disabled={busy}
+              loading={busy}
+              data-testid={`${testIdPrefix}-manager-password-submit`}
+            >
+              Sign in as manager
+            </Button>
+          </form>
+        )}
       </div>
 
       <div className="relative flex items-center gap-3">
@@ -306,23 +356,29 @@ export function WorkspaceAuthForm({
         </>
       )}
 
-      <div className="relative py-1">
-        <div className="absolute inset-0 flex items-center" aria-hidden>
-          <div className="w-full border-t border-outline-variant" />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="bg-surface px-2 text-xs text-on-surface-variant">Or continue with</span>
-        </div>
-      </div>
+      {(social.length > 0 || enterprise.length > 0) && (
+        <>
+          <div className="relative py-1">
+            <div className="absolute inset-0 flex items-center" aria-hidden>
+              <div className="w-full border-t border-outline-variant" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-surface px-2 text-xs text-on-surface-variant">Or continue with</span>
+            </div>
+          </div>
 
-      <div className="space-y-2">{social.map(renderProviderButton)}</div>
+          {social.length > 0 && <div className="space-y-2">{social.map(renderProviderButton)}</div>}
 
-      <div className="space-y-2 pt-1">
-        <p className="text-xs font-medium uppercase tracking-wide text-on-surface-variant">
-          Enterprise SSO
-        </p>
-        {enterprise.map(renderProviderButton)}
-      </div>
+          {enterprise.length > 0 && (
+            <div className="space-y-2 pt-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-on-surface-variant">
+                Enterprise SSO
+              </p>
+              {enterprise.map(renderProviderButton)}
+            </div>
+          )}
+        </>
+      )}
 
       {error && (
         <p className="text-sm text-error" data-testid={`${testIdPrefix}-error`} role="alert">

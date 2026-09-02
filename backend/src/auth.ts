@@ -204,10 +204,45 @@ function mintSession(
   };
 }
 
+export const DEMO_MANAGER_LOGIN_EMAIL = 'manager@acme.demo';
+
+export function demoManagerPassword(): string {
+  const fromEnv = process.env.DEMO_MANAGER_PASSWORD?.trim();
+  return fromEnv && fromEnv.length > 0 ? fromEnv : 'demo';
+}
+
+function passwordsEqual(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+export function isDemoManagerIdentity(value: string): boolean {
+  const key = value.trim().toLowerCase();
+  return (
+    key === 'manager' ||
+    key === DEMO_MANAGER_LOGIN_EMAIL ||
+    key === 'usr-manager-1' ||
+    key === 'priya@acme.demo'
+  );
+}
+
 export function issueSession(body: LoginRequest): AuthSession | null {
   if (!demoAuthEnabled()) return null;
   const surface = body.surface ?? 'web';
-  const user = resolveIdentity(body.identity, surface);
+  const identity = (body.identity ?? body.email ?? '').trim();
+  if (!identity) return null;
+  if (typeof body.password === 'string' && body.password.length > 0) {
+    if (!isDemoManagerIdentity(identity) && (body.email ?? '').toLowerCase() !== DEMO_MANAGER_LOGIN_EMAIL) {
+      return null;
+    }
+    if (!passwordsEqual(body.password, demoManagerPassword())) return null;
+    const user = resolveIdentity('manager', surface);
+    if (!user) return null;
+    return mintSession(user, { authProvider: 'demo', federated: false });
+  }
+  const user = resolveIdentity(identity, surface);
   if (!user) return null;
   return mintSession(user, { authProvider: 'demo', federated: false });
 }

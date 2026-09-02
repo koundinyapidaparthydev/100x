@@ -9,11 +9,16 @@
 import './loadEnv';
 import { createApp } from './app';
 import { createBoardConnector } from './connectors/board';
-import { initializePersistence } from './persist';
+import { applyDemoSeed } from './demoSeed';
+import { initializePersistence, scheduleSave } from './persist';
 import { createModelRunner } from './runners/model';
 
 const port = Number(process.env.PORT ?? 4000);
 const { store, persistence } = await initializePersistence();
+if (process.env.DEMO_SEED === '1') {
+  applyDemoSeed(store);
+  scheduleSave(store);
+}
 const modelRunner = createModelRunner();
 const boardConnector = createBoardConnector(store);
 

@@ -622,8 +622,36 @@ export interface AuthSession {
 
 export interface LoginRequest {
   /** Demo identity: owner|root|member|engineer (or email of a seeded user). Alias: founder → owner. */
-  identity: string;
+  identity?: string;
+  /** Password login for the Code MVP manager (`manager@acme.demo`). */
+  email?: string;
+  password?: string;
   surface?: 'web' | 'mobile';
+}
+
+export interface DemoStatusResponse {
+  seeded: boolean;
+  tenantId?: string;
+  managerEmail?: string;
+  tickets?: { a: string; b: string; c: string };
+}
+
+export interface DemoRunResponse {
+  job: AiJob;
+  artifact: Artifact | null;
+  audit: AuditEvent[];
+}
+
+export interface HealthResponse {
+  ok: boolean;
+  pii: boolean;
+  runner: string;
+  persist: 'memory' | 'file' | 'postgres';
+  status?: string;
+  version?: string;
+  modelRunner?: string;
+  modelProviders?: string[];
+  boardConnector?: string;
 }
 
 export type WorkspaceInviteStatus = 'pending' | 'accepted' | 'revoked';

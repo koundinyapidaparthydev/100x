@@ -820,6 +820,9 @@ export default function Connections() {
         }
       />
 
+      <p className="mt-4 rounded-lg border border-butter/30 bg-butter-container px-3 py-2 text-sm text-on-butter-container">
+        Sandbox demo — no live Jira. Extra MCP packs and Jira OAuth are skipped until configured.
+      </p>
       <div
         className="mt-4 rounded-lg border border-primary/25 bg-primary-container/30 px-3 py-2.5 text-sm text-on-surface"
         data-testid="connections-env-banner"

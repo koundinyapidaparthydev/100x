@@ -40,6 +40,13 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-on-background">
+      <div
+        className="border-b border-butter/30 bg-butter-container px-4 py-2 text-center text-sm text-on-butter-container"
+        data-testid="sandbox-demo-banner"
+        role="status"
+      >
+        Sandbox demo — no live Jira
+      </div>
       <Topbar
         onOpenNavigation={() => setNavigationOpen(true)}
         desktopNav={desktopNav}

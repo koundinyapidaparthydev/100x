@@ -34,6 +34,10 @@ beforeEach(async () => {
 describe('health', () => {
   it('GET /health returns ok + version + adapters', async () => {
     const res = await req.get('/api/v1/health').expect(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.pii).toBe(true);
+    expect(res.body.runner).toBe('sandbox');
+    expect(res.body.persist).toMatch(/memory|file|postgres/);
     expect(res.body.status).toBe('ok');
     expect(res.body.version).toEqual(expect.any(String));
     expect(res.body.modelRunner).toBe('sandbox');
@@ -261,8 +265,8 @@ describe('jobs / policies / boards / audit / notifications', () => {
 
     const res = await req.get('/api/v1/boards').expect(200);
     expect(res.body).toHaveLength(3);
-    const keys = res.body.map((b: { issuePrefix: string }) => b.issuePrefix).sort();
-    expect(keys).toEqual(['X100', 'FE', 'INFRA']);
+    const keys = res.body.map((b: { issuePrefix: string }) => b.issuePrefix);
+    expect(new Set(keys)).toEqual(new Set(['X100', 'FE', 'INFRA']));
     expect(res.body.every((b: { activeIssues: number }) => b.activeIssues > 0)).toBe(true);
   });
 

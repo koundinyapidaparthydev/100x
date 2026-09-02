@@ -13,6 +13,7 @@ import {
   resolveDataPath,
   saveStore,
 } from './persist';
+import { applyDemoSeed, hasDemoSeed } from './demoSeed';
 import { createSeedStore } from './store';
 
 describe('persist', () => {
@@ -44,6 +45,17 @@ describe('persist', () => {
     const loaded = loadOrCreateStore();
     expect(loaded.workItems[0]!.title).toBe('Persisted title');
     expect(fs.existsSync(path.join(tmp, 'store.json'))).toBe(true);
+  });
+
+  it('persists Code MVP demo seed across load', () => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), '100x-persist-'));
+    process.env.DATA_DIR = tmp;
+    const seeded = createSeedStore();
+    applyDemoSeed(seeded);
+    saveStore(seeded);
+    const loaded = loadOrCreateStore();
+    expect(hasDemoSeed(loaded)).toBe(true);
+    expect(loaded.workItems.some((w) => w.id === 'wi-mvp-a')).toBe(true);
   });
 
   it('loads and saves a PostgreSQL snapshot with parameterized values', async () => {

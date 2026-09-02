@@ -29,7 +29,10 @@ import type {
   CreateSkillPackRequest,
   CustomModel,
   DashboardStats,
+  DemoRunResponse,
+  DemoStatusResponse,
   EnsureEnvironmentsRequest,
+  HealthResponse,
   FederatedAuthProvider,
   FederatedExchangeResponse,
   FederatedProvidersStatusResponse,
@@ -174,14 +177,13 @@ function qs(params: Record<string, string | number | boolean | undefined>): stri
 }
 
 export const api = {
-  health: () =>
-    request<{
-      status: 'ok';
-      version: string;
-      modelRunner?: string;
-      modelProviders?: string[];
-      boardConnector?: string;
-    }>('/health'),
+  health: () => request<HealthResponse>('/health'),
+  demoStatus: () => request<DemoStatusResponse>('/demo/status'),
+  demoRun: () =>
+    request<DemoRunResponse>('/demo/run', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
 
   // Auth
   listDemoUsers: () =>

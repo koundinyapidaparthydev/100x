@@ -42,6 +42,7 @@ import type {
   WorkspaceEnvironment,
   WorkspaceInvite,
 } from '../../shared/types';
+import type { DemoSeedMeta } from './demoSeed';
 
 export const TENANT_ID = 'acme';
 export const ORG_POLICY_ID = 'pol-acme-org';
@@ -119,6 +120,8 @@ export interface Store {
     kind: string;
     relatedId: string;
   }>;
+  /** Present after `npm run demo:seed` / `/demo/run` applies the Code MVP tickets. */
+  demoSeed?: DemoSeedMeta;
 }
 
 let idCounter = 0;
