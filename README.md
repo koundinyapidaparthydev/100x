@@ -1,6 +1,6 @@
 # 100x
 
-![100x demo](docs/demo.mp4)
+https://github.com/user-attachments/assets/4681c447-7b21-4248-825f-95665ba58899
 
 **AI-first work delegation platform** — reduce manual ticket work by letting AI complete a configurable share of each task (10–30%+) before a human engineer picks it up.
 
