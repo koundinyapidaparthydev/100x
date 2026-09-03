@@ -1,5 +1,7 @@
 # 100x
 
+https://github.com/koundinyapidaparthydev/100x/releases/download/demo/demo.mp4
+
 **AI-first work delegation platform** — reduce manual ticket work by letting AI complete a configurable share of each task (10–30%+) before a human engineer picks it up.
 
 ```bash
