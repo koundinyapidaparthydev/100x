@@ -31,13 +31,13 @@
   },
   "optionalDependencies": {
     "@rolldown/binding-linux-arm64-gnu": "^1.1.5",
-    "@rolldown/binding-linux-x64-gnu": "^1.1.5",
+    "@rolldown/binding-linux-x64-gnu": "^1.2.6",
     "@rollup/rollup-linux-arm64-gnu": "^4.62.2",
-    "@rollup/rollup-linux-x64-gnu": "^4.62.2",
+    "@rollup/rollup-linux-x64-gnu": "^4.63.1",
     "@tailwindcss/oxide-linux-arm64-gnu": "4.3.3",
     "@tailwindcss/oxide-linux-x64-gnu": "4.3.3",
-    "lightningcss-linux-arm64-gnu": "1.32.0",
-    "lightningcss-linux-x64-gnu": "1.32.0"
+    "lightningcss-linux-arm64-gnu": "1.33.0",
+    "lightningcss-linux-x64-gnu": "1.33.0"
   },
   "overrides": {
     "react": "19.1.0",
